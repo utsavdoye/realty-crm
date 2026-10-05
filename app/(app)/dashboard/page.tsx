@@ -1,0 +1,189 @@
+import Link from 'next/link';
+import { requireOrg } from '@/lib/context';
+import { ROLE_HELP, ROLE_LABEL, fmtPhone, isManager } from '@/lib/roles';
+import { recycleCall, recycleSnooze } from '@/app/crm-actions';
+import { fmtBudget, fmtTime, fuState, fuText, istAt, istDay, rel, stageChip, stageLabel } from '@/lib/crm';
+
+type Lead = { id: string; name: string; phone: string; stage: string; score: string; bhk: string | null; budget_min: number | null; budget_max: number | null; location: string | null; next_follow_up: string | null; created_at: string; source: string | null; assigned_to: string | null };
+const COLS = 'id, name, phone, stage, score, bhk, budget_min, budget_max, location, next_follow_up, created_at, source, assigned_to';
+
+export default async function Today({ searchParams }: { searchParams: { welcome?: string; joined?: string; denied?: string; scope?: string } }) {
+  const { supabase, org, role, me, user } = await requireOrg();
+  const mgr = isManager(role);
+  const mine = !mgr || searchParams.scope === 'mine';
+  const now = new Date().toISOString();
+  const endToday = istAt(1, 0);
+  const endTomorrow = istAt(2, 0);
+  const monthStart = new Date(`${istDay(new Date()).slice(0, 8)}01T00:00:00+05:30`).toISOString();
+
+  const scoped = <T,>(q: T) => (mine && role !== 'partner' ? (q as unknown as { eq: (c: string, v: string) => T }).eq('assigned_to', user.id) : q);
+
+  const [due, fresh, noNext, booked, visits, people, team, sources, recycle, matches] = await Promise.all([
+    scoped(supabase.from('leads').select(COLS).eq('org_id', org.id).lt('next_follow_up', endToday).not('stage', 'in', '(booked,lost)').order('next_follow_up').limit(40)),
+    scoped(supabase.from('leads').select(COLS).eq('org_id', org.id).eq('stage', 'new').eq('call_attempts', 0).order('created_at', { ascending: false }).limit(20)),
+    scoped(supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).is('next_follow_up', null).not('stage', 'in', '(new,booked,lost)')),
+    scoped(supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).gte('booked_at', monthStart)),
+    supabase.from('visits').select('id, at, status, lead_id, agent_id, project_id, leads(name, phone), projects(name)').eq('org_id', org.id).eq('status', 'scheduled').gte('at', istAt(0, 0)).lt('at', endTomorrow).order('at'),
+    supabase.from('members').select('user_id, full_name').eq('org_id', org.id),
+    mgr ? supabase.from('members').select('user_id', { count: 'exact', head: true }).eq('org_id', org.id).eq('active', true) : Promise.resolve({ count: 0 }),
+    mgr ? supabase.from('lead_sources').select('id', { count: 'exact', head: true }).eq('org_id', org.id) : Promise.resolve({ count: 0 }),
+    role === 'partner' ? Promise.resolve({ data: [] }) : scoped(supabase.from('leads').select('id, name, phone, lost_reason, recycle_step, assigned_to, bhk, budget_min, budget_max, location').eq('org_id', org.id).eq('stage', 'lost').lte('recycle_at', now).order('recycle_at').limit(10)),
+    role === 'partner' ? Promise.resolve({ data: [] }) : supabase.from('project_matches').select('project_id, lead_id, created_at, projects(name), leads!inner(name, stage, assigned_to)').eq('org_id', org.id).is('dismissed_at', null).gte('created_at', new Date(Date.now() - 14 * 86400000).toISOString()).order('created_at', { ascending: false }).limit(300),
+  ]);
+  type M = { project_id: string; lead_id: string; created_at: string; projects: { name: string } | null; leads: { name: string; stage: string; assigned_to: string | null } | null };
+  const myMatches = ((matches.data ?? []) as unknown as M[]).filter((m) => !mine || m.leads?.assigned_to === user.id);
+  const matchGroups = [...myMatches.reduce((acc, m) => { const g = acc.get(m.project_id) ?? { id: m.project_id, name: m.projects?.name ?? 'Project', n: 0, lost: 0, names: [] as string[] }; g.n++; if (m.leads?.stage === 'lost') g.lost++; if (g.names.length < 3) g.names.push(m.leads?.name ?? ''); acc.set(m.project_id, g); return acc; }, new Map<string, { id: string; name: string; n: number; lost: number; names: string[] }>()).values()];
+  type R = { id: string; name: string; phone: string; lost_reason: string | null; recycle_step: number; assigned_to: string | null; bhk: string | null; budget_min: number | null; budget_max: number | null; location: string | null };
+  const second = (recycle.data ?? []) as R[];
+  const nameOf = new Map((people.data ?? []).map((p) => [p.user_id, p.full_name]));
+  const dueList = (due.data ?? []) as Lead[];
+  const overdue = dueList.filter((l) => l.next_follow_up! < now);
+  const today = dueList.filter((l) => l.next_follow_up! >= now);
+  const freshList = (fresh.data ?? []) as Lead[];
+  type V = { id: string; at: string; agent_id: string | null; lead_id: string; leads: { name: string; phone: string } | null; projects: { name: string } | null };
+  const allVisits = ((visits.data ?? []) as unknown as V[]).filter((v) => !mine || v.agent_id === user.id || role === 'partner');
+  const visitsToday = allVisits.filter((v) => v.at < endToday);
+  const first = me.full_name.split(' ')[0];
+  const hour = Number(new Date().toLocaleString('en-IN', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' }));
+  const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
+  const steps = [
+    { done: true, label: 'Create your company account', href: '' },
+    { done: (team.count ?? 0) > 1, label: 'Invite your team', href: '/team' },
+    { done: (sources.count ?? 0) > 0, label: 'Connect 99acres, MagicBricks, ads or your website', href: '/sources' },
+    { done: dueList.length + freshList.length > 0, label: 'Add or receive your first lead', href: '/leads/new' },
+  ];
+  const done = steps.filter((s) => s.done).length;
+  const req = (l: Lead) => [l.bhk, fmtBudget(l.budget_min, l.budget_max), l.location].filter(Boolean).join(' · ');
+
+  return (
+    <>
+      <div className="top">
+        <h1>{greet}{first ? `, ${first}` : ''}</h1>
+        {mgr && (
+          <div className="seg">
+            <Link href="/dashboard?scope=mine" className={mine ? 'on' : ''}>My leads</Link>
+            <Link href="/dashboard" className={!mine ? 'on' : ''}>Everyone</Link>
+          </div>
+        )}
+        <Link className="btn primary" href="/leads/new">+ Add lead</Link>
+      </div>
+      {searchParams.welcome && <div className="banner">Your company account is ready. Next, invite your team.</div>}
+      {searchParams.joined && <div className="banner">You joined {org.name} as {ROLE_LABEL[role]}. {ROLE_HELP[role]}</div>}
+      {searchParams.denied && <div className="banner warn">That page is only for admins and managers.</div>}
+
+      <div className="kpis">
+        <Link className={`kpi ${overdue.length ? 'alert' : ''}`} href="/leads?fu=over"><span className="label">Overdue calls</span><span className="n">{overdue.length}</span></Link>
+        <Link className="kpi" href="/leads?fu=today"><span className="label">Calls due today</span><span className="n">{today.length}</span></Link>
+        <Link className={`kpi ${freshList.length ? 'alert' : ''}`} href="/leads?stage=new"><span className="label">New, not called</span><span className="n">{freshList.length}</span></Link>
+        <Link className="kpi" href="/visits"><span className="label">Site visits today</span><span className="n">{visitsToday.length}</span></Link>
+        <Link className="kpi" href="/leads?stage=booked"><span className="label">Booked this month</span><span className="n">{booked.count ?? 0}</span></Link>
+      </div>
+
+      {role === 'owner' && done < steps.length && (
+        <section className="panel" style={{ marginBottom: 16 }}>
+          <div className="panel-h"><h2>Get set up</h2><span className="hint">{done} of {steps.length} done</span></div>
+          <div className="progress"><div style={{ width: `${(done / steps.length) * 100}%` }} /></div>
+          <ol className="steps">
+            {steps.map((s) => (
+              <li key={s.label} className={s.done ? 'done' : ''}><span className="tick" aria-hidden="true">{s.done ? '✓' : ''}</span>{s.href && !s.done ? <Link href={s.href}>{s.label}</Link> : <span>{s.label}</span>}</li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      <div className="grid-main">
+        <div className="stack">
+          <section className="panel">
+            <div className="panel-h"><h2>Call list</h2><span className="hint">Overdue first</span></div>
+            {dueList.length ? (
+              <div className="rows">
+                {[...overdue, ...today].map((l) => (
+                  <div key={l.id} className="callrow">
+                    <Link href={`/leads/${l.id}`} className="cr-main">
+                      <b><span className={`dot ${l.score}`} />{l.name} <span className={`chip ${stageChip(l.stage)}`}>{stageLabel(l.stage)}</span></b>
+                      <span className="hint"><span className={`fu ${fuState(l.next_follow_up)}`}>{fuText(l.next_follow_up)}</span>{req(l) ? ' · ' + req(l) : ''}{!mine && l.assigned_to ? ' · ' + (nameOf.get(l.assigned_to) ?? '') : ''}</span>
+                    </Link>
+                    <a className="btn sm" href={`tel:+91${l.phone}`} aria-label={`Call ${l.name}`}>Call</a>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="empty">No calls due. Set a follow-up time on any lead and it shows up here on that day.</p>}
+          </section>
+          <section className="panel">
+            <div className="panel-h"><h2>New leads waiting for a first call</h2><span className="hint">Call within 5 minutes to win the lead</span></div>
+            {freshList.length ? (
+              <div className="rows">
+                {freshList.map((l) => {
+                  const mins = (Date.now() - new Date(l.created_at).getTime()) / 60000;
+                  return (
+                    <div key={l.id} className="callrow">
+                      <Link href={`/leads/${l.id}`} className="cr-main">
+                        <b>{l.name} {l.source && <span className="chip">{l.source}</span>}</b>
+                        <span className="hint">Came in {rel(l.created_at)}{mins > 30 ? <span className="fu over"> · waiting too long</span> : null}{req(l) ? ' · ' + req(l) : ''}{!mine && l.assigned_to ? ' · ' + (nameOf.get(l.assigned_to) ?? '') : !l.assigned_to ? ' · not assigned' : ''}</span>
+                      </Link>
+                      <a className="btn sm" href={`tel:+91${l.phone}`}>Call</a>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : <p className="empty">Every new lead has been called.</p>}
+          </section>
+        </div>
+        <div className="stack">
+          <section className="panel">
+            <div className="panel-h"><h2>Site visits</h2><Link className="btn sm ghost" href="/visits">All visits</Link></div>
+            {allVisits.length ? (
+              <div className="rows">
+                {allVisits.map((v) => (
+                  <Link key={v.id} href={`/leads/${v.lead_id}`} className="callrow">
+                    <span className="cr-main"><b>{fmtTime(v.at)} · {v.leads?.name}</b><span className="hint">{v.at < endToday ? 'Today' : 'Tomorrow'} · {v.projects?.name ?? 'Project not set'}{v.agent_id ? ' · ' + (nameOf.get(v.agent_id) ?? '') : ''}</span></span>
+                  </Link>
+                ))}
+              </div>
+            ) : <p className="empty">No visits today or tomorrow.</p>}
+          </section>
+          {matchGroups.length > 0 && (
+            <section className="panel">
+              <div className="panel-h"><h2>🔔 New projects fit your leads</h2><span className="hint">Last 14 days</span></div>
+              <div className="rows">
+                {matchGroups.map((g) => (
+                  <Link key={g.id} href={`/leads?match=${g.id}`} className="callrow">
+                    <span className="cr-main"><b>{g.name}: {g.n} lead{g.n === 1 ? '' : 's'} wanted this</b><span className="hint">{g.names.join(', ')}{g.n > 3 ? ' and more' : ''}{g.lost ? ` · ${g.lost} were lost before` : ''}</span></span>
+                    <span className="btn sm">See</span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+          {second.length > 0 && (
+            <section className="panel">
+              <div className="panel-h"><h2>Second chance</h2><span className="hint">Lost a month ago. Plans change, call once more.</span></div>
+              <div className="rows">
+                {second.map((l) => (
+                  <div key={l.id} className="callrow">
+                    <Link href={`/leads/${l.id}`} className="cr-main">
+                      <b>{l.name}</b>
+                      <span className="hint">Lost: {l.lost_reason ?? 'no reason'}{l.recycle_step > 1 ? ` · try ${l.recycle_step}` : ''}{req(l as unknown as Lead) ? ' · ' + req(l as unknown as Lead) : ''}{!mine && l.assigned_to ? ' · ' + (nameOf.get(l.assigned_to) ?? '') : ''}</span>
+                    </Link>
+                    <span className="row-btns">
+                      <form action={recycleCall}><input type="hidden" name="id" value={l.id} /><button className="btn sm">Reopen</button></form>
+                      <form action={recycleSnooze}><input type="hidden" name="id" value={l.id} /><button className="btn sm ghost">Not now</button></form>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+          {(noNext.count ?? 0) > 0 && (
+            <section className="panel">
+              <div className="panel-h"><h2>Leads with no next step</h2><span className="chip tape">{noNext.count}</span></div>
+              <div className="panel-b"><p className="hint">These leads are active but nobody has planned the next call.</p><Link className="btn sm" href="/leads?fu=none">Show them</Link></div>
+            </section>
+          )}
+          {role === 'partner' && <section className="panel"><div className="panel-b" style={{ paddingTop: 16 }}><p className="hint">Add the clients you bring in. You will see their stage here as the team works on them. Your number: {fmtPhone(user.phone)}</p></div></section>}
+        </div>
+      </div>
+    </>
+  );
+}

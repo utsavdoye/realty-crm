@@ -1,0 +1,1274 @@
+<title>EstateDesk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: sidebar + working area on desktop, bottom tab bar on phones. Blueprint ink accent, site-tape yellow for things that need attention. */
+:root{
+  --bg:#f2f4f7; --surface:#ffffff; --surface-2:#eef1f5; --line:#dce1e8; --line-2:#c9d0da;
+  --fg:#152030; --muted:#5a6575; --faint:#8a94a3;
+  --accent:#1d4e89; --accent-fg:#ffffff; --accent-soft:#e2ebf6;
+  --tape:#b97c00; --tape-soft:#fbefd2;
+  --hot:#b8382a; --hot-soft:#fbe4df; --warm:#9a6a08; --warm-soft:#f8ecd0; --cold:#33729f; --cold-soft:#e0edf6;
+  --good:#2b7a4b; --good-soft:#dff1e6; --bad:#b8382a;
+  --shadow:0 1px 2px rgba(21,32,48,.06),0 8px 24px rgba(21,32,48,.06);
+  --f-display:"Bricolage Grotesque","Avenir Next","Segoe UI",system-ui,sans-serif;
+  --f-body:"Instrument Sans","Segoe UI",system-ui,-apple-system,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+  --r:10px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e131a; --surface:#151c26; --surface-2:#1b2431; --line:#273242; --line-2:#334054;
+  --fg:#e5ebf3; --muted:#9ba7b8; --faint:#6f7b8c;
+  --accent:#7eb0ea; --accent-fg:#0e131a; --accent-soft:#1b2c43;
+  --tape:#e6b04a; --tape-soft:#352a12;
+  --hot:#f08a7a; --hot-soft:#3a1d19; --warm:#e2b25a; --warm-soft:#33280f; --cold:#83b8de; --cold-soft:#16283a;
+  --good:#6cc794; --good-soft:#15301f; --bad:#f08a7a;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e131a; --surface:#151c26; --surface-2:#1b2431; --line:#273242; --line-2:#334054;
+  --fg:#e5ebf3; --muted:#9ba7b8; --faint:#6f7b8c;
+  --accent:#7eb0ea; --accent-fg:#0e131a; --accent-soft:#1b2c43;
+  --tape:#e6b04a; --tape-soft:#352a12;
+  --hot:#f08a7a; --hot-soft:#3a1d19; --warm:#e2b25a; --warm-soft:#33280f; --cold:#83b8de; --cold-soft:#16283a;
+  --good:#6cc794; --good-soft:#15301f; --bad:#f08a7a;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.25);
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.45}
+button,input,select,textarea{font:inherit;color:inherit}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+h1{font-size:24px;font-weight:700}
+h2{font-size:17px;font-weight:600}
+h3{font-size:14px;font-weight:600;font-family:var(--f-body)}
+.label{font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600}
+.muted{color:var(--muted)} .faint{color:var(--faint)}
+a{color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.app{display:grid;grid-template-columns:228px minmax(0,1fr);min-height:100vh}
+.side{position:sticky;top:0;height:100vh;padding:18px 12px;border-right:1px solid var(--line);background:var(--surface);display:flex;flex-direction:column;gap:18px}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px}
+.brand-mark{width:30px;height:30px;border-radius:8px;background:var(--accent);color:var(--accent-fg);display:grid;place-items:center}
+.brand-name{font-family:var(--f-display);font-weight:700;font-size:17px;line-height:1.1}
+.brand-sub{font-size:11px;color:var(--muted)}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav button{display:flex;align-items:center;gap:10px;padding:9px 10px;border:0;background:none;border-radius:8px;cursor:pointer;text-align:left;color:var(--muted);font-weight:500}
+.nav button:hover{background:var(--surface-2);color:var(--fg)}
+.nav button.on{background:var(--accent-soft);color:var(--accent)}
+.nav .count{margin-left:auto;font-family:var(--f-mono);font-size:11px;background:var(--tape-soft);color:var(--tape);padding:1px 7px;border-radius:99px}
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:6px;padding:0 4px}
+.side-foot select{width:100%}
+
+.main{min-width:0;padding-inline:28px;padding-block:20px 60px}
+.top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.top h1{margin-right:auto}
+.gsearch{position:relative;flex:0 1 300px;min-width:0}
+.gsearch input[type=search]{width:100%;padding-left:32px}
+.gsearch svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--faint)}
+.banner{display:flex;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 14px;border-radius:var(--r);background:var(--tape-soft);color:var(--fg);margin-bottom:16px;font-size:13px}
+.banner b{color:var(--tape)}
+
+input[type=text],input[type=tel],input[type=email],input[type=number],input[type=date],input[type=datetime-local],input[type=search],select,textarea{
+  background:var(--surface);border:1px solid var(--line-2);border-radius:8px;padding:8px 10px;min-width:0;max-width:100%}
+textarea{width:100%;resize:vertical;min-height:72px}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 13px;border-radius:8px;border:1px solid var(--line-2);background:var(--surface);cursor:pointer;font-weight:500;white-space:nowrap;text-decoration:none;color:var(--fg)}
+.btn:hover{border-color:var(--faint)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{border-color:transparent;background:none}
+.btn.ghost:hover{background:var(--surface-2)}
+.btn.sm{padding:5px 9px;font-size:13px}
+.btn.wa{background:#1f8f55;border-color:#1f8f55;color:#fff}
+.btn.danger{color:var(--bad)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.iconbtn{border:0;background:none;padding:6px;border-radius:6px;cursor:pointer;color:var(--muted);display:inline-grid;place-items:center}
+.iconbtn:hover{background:var(--surface-2);color:var(--fg)}
+
+.chip{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:99px;font-size:12px;font-weight:500;background:var(--surface-2);color:var(--muted);white-space:nowrap}
+.chip.hot{background:var(--hot-soft);color:var(--hot)} .chip.warm{background:var(--warm-soft);color:var(--warm)} .chip.cold{background:var(--cold-soft);color:var(--cold)}
+.chip.good{background:var(--good-soft);color:var(--good)} .chip.tape{background:var(--tape-soft);color:var(--tape)} .chip.acc{background:var(--accent-soft);color:var(--accent)}
+.chip.bad{background:var(--hot-soft);color:var(--hot)}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:var(--faint)}
+.dot.hot{background:var(--hot)}.dot.warm{background:var(--warm)}.dot.cold{background:var(--cold)}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.panel-h{display:flex;align-items:center;gap:10px;padding:14px 16px 10px;flex-wrap:wrap}
+.panel-h h2{margin-right:auto}
+.panel-b{padding:0 16px 16px}
+.empty{padding:22px 16px;color:var(--muted);text-align:center;font-size:13px}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:18px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;text-align:left}
+.kpi:hover{border-color:var(--line-2)}
+.kpi .n{font-family:var(--f-display);font-size:28px;font-weight:700;line-height:1.1;font-variant-numeric:tabular-nums}
+.kpi.alert{border-color:var(--tape);background:linear-gradient(var(--tape-soft),var(--surface) 70%)}
+.kpi.alert .n{color:var(--tape)}
+
+.grid2{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px;align-items:start}
+.stack{display:flex;flex-direction:column;gap:16px}
+
+/* Lead rows */
+.rows{display:flex;flex-direction:column}
+.row{display:grid;grid-template-columns:minmax(150px,1.3fr) minmax(140px,1.4fr) 120px 110px 130px auto;gap:12px;align-items:center;padding:10px 16px;border-top:1px solid var(--line);cursor:pointer}
+.row:hover{background:var(--surface-2)}
+.row.head{cursor:default;background:none;font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:600;padding-block:8px}
+.row .name{font-weight:600;display:flex;align-items:center;gap:7px;min-width:0}
+.row .name span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .sub{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .acts{display:flex;gap:4px;justify-content:flex-end}
+.fu{font-size:12px;font-weight:500}
+.fu.over{color:var(--hot)} .fu.today{color:var(--tape)} .fu.later{color:var(--muted)}
+.callrow{grid-template-columns:minmax(0,1fr) auto}
+
+.filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.filters select{padding:6px 8px;font-size:13px}
+.fsel{display:contents}.ftog{display:none}
+.seg{display:inline-flex;border:1px solid var(--line-2);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--surface);padding:6px 11px;cursor:pointer;font-size:13px;color:var(--muted)}
+.seg button.on{background:var(--accent);color:var(--accent-fg)}
+
+/* Board */
+.board{display:flex;gap:10px;overflow-x:auto;padding-bottom:10px;align-items:flex-start}
+.col{flex:0 0 232px;background:var(--surface-2);border-radius:12px;padding:8px;min-height:120px}
+.col.over{outline:2px dashed var(--accent);outline-offset:-2px}
+.col-h{display:flex;align-items:center;gap:6px;padding:4px 6px 8px;font-weight:600;font-size:13px}
+.col-h .mono{margin-left:auto;color:var(--muted);font-size:12px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:9px 10px;margin-bottom:6px;cursor:grab;display:flex;flex-direction:column;gap:3px}
+.card:hover{border-color:var(--line-2)}
+.card .t{font-weight:600;display:flex;align-items:center;gap:6px}
+.card .s{font-size:12px;color:var(--muted)}
+
+/* Drawer & modal */
+.scrim{position:fixed;inset:0;background:rgba(10,16,24,.38);z-index:40}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(580px,100%);background:var(--bg);z-index:41;overflow-y:auto;box-shadow:var(--shadow);border-left:1px solid var(--line);padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+.dr-h{position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--line);padding:14px 18px;z-index:2}
+.dr-b{padding:16px 18px;display:flex;flex-direction:column;gap:14px}
+.dr-title{display:flex;align-items:flex-start;gap:10px}
+.dr-title h2{font-size:21px;margin-right:auto}
+.acts-row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.sec{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.sec-h{display:flex;align-items:center;gap:8px}
+.sec-h h3{margin-right:auto}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px 16px}
+.kv div{min-width:0}
+.kv .v{font-weight:500;overflow-wrap:anywhere}
+.stages{display:flex;flex-wrap:wrap;gap:5px}
+.stages button{border:1px solid var(--line-2);background:var(--surface);border-radius:99px;padding:4px 10px;font-size:12px;cursor:pointer;color:var(--muted)}
+.stages button.done{background:var(--accent-soft);border-color:transparent;color:var(--accent)}
+.stages button.cur{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.stages button.lost{border-style:dashed}
+.stages button.lost.cur{background:var(--hot);border-color:var(--hot);color:#fff}
+.tl{display:flex;flex-direction:column}
+.tl-i{display:grid;grid-template-columns:26px minmax(0,1fr);gap:8px;padding:7px 0;border-top:1px solid var(--line)}
+.tl-i:first-child{border-top:0}
+.tl-ic{width:26px;height:26px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;color:var(--muted)}
+.tl-t{font-size:13px;overflow-wrap:anywhere;white-space:pre-wrap}
+.tl-m{font-size:11px;color:var(--faint)}
+.quick{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+
+.modal-wrap{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:16px;background:rgba(10,16,24,.42)}
+.modal{background:var(--bg);border-radius:14px;width:min(640px,100%);max-height:calc(100vh - 32px);overflow-y:auto;box-shadow:var(--shadow);border:1px solid var(--line)}
+.modal.wide{width:min(860px,100%)}
+.m-h{display:flex;align-items:center;gap:10px;padding:16px 18px 6px}
+.m-h h2{margin-right:auto}
+.m-b{padding:10px 18px 4px;display:flex;flex-direction:column;gap:12px}
+.m-f{display:flex;gap:8px;justify-content:flex-end;padding:14px 18px 18px;flex-wrap:wrap}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.field.full{grid-column:1/-1}
+.field input,.field select,.field textarea{width:100%}
+.hint{font-size:12px;color:var(--muted)}
+.warn{padding:9px 12px;border-radius:8px;background:var(--tape-soft);font-size:13px}
+.err{padding:9px 12px;border-radius:8px;background:var(--hot-soft);color:var(--hot);font-size:13px}
+.pick{display:flex;flex-wrap:wrap;gap:6px}
+.pick button{border:1px solid var(--line-2);background:var(--surface);padding:5px 10px;border-radius:8px;cursor:pointer;font-size:13px}
+.pick button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-fg)}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.tabs button{border:0;background:none;padding:8px 12px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;font-weight:500}
+.tabs button.on{color:var(--accent);border-bottom-color:var(--accent)}
+
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 16px;border-radius:10px;z-index:60;font-size:13px;max-width:calc(100% - 32px);box-shadow:var(--shadow)}
+
+/* Projects, visits, templates */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:12px}
+.pcard{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.pcard h2{font-size:16px}
+.price{font-family:var(--f-display);font-size:19px;font-weight:600}
+.stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;border-top:1px solid var(--line);padding-top:8px;margin-top:auto}
+.stats3 .n{font-family:var(--f-mono);font-size:16px;font-weight:500}
+.day-h{padding:12px 16px 4px;font-weight:600;font-size:13px;color:var(--muted)}
+.vrow{display:grid;grid-template-columns:70px minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 16px;border-top:1px solid var(--line)}
+.vtime{font-family:var(--f-mono);font-weight:500}
+.tpl{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.tpl pre{white-space:pre-wrap;font-family:var(--f-body);margin:0;font-size:13px;color:var(--muted);max-height:150px;overflow:hidden;mask-image:linear-gradient(#000 70%,transparent)}
+.bubble{background:#dcf5c8;color:#14241a;border-radius:10px 10px 10px 2px;padding:10px 12px;white-space:pre-wrap;font-size:13.5px;max-width:420px}
+.vars{display:flex;flex-wrap:wrap;gap:5px}
+.vars button{font-family:var(--f-mono);font-size:11.5px;border:1px dashed var(--line-2);background:var(--surface);border-radius:6px;padding:3px 7px;cursor:pointer;color:var(--accent)}
+
+/* Reports */
+.funnel{display:flex;flex-direction:column;gap:7px}
+.fbar{display:grid;grid-template-columns:120px minmax(0,1fr) 92px;gap:10px;align-items:center;font-size:13px}
+.fbar .track{height:22px;background:var(--surface-2);border-radius:6px;overflow:hidden}
+.fbar .fill{height:100%;background:var(--accent);border-radius:6px;min-width:2px}
+.fbar .fill.booked{background:var(--good)}
+.fbar .num{text-align:right;font-family:var(--f-mono);font-size:12.5px}
+.tbl-wrap{overflow-x:auto}
+table.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);font-weight:600;padding:8px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td{padding:9px 10px;border-bottom:1px solid var(--line);white-space:nowrap}
+.tbl td.n,.tbl th.n{text-align:right;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.tbl input{width:110px;padding:5px 8px}
+.hbar{height:6px;border-radius:3px;background:var(--accent);opacity:.75}
+
+.bottomnav{display:none}
+.more-sheet{position:fixed;left:12px;right:12px;bottom:calc(70px + env(safe-area-inset-bottom,0px));background:var(--surface);border:1px solid var(--line);border-radius:12px;z-index:31;padding:6px;box-shadow:var(--shadow)}
+.more-sheet button{display:flex;gap:10px;align-items:center;width:100%;border:0;background:none;padding:12px;border-radius:8px;cursor:pointer;text-align:left}
+
+@media (max-width:1100px){.grid2{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:900px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .side{display:none}
+  .main{padding-inline:16px;padding-block:14px 96px}
+  .bottomnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;background:var(--surface);border-top:1px solid var(--line);z-index:30;padding-bottom:env(safe-area-inset-bottom,0px)}
+  .bottomnav button{border:0;background:none;padding:8px 2px 9px;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:11px;color:var(--muted);cursor:pointer;position:relative}
+  .bottomnav button.on{color:var(--accent)}
+  .bottomnav .badge{position:absolute;top:4px;left:calc(50% + 6px);background:var(--tape);color:#fff;font-size:10px;border-radius:99px;padding:0 5px;font-family:var(--f-mono)}
+  .row{grid-template-columns:minmax(0,1fr) auto;gap:4px 10px}
+  .row.head{display:none}
+  .row .c-req{grid-column:1/-1;order:3}
+  .row .c-stage,.row .c-src{display:none}
+  .row .c-fu{order:2;text-align:right}
+  .row .acts{display:none}
+  .gsearch{flex:1 1 100%;order:3}
+  .form{grid-template-columns:minmax(0,1fr)}
+  .ftog{display:inline-flex}.fsel{display:none}.fsel.open{display:flex;flex-wrap:wrap;gap:8px;width:100%}.fsel.open select{flex:1 1 140px}
+  .fbar{grid-template-columns:90px minmax(0,1fr) 80px}
+  .vrow{grid-template-columns:56px minmax(0,1fr)}
+  .vrow .vacts{grid-column:1/-1}
+}
+@media (prefers-reduced-motion:no-preference){.drawer{animation:slin .18s ease-out}.modal{animation:pop .15s ease-out}}
+@keyframes slin{from{transform:translateX(24px);opacity:.6}to{transform:none;opacity:1}}
+@keyframes pop{from{transform:scale(.98);opacity:.6}to{transform:none;opacity:1}}
+</style>
+
+<div class="app">
+  <aside class="side" id="side"></aside>
+  <main class="main" id="main"><div class="empty">Loading your CRM…</div></main>
+</div>
+<nav class="bottomnav" id="bnav"></nav>
+<div id="drawer-root"></div>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+
+<script>
+/* ============ Constants ============ */
+const STAGES=[
+  {k:'new',l:'New'},{k:'contacted',l:'Contacted'},{k:'qualified',l:'Interested'},{k:'visit',l:'Visit scheduled'},
+  {k:'visited',l:'Visit done'},{k:'negotiation',l:'Negotiation'},{k:'token',l:'Token paid'},{k:'booked',l:'Booked'}];
+const STAGE_IDX=Object.fromEntries(STAGES.map((s,i)=>[s.k,i]));
+const stageLabel=k=>k==='lost'?'Lost':(STAGES.find(s=>s.k===k)||{l:k}).l;
+const DEFAULT_SOURCES=['99acres','MagicBricks','Housing.com','Facebook','Instagram','Google Ads','Website','Walk-in','Referral','Channel partner','Bulk call','Other'];
+const BHKS=['1 BHK','2 BHK','3 BHK','4 BHK','5+ BHK','Plot','Villa','Shop / Office'];
+const PTYPES=['Apartment','Villa','Plot','Commercial'];
+const PURPOSES=['Self use','Investment','Both'];
+const OUTCOMES=[
+  {k:'interested',l:'Talked, interested',fu:24},{k:'callback',l:'Asked to call back',fu:null},{k:'notint',l:'Not interested',fu:null},
+  {k:'noanswer',l:'No answer',fu:3},{k:'busy',l:'Busy / cut the call',fu:2},{k:'off',l:'Switched off',fu:5},{k:'wrong',l:'Wrong number',fu:null}];
+const LOST_REASONS=['Budget mismatch','Location not suitable','Bought elsewhere','Not responding','Just exploring','Loan not approved','Other'];
+const TPL_USES=['Welcome','Follow-up','Visit reminder','After visit','Birthday','Price / offer','Other'];
+const VARS=['name','agent','agent_phone','company','project','visit_time','budget','location','bhk'];
+
+/* ============ Icons ============ */
+const I=(p,s=18)=>`<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+const ic={
+  today:I('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+  leads:I('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.8 2.6 2.6 3 5.2"/>'),
+  visits:I('<rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M3 9.5h18M8 2.5v4M16 2.5v4"/><path d="M12 13.2c-1.4 0-2.5 1.1-2.5 2.4 0 1.8 2.5 3.4 2.5 3.4s2.5-1.6 2.5-3.4c0-1.3-1.1-2.4-2.5-2.4z"/>'),
+  projects:I('<path d="M4 21V8l6-4v17M10 21V10l10 3v8M2 21h20"/><path d="M6.5 10v.01M6.5 14v.01M14 15v.01M17 15v.01M14 18v.01M17 18v.01"/>'),
+  messages:I('<path d="M4 5h16v11H9l-5 4z"/><path d="M8 9h8M8 12.5h5"/>'),
+  reports:I('<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>'),
+  settings:I('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>'),
+  more:I('<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>'),
+  phone:I('<path d="M5 3.5h3.5l1.8 4.5-2.3 1.4a11 11 0 0 0 6.6 6.6l1.4-2.3 4.5 1.8V19a2 2 0 0 1-2 2A17 17 0 0 1 3 5.5a2 2 0 0 1 2-2z"/>',16),
+  wa:I('<path d="M3.5 20.5l1.3-4.2A8.5 8.5 0 1 1 8 19.4z"/><path d="M9 8.5c0 3.3 3.2 6.5 6.5 6.5l1-1.6-2.2-1-1 1c-1.2-.4-2.3-1.5-2.7-2.7l1-1-1-2.2z"/>',16),
+  plus:I('<path d="M12 5v14M5 12h14"/>',16),
+  search:I('<circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/>',16),
+  x:I('<path d="M6 6l12 12M18 6L6 18"/>'),
+  note:I('<path d="M5 3.5h10l4 4v13H5z"/><path d="M15 3.5v4h4M8.5 12h7M8.5 15.5h5"/>',14),
+  copy:I('<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',14),
+  clock:I('<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',14),
+  flag:I('<path d="M5 21V4M5 4h11l-2 4 2 4H5"/>',14),
+  star:I('<path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8L3.5 9.7l5.9-.9z"/>',14),
+  spark:I('<path d="M12 3v4M12 17v4M3 12h4M17 12h4M6 6l2.5 2.5M15.5 15.5L18 18M6 18l2.5-2.5M15.5 8.5L18 6"/>',16),
+  up:I('<path d="M12 19V5M6 11l6-6 6 6"/>',16),
+  down:I('<path d="M12 5v14M6 13l6 6 6-6"/>',16),
+  cake:I('<path d="M4 21h16v-7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2z"/><path d="M4 16c2 1.3 4 1.3 6 0s4-1.3 6 0 3 1.3 4 .7M12 12V8M12 5.5v.01"/>',14),
+  board:I('<rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="10" rx="1.5"/><rect x="17" y="4" width="4" height="13" rx="1.5"/>',16),
+  list:I('<path d="M8 6h13M8 12h13M8 18h13M3.5 6v.01M3.5 12v.01M3.5 18v.01"/>',16),
+  trash:I('<path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/>',14),
+  edit:I('<path d="M4 20h4L19 9l-4-4L4 16z"/>',14),
+};
+
+/* ============ Store & persistence ============ */
+const COLS=['leads','projects','visits','templates','team','meta'];
+const store={leads:{},projects:{},visits:{},templates:{},team:{},meta:{}};
+let MODE='loading', DB=null, CAN_WRITE=true, SAMPLE=null, DL=null;
+const loaded=new Set();
+const LS_KEY='estatedesk-local-v1';
+const queues={};
+
+function lsGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
+function lsSet(k,v){try{localStorage.setItem(k,v)}catch(e){}}
+
+function startLocal(){
+  if(MODE==='cloud')return;
+  MODE='local';
+  try{const raw=lsGet(LS_KEY); if(raw){const o=JSON.parse(raw); COLS.forEach(c=>store[c]=o[c]||{});}}catch(e){}
+  COLS.forEach(c=>loaded.add(c));
+  scheduleRender();
+}
+function persistLocal(){lsSet(LS_KEY,JSON.stringify(store))}
+
+async function boot(){
+  state.me=lsGet('ed-me')||'';
+  render();
+  if(!window.claude||typeof window.claude.use!=='function'){startLocal();return}
+  let db=null;
+  try{db=await window.claude.use('db')}catch(e){db=null}
+  if(!db){startLocal();return}
+  DB=db; MODE='cloud';
+  COLS.forEach(c=>{
+    db.collection(c).onSnapshot(snap=>{
+      const o={}; snap.docs.forEach(d=>{if(d.exists)o[d.id]={...d.data(),id:d.id}});
+      store[c]=o; loaded.add(c); scheduleRender();
+    },err=>{toast('Lost the live connection to your data. Reload the page to reconnect.')});
+  });
+  window.claude.use('user').then(u=>{if(u)u.can('data.write').then(v=>{if(v===false){CAN_WRITE=false;scheduleRender()}})}).catch(()=>{});
+  window.claude.use('sample').then(s=>{SAMPLE=s;scheduleRender()}).catch(()=>{});
+  window.claude.use('downloads').then(d=>{DL=d}).catch(()=>{});
+}
+
+function guardWrite(){
+  if(!CAN_WRITE){toast('You can view this CRM but not change it. Ask the owner to give you Editor access.');return false}
+  return true;
+}
+function save(col,obj){
+  if(!guardWrite())return Promise.resolve(false);
+  obj.updatedAt=new Date().toISOString();
+  store[col]={...store[col],[obj.id]:obj};
+  scheduleRender();
+  if(MODE!=='cloud'){persistLocal();return Promise.resolve(true)}
+  const key=col+'/'+obj.id, data=JSON.parse(JSON.stringify(obj));
+  queues[key]=(queues[key]||Promise.resolve()).then(()=>DB.collection(col).doc(obj.id).set(data)).then(()=>true).catch(writeErr);
+  return queues[key];
+}
+function removeDoc(col,id){
+  if(!guardWrite())return Promise.resolve(false);
+  const n={...store[col]}; delete n[id]; store[col]=n; scheduleRender();
+  if(MODE!=='cloud'){persistLocal();return Promise.resolve(true)}
+  const key=col+'/'+id;
+  queues[key]=(queues[key]||Promise.resolve()).then(()=>DB.collection(col).doc(id).delete()).then(()=>true).catch(writeErr);
+  return queues[key];
+}
+function writeErr(e){
+  const c=e&&e.code;
+  if(c==='invalid_argument'){CAN_WRITE=false;toast('This change was not saved. You have view-only access.')}
+  else if(c==='quota_exceeded')toast('Storage is full. Delete old leads or example data in Settings, then try again.');
+  else if(c==='resource_exhausted')toast('Too many changes at once. Wait a few seconds and try again.');
+  else toast('Could not save. Check your connection and try again.');
+  scheduleRender(); return false;
+}
+function upd(col,id,fn){const cur=store[col][id]; if(!cur)return; const o=JSON.parse(JSON.stringify(cur)); fn(o); return save(col,o)}
+const uid=()=>(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2,10)).replace(/[^a-zA-Z0-9-]/g,'');
+
+/* ============ Helpers ============ */
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const vals=o=>Object.values(o);
+const settings=()=>store.meta.settings||{};
+const sources=()=>{const s=settings().sources; return (s&&s.length)?s:DEFAULT_SOURCES};
+const company=()=>settings().company||'Your company';
+const teamList=()=>vals(store.team).filter(t=>t.active!==false).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+const member=id=>store.team[id];
+const memberName=id=>(member(id)||{}).name||'';
+const initials=n=>(n||'?').split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase();
+function normPhone(p){const d=String(p||'').replace(/\D/g,''); if(d.length>10&&d.startsWith('91'))return d.slice(-10); if(d.length===11&&d.startsWith('0'))return d.slice(1); return d}
+const waNum=p=>{const n=normPhone(p); return n.length===10?'91'+n:n};
+function fmtPhone(p){const n=normPhone(p); return n.length===10?n.slice(0,5)+' '+n.slice(5):(p||'')}
+function fmtL(l){if(l==null||l===''||isNaN(l))return ''; l=+l; if(l>=100){const c=l/100; return '₹'+(Math.round(c*100)/100)+' Cr'} return '₹'+(Math.round(l*10)/10)+' L'}
+function fmtBudget(ld){const a=ld.budgetMin,b=ld.budgetMax; if(a&&b&&a!==b)return fmtL(a)+' – '+fmtL(b).replace('₹',''); if(b)return 'Up to '+fmtL(b); if(a)return fmtL(a)+'+'; return ''}
+function parseBudget(s){
+  if(s==null)return null; s=String(s).toLowerCase().replace(/,/g,'').replace(/rs\.?|inr|₹/g,' ');
+  const parts=s.split(/\s*(?:-|–|to)\s*/); const v=[];
+  for(const p of parts){const m=p.match(/(\d+(?:\.\d+)?)\s*(cr|crore|crores|l|lac|lacs|lakh|lakhs|k|thousand)?/); if(m)v.push([+m[1],m[2]||''])}
+  if(!v.length)return null;
+  const unit=u=>u?(u[0]==='c'?'cr':u[0]==='l'?'l':'k'):'';
+  const lastU=unit(v[v.length-1][1]);
+  const toL=([n,u])=>{u=unit(u)||lastU; if(u==='cr')return n*100; if(u==='l')return n; if(u==='k')return n/100; if(n>=100000)return n/100000; if(n<10)return n*100; return n};
+  const nums=v.map(toL).map(x=>Math.round(x*100)/100);
+  if(nums.length===1)return {min:null,max:nums[0]};
+  return {min:Math.min(...nums),max:Math.max(...nums)};
+}
+function parseDate(s){
+  if(!s)return null; s=String(s).trim();
+  let m=s.match(/^(\d{1,2})[\/\-. ](\d{1,2})[\/\-. ](\d{2,4})$/);
+  if(m){let y=+m[3]; if(y<100)y+=y>30?1900:2000; const mo=+m[2],d=+m[1]; if(mo<1||mo>12||d<1||d>31)return null; return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`}
+  m=s.match(/^(\d{4})-(\d{2})-(\d{2})/); if(m)return m[0];
+  const d=new Date(s); if(!isNaN(d)&&d.getFullYear()>1900)return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  return null;
+}
+const now=()=>new Date();
+const sameDay=(a,b)=>a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();
+const fmtDay=iso=>iso?new Date(iso).toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'}):'';
+const fmtTime=iso=>iso?new Date(iso).toLocaleTimeString('en-IN',{hour:'numeric',minute:'2-digit'}):'';
+const fmtDT=iso=>iso?fmtDay(iso)+', '+fmtTime(iso):'';
+const fmtDob=d=>{if(!d)return ''; const [y,m,dd]=d.split('-'); return new Date(+y,+m-1,+dd).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})};
+function rel(iso){if(!iso)return ''; const d=(new Date(iso)-Date.now())/60000, a=Math.abs(d); if(a<1)return 'just now'; let s; if(a<60)s=Math.round(a)+' min'; else if(a<1440)s=Math.round(a/60)+' hr'; else s=Math.round(a/1440)+' d'; return d<0?s+' ago':'in '+s}
+function toLocalInput(iso){if(!iso)return ''; const d=new Date(iso); const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`}
+function fromLocalInput(v){if(!v)return null; const d=new Date(v); return isNaN(d)?null:d.toISOString()}
+function fuState(iso){if(!iso)return ''; const d=new Date(iso), n=now(); if(d<n)return 'over'; if(sameDay(d,n))return 'today'; return 'later'}
+function fuText(iso){const s=fuState(iso); if(!s)return ''; if(s==='over')return 'Overdue '+rel(iso).replace(' ago',''); if(s==='today')return 'Today '+fmtTime(iso); return fmtDT(iso)}
+function addHours(h){return new Date(Date.now()+h*3600000).toISOString()}
+function tomorrowAt(h){const d=new Date(); d.setDate(d.getDate()+1); d.setHours(h,0,0,0); return d.toISOString()}
+function inDaysAt(n,h){const d=new Date(); d.setDate(d.getDate()+n); d.setHours(h,0,0,0); return d.toISOString()}
+function birthdaySoon(dob,days=7){if(!dob)return null; const [,m,d]=dob.split('-').map(Number); const n=now(); n.setHours(0,0,0,0); let b=new Date(n.getFullYear(),m-1,d); if(b<n)b=new Date(n.getFullYear()+1,m-1,d); const diff=Math.round((b-n)/86400000); return diff<=days?diff:null}
+
+function leadActivity(lead,type,text,extra){
+  lead.activity=lead.activity||[];
+  lead.activity.unshift({at:new Date().toISOString(),by:state.me||'',type,text,...(extra||{})});
+  if(lead.activity.length>200)lead.activity.length=200;
+  lead.lastActivityAt=lead.activity[0].at;
+}
+function setStageOn(lead,stage){
+  if(lead.stage===stage)return;
+  const prev=lead.stage; lead.stage=stage;
+  if(stage!=='lost'){lead.maxStage=Math.max(lead.maxStage??0,STAGE_IDX[stage]??0); lead.lostReason=''}
+  if(stage==='booked'&&!lead.bookedAt)lead.bookedAt=new Date().toISOString();
+  leadActivity(lead,'stage',`Stage: ${stageLabel(prev)} → ${stageLabel(stage)}`);
+}
+const leadByPhone=p=>{const n=normPhone(p); if(n.length<8)return null; return vals(store.leads).find(l=>normPhone(l.phone)===n)||null};
+function nextAssignee(){
+  const t=teamList().filter(m=>m.role!=='admin'||teamList().length===1); if(!t.length)return '';
+  const counts={}; t.forEach(m=>counts[m.id]=0);
+  vals(store.leads).forEach(l=>{if(counts[l.assignedTo]!=null&&!['booked','lost'].includes(l.stage))counts[l.assignedTo]++});
+  return t.sort((a,b)=>counts[a.id]-counts[b.id])[0].id;
+}
+function matchProjects(lead){
+  const words=(lead.location||'').toLowerCase().split(/[\s,]+/).filter(w=>w.length>3);
+  return vals(store.projects).map(p=>{
+    let s=0;
+    if(lead.budgetMax&&p.priceFrom&&p.priceFrom<=lead.budgetMax*1.1&&(!lead.budgetMin||!p.priceTo||p.priceTo>=lead.budgetMin*0.9))s+=2;
+    const bd=(lead.bhk||'').match(/\d/); if(bd&&(p.configs||'').includes(bd[0]))s+=1;
+    if(lead.bhk&&/plot/i.test(lead.bhk)&&p.type==='Plot')s+=1;
+    if(words.some(w=>(p.location||'').toLowerCase().includes(w)))s+=1;
+    return {p,s};
+  }).filter(x=>x.s>=2&&!(lead.projects||[]).includes(x.p.id)).sort((a,b)=>b.s-a.s).slice(0,3);
+}
+function fillTpl(body,lead,extra={}){
+  const ag=member(lead&&lead.assignedTo)||member(state.me)||{};
+  const proj=lead&&(lead.projects||[]).map(id=>store.projects[id]).filter(Boolean)[0];
+  const nv=lead&&vals(store.visits).filter(v=>v.leadId===lead.id&&v.status==='scheduled').sort((a,b)=>a.at.localeCompare(b.at))[0];
+  const map={name:(lead&&lead.name||'').split(' ')[0]||'there',agent:ag.name||company(),agent_phone:ag.phone?fmtPhone(ag.phone):(settings().phone||''),company:company(),
+    project:proj?proj.name:'our projects',visit_time:nv?fmtDT(nv.at):'',budget:lead?fmtBudget(lead):'',location:lead&&lead.location||'',bhk:lead&&lead.bhk||'',...extra};
+  return String(body||'').replace(/\{\{\s*(\w+)\s*\}\}/g,(m,k)=>map[k]!=null?map[k]:m);
+}
+function parseEnquiry(text){
+  const out={}; if(!text)return out; const lines=text.split(/\r?\n/);
+  const grab=re=>{for(const l of lines){const m=l.replace(/^[\s•*·\-]+/,'').match(re); if(m&&m[1]&&m[1].trim().replace(/^[-–:]+/,'').trim())return m[1].trim().replace(/^[-–:]+\s*/,'')}return null};
+  const SEP='\\s*(?::|–|=|-(?=\\s)|\\s-)\\s*';
+  out.name=grab(new RegExp('^(?:full\\s+)?(?:name|customer name|client name|buyer name)'+SEP+'(.+)$','i'));
+  const phoneM=text.match(/(?:\+?91[\s-]?)?[6-9]\d{2}[\s-]?\d{2}[\s-]?\d{5}|(?:\+?91[\s-]?)?[6-9]\d{4}[\s-]?\d{5}/);
+  if(phoneM)out.phone=normPhone(phoneM[0]);
+  const em=text.match(/[\w.+-]+@[\w-]+\.[\w.-]+/); if(em)out.email=em[0];
+  const b=grab(new RegExp('^budget'+'.*?'+SEP+'(.+)$','i')); if(b){const pb=parseBudget(b); if(pb){out.budgetMin=pb.min;out.budgetMax=pb.max}}
+  const dob=grab(new RegExp('^(?:dob|d\\.o\\.b\\.?|date of birth|birthday|birth date)'+'.*?'+SEP+'(.+)$','i')); if(dob){const d=parseDate(dob); if(d)out.dob=d}
+  const pur=grab(new RegExp('^purpose'+'.*?'+SEP+'(.+)$','i')); if(pur){out.purpose=/invest/i.test(pur)&&/self|own|living|stay/i.test(pur)?'Both':/invest/i.test(pur)?'Investment':/self|own|living|stay|family/i.test(pur)?'Self use':pur}
+  const slot=grab(new RegExp('^(?:preferred\\s+)?(?:time\\s*slot|slot|time to connect|preferred time|call time)'+'.*?'+SEP+'(.+)$','i')); if(slot)out.slot=slot;
+  const loc=grab(new RegExp('^(?:preferred\\s+)?(?:location|city|area|locality)'+SEP+'(.+)$','i')); if(loc)out.location=loc;
+  if(!out.location){const m=text.match(/\bin\s+([A-Z][\w ]{2,30}?)\s+at\s+([A-Z][\w ]{2,30})/); if(m)out.location=m[2].trim()}
+  const bhk=text.match(/(\d)\s*bhk/i); if(bhk)out.bhk=(+bhk[1]>=5?'5+':bhk[1])+' BHK'; else if(/\bplot\b/i.test(text))out.bhk='Plot';
+  const src=[['99acres',/99\s*acres/i],['MagicBricks',/magic\s*bricks/i],['Housing.com',/housing\.com/i],['Facebook',/facebook|\bfb\b/i],['Instagram',/instagram/i],['Website',/website/i]];
+  for(const [s,re] of src)if(re.test(text)){out.source=s;break}
+  if(!out.name){const m=text.match(/name\s*[:\-–]\s*([A-Za-z][A-Za-z .]{1,40})/i); if(m)out.name=m[1].trim()}
+  Object.keys(out).forEach(k=>{if(out[k]==null||out[k]==='')delete out[k]});
+  return out;
+}
+function hasSample(){return COLS.some(c=>vals(store[c]).some(d=>d.sample))}
+
+/* ============ UI state ============ */
+const state={view:'today',q:'',f:{stage:'',score:'',source:'',assignee:'',project:'',fu:''},leadsMode:'list',scope:'all',openLead:null,limit:80,reportDays:30,visitTab:'upcoming',noteDraft:{},more:false,replyOpen:false};
+let rq=0;
+function scheduleRender(){if(rq)return; rq=requestAnimationFrame(()=>{rq=0;render()})}
+
+function render(){
+  const ae=document.activeElement, aid=ae&&ae.id, sel=ae&&('selectionStart' in ae)?[ae.selectionStart,ae.selectionEnd]:null;
+  renderSide(); renderMain(); renderDrawer();
+  if(aid){const el=document.getElementById(aid); if(el&&el!==document.activeElement){el.focus(); if(sel)try{el.setSelectionRange(sel[0],sel[1])}catch(e){}}}
+}
+const NAV=[['today','Today'],['leads','Leads'],['visits','Site visits'],['projects','Projects'],['messages','Messages'],['reports','Reports'],['settings','Settings']];
+function dueCount(){const me=state.me; return vals(store.leads).filter(l=>!['booked','lost'].includes(l.stage)&&l.nextFollowUp&&['over','today'].includes(fuState(l.nextFollowUp))&&(!me||state.scope==='all'||l.assignedTo===me)).length}
+function renderSide(){
+  const due=dueCount();
+  const tm=teamList();
+  document.getElementById('side').innerHTML=`
+    <div class="brand"><div class="brand-mark">${I('<path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>',18)}</div>
+      <div><div class="brand-name">${esc(settings().appName||'EstateDesk')}</div><div class="brand-sub">${esc(company())}</div></div></div>
+    <nav class="nav">${NAV.map(([k,l])=>`<button data-act="nav" data-v="${k}" class="${state.view===k?'on':''}">${ic[k]}${l}${k==='today'&&due?`<span class="count">${due}</span>`:''}</button>`).join('')}</nav>
+    <div class="side-foot">
+      <label class="label" for="me-sel">You are</label>
+      <select id="me-sel" data-chg="me">${tm.length?'':'<option value="">Add your team in Settings</option>'}<option value="">${tm.length?'Choose your name':''}</option>${tm.map(m=>`<option value="${esc(m.id)}" ${state.me===m.id?'selected':''}>${esc(m.name)}</option>`).join('')}</select>
+      <div class="hint">${MODE==='cloud'?'Saved online, shared with your team':MODE==='local'?'Saved only in this browser':'Connecting…'}</div>
+    </div>`;
+  const bn=[['today','Today'],['leads','Leads'],['visits','Visits'],['projects','Projects']];
+  document.getElementById('bnav').innerHTML=bn.map(([k,l])=>`<button data-act="nav" data-v="${k}" class="${state.view===k?'on':''}">${ic[k]}<span>${l}</span>${k==='today'&&due?`<span class="badge">${due}</span>`:''}</button>`).join('')+
+    `<button data-act="more" class="${['messages','reports','settings'].includes(state.view)?'on':''}">${ic.more}<span>More</span></button>`+
+    (state.more?`<div class="more-sheet">${[['messages','Messages'],['reports','Reports'],['settings','Settings']].map(([k,l])=>`<button data-act="nav" data-v="${k}">${ic[k]}${l}</button>`).join('')}</div>`:'');
+}
+function topBar(title,extra=''){
+  return `<div class="top"><h1>${title}</h1>
+    <div class="gsearch">${ic.search}<input type="search" id="gsearch" placeholder="Search name, phone, email, area" value="${esc(state.q)}" data-inp="gsearch" aria-label="Search leads"></div>
+    ${extra}<button class="btn primary" data-act="addLead">${ic.plus}Add lead</button></div>
+    ${banners()}`;
+}
+function banners(){
+  let b='';
+  if(!CAN_WRITE)b+=`<div class="banner"><b>View only.</b> You can see everything but cannot make changes. Ask the owner for Editor access.</div>`;
+  if(MODE==='local')b+=`<div class="banner"><b>Not shared yet.</b> In this view, data is saved only in this browser. Open the published page to share it with your team.</div>`;
+  if(hasSample())b+=`<div class="banner"><b>Example data.</b> The leads, projects and team shown are made-up examples so you can try things out. <button class="btn sm" data-act="nav" data-v="settings">Remove examples</button></div>`;
+  return b;
+}
+function renderMain(){
+  const m=document.getElementById('main');
+  if(MODE==='loading'){m.innerHTML='<div class="empty">Loading your CRM…</div>';return}
+  const v=state.view;
+  m.innerHTML=v==='today'?viewToday():v==='leads'?viewLeads():v==='visits'?viewVisits():v==='projects'?viewProjects():v==='messages'?viewMessages():v==='reports'?viewReports():viewSettings();
+}
+
+/* ============ Shared bits ============ */
+function scoreChip(s){return s?`<span class="chip ${s}">${s[0].toUpperCase()+s.slice(1)}</span>`:''}
+function stageChip(k){const cls=k==='booked'||k==='token'?'good':k==='lost'?'bad':k==='new'?'tape':'acc'; return `<span class="chip ${cls}">${esc(stageLabel(k))}</span>`}
+function reqLine(l){return [l.bhk,fmtBudget(l),l.location].filter(Boolean).map(esc).join(' · ')||'<span class="faint">Requirement not filled</span>'}
+function waHref(phone,text){return `https://wa.me/${waNum(phone)}${text?'?text='+encodeURIComponent(text):''}`}
+function quickActs(l){
+  return `<a class="iconbtn" href="tel:+${waNum(l.phone)}" title="Call ${esc(fmtPhone(l.phone))}" data-act="callLink" data-id="${esc(l.id)}">${ic.phone}</a>
+  <button class="iconbtn" title="WhatsApp" data-act="wa" data-id="${esc(l.id)}">${ic.wa}</button>
+  <button class="iconbtn" title="Log a call" data-act="logCall" data-id="${esc(l.id)}">${ic.note}</button>`;
+}
+function leadRow(l){
+  const fs=fuState(l.nextFollowUp);
+  const ag=memberName(l.assignedTo);
+  return `<div class="row" data-act="open" data-id="${esc(l.id)}">
+    <div style="min-width:0"><div class="name"><span class="dot ${esc(l.score||'')}"></span><span>${esc(l.name||'No name')}</span></div><div class="sub mono">${esc(fmtPhone(l.phone))}${ag?` · <span style="font-family:var(--f-body)">${esc(ag)}</span>`:''}</div></div>
+    <div class="c-req sub" style="min-width:0">${reqLine(l)}</div>
+    <div class="c-stage">${stageChip(l.stage)}</div>
+    <div class="c-src sub">${esc(l.source||'')}</div>
+    <div class="c-fu fu ${fs}">${l.stage==='booked'||l.stage==='lost'?'':(fs?esc(fuText(l.nextFollowUp)):'<span class="faint">No follow-up</span>')}</div>
+    <div class="acts">${quickActs(l)}</div></div>`;
+}
+const rowHead=`<div class="row head"><div>Lead</div><div>Looking for</div><div>Stage</div><div>Source</div><div>Next follow-up</div><div></div></div>`;
+function scopeLeads(){const me=state.me; return vals(store.leads).filter(l=>state.scope==='all'||!me||l.assignedTo===me)}
+
+/* ============ Today ============ */
+function viewToday(){
+  const leads=scopeLeads(); const open=leads.filter(l=>!['booked','lost'].includes(l.stage));
+  const over=open.filter(l=>fuState(l.nextFollowUp)==='over').sort((a,b)=>a.nextFollowUp.localeCompare(b.nextFollowUp));
+  const today=open.filter(l=>fuState(l.nextFollowUp)==='today').sort((a,b)=>a.nextFollowUp.localeCompare(b.nextFollowUp));
+  const fresh=open.filter(l=>l.stage==='new'&&!(l.activity||[]).some(a=>a.type==='call')).sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+  const noFu=open.filter(l=>!l.nextFollowUp&&l.stage!=='new');
+  const n=now(), tmr=new Date(); tmr.setDate(tmr.getDate()+1);
+  const ids=new Set(leads.map(l=>l.id));
+  const visits=vals(store.visits).filter(v=>v.status==='scheduled'&&ids.has(v.leadId)&&(sameDay(new Date(v.at),n)||sameDay(new Date(v.at),tmr))).sort((a,b)=>a.at.localeCompare(b.at));
+  const visitsToday=visits.filter(v=>sameDay(new Date(v.at),n));
+  const bdays=leads.map(l=>({l,d:birthdaySoon(l.dob)})).filter(x=>x.d!=null&&x.l.stage!=='lost').sort((a,b)=>a.d-b.d);
+  const monthStart=new Date(n.getFullYear(),n.getMonth(),1);
+  const booked=leads.filter(l=>l.bookedAt&&new Date(l.bookedAt)>=monthStart).length;
+  const callList=[...over,...today];
+  const greet=n.getHours()<12?'Good morning':n.getHours()<17?'Good afternoon':'Good evening';
+  const meN=memberName(state.me);
+  const scopeSeg=state.me?`<div class="seg"><button data-act="scope" data-v="mine" class="${state.scope==='mine'?'on':''}">My leads</button><button data-act="scope" data-v="all" class="${state.scope==='all'?'on':''}">Everyone</button></div>`:'';
+  const noTeam=!teamList().length?`<div class="banner"><b>Start here.</b> Add yourself and your sales team so leads can be assigned. <button class="btn sm" data-act="nav" data-v="settings">Add team</button></div>`:'';
+  return topBar(`${greet}${meN?', '+esc(meN.split(' ')[0]):''}`,scopeSeg)+noTeam+`
+  <div class="kpis">
+    <button class="kpi ${over.length?'alert':''}" data-act="goFilter" data-fu="over"><div class="label">Overdue calls</div><div class="n">${over.length}</div></button>
+    <button class="kpi" data-act="goFilter" data-fu="today"><div class="label">Calls due today</div><div class="n">${today.length}</div></button>
+    <button class="kpi ${fresh.length?'alert':''}" data-act="goFilter" data-stage="new"><div class="label">New, not called</div><div class="n">${fresh.length}</div></button>
+    <button class="kpi" data-act="nav" data-v="visits"><div class="label">Site visits today</div><div class="n">${visitsToday.length}</div></button>
+    <button class="kpi" data-act="goFilter" data-stage="booked"><div class="label">Booked this month</div><div class="n">${booked}</div></button>
+  </div>
+  <div class="grid2">
+    <div class="stack">
+      <section class="panel"><div class="panel-h"><h2>Call list</h2><span class="muted">${callList.length?'Overdue first':''}</span></div>
+        <div class="rows">${callList.length?callList.slice(0,25).map(l=>`<div class="row callrow" data-act="open" data-id="${esc(l.id)}">
+          <div style="min-width:0"><div class="name"><span class="dot ${esc(l.score||'')}"></span><span>${esc(l.name)}</span> ${stageChip(l.stage)}</div>
+          <div class="sub"><span class="fu ${fuState(l.nextFollowUp)}">${esc(fuText(l.nextFollowUp))}</span> · ${reqLine(l)}</div>
+          ${lastNote(l)}</div>
+          <div class="quick">${quickActs(l)}</div></div>`).join(''):`<div class="empty">No calls due. Set a follow-up time on any lead and it shows up here on the day.</div>`}</div></section>
+      <section class="panel"><div class="panel-h"><h2>New leads waiting for a first call</h2><span class="muted">Call within 5 minutes to win the lead</span></div>
+        <div class="rows">${fresh.length?fresh.slice(0,15).map(l=>{const age=(Date.now()-new Date(l.createdAt))/60000; return `<div class="row callrow" data-act="open" data-id="${esc(l.id)}">
+          <div style="min-width:0"><div class="name"><span>${esc(l.name)}</span> <span class="chip">${esc(l.source||'')}</span></div>
+          <div class="sub">Came in ${esc(rel(l.createdAt))}${age>30?` · <span class="fu over">waiting too long</span>`:''} · ${reqLine(l)}</div></div>
+          <div class="quick">${quickActs(l)}</div></div>`}).join(''):`<div class="empty">Every new lead has been called.</div>`}</div></section>
+    </div>
+    <div class="stack">
+      <section class="panel"><div class="panel-h"><h2>Site visits</h2><button class="btn sm ghost" data-act="nav" data-v="visits">All visits</button></div>
+        <div class="rows">${visits.length?visits.map(visitRow).join(''):`<div class="empty">No visits today or tomorrow.</div>`}</div></section>
+      ${bdays.length?`<section class="panel"><div class="panel-h"><h2>Birthdays this week</h2></div><div class="rows">${bdays.slice(0,6).map(({l,d})=>`<div class="row callrow" data-act="open" data-id="${esc(l.id)}"><div><div class="name">${ic.cake}<span>${esc(l.name)}</span></div><div class="sub">${d===0?'Today':d===1?'Tomorrow':'In '+d+' days'} · ${esc(fmtDob(l.dob))}</div></div><div><button class="btn sm" data-act="wa" data-id="${esc(l.id)}" data-use="Birthday">${ic.wa}Wish</button></div></div>`).join('')}</div></section>`:''}
+      ${noFu.length?`<section class="panel"><div class="panel-h"><h2>Leads with no next step</h2><span class="chip tape">${noFu.length}</span></div><div class="panel-b muted" style="font-size:13px">These leads are active but nobody has planned the next call. <button class="btn sm" data-act="goFilter" data-fu="none">Show them</button></div></section>`:''}
+      ${miniFunnel(leads)}
+    </div>
+  </div>`;
+}
+function lastNote(l){const a=(l.activity||[]).find(x=>x.type==='note'||x.type==='call'); return a?`<div class="sub" style="white-space:normal">“${esc(a.text.slice(0,110))}${a.text.length>110?'…':''}”</div>`:''}
+function miniFunnel(leads){
+  const total=leads.length; if(!total)return '';
+  const reach=STAGES.map((s,i)=>({s,c:leads.filter(l=>(l.maxStage??STAGE_IDX[l.stage]??0)>=i).length}));
+  return `<section class="panel"><div class="panel-h"><h2>Pipeline</h2><button class="btn sm ghost" data-act="nav" data-v="reports">Reports</button></div><div class="panel-b funnel">
+    ${reach.filter((r,i)=>[0,2,3,4,7].includes(i)).map(r=>`<div class="fbar"><div>${esc(r.s.l)}</div><div class="track"><div class="fill ${r.s.k==='booked'?'booked':''}" style="width:${(r.c/total*100).toFixed(1)}%"></div></div><div class="num">${r.c} · ${Math.round(r.c/total*100)}%</div></div>`).join('')}</div></section>`;
+}
+function visitRow(v){
+  const l=store.leads[v.leadId]||{}, p=store.projects[v.projectId]||{};
+  const d=new Date(v.at);
+  return `<div class="vrow"><div><div class="vtime">${esc(fmtTime(v.at))}</div><div class="hint">${sameDay(d,now())?'Today':esc(fmtDay(v.at))}</div></div>
+    <div style="min-width:0;cursor:pointer" data-act="open" data-id="${esc(v.leadId)}"><div style="font-weight:600">${esc(l.name||'Deleted lead')}</div><div class="sub muted" style="font-size:12px">${esc(p.name||'Project not set')}${v.agent?' · '+esc(memberName(v.agent)):''}${v.status!=='scheduled'?' · ':''}${v.status==='done'?'<span class="chip good">Done</span>':v.status==='noshow'?'<span class="chip bad">No-show</span>':v.status==='cancelled'?'<span class="chip">Cancelled</span>':''}</div>
+    ${v.feedback?`<div class="hint">“${esc(v.feedback)}”</div>`:''}</div>
+    <div class="vacts quick">${v.status==='scheduled'?`<button class="btn sm" data-act="visitDone" data-id="${esc(v.id)}">Mark done</button><button class="btn sm ghost" data-act="wa" data-id="${esc(v.leadId)}" data-use="Visit reminder">${ic.wa}Remind</button>`:''}<button class="iconbtn" title="Edit visit" data-act="editVisit" data-id="${esc(v.id)}">${ic.edit}</button></div></div>`;
+}
+
+/* ============ Leads ============ */
+function filteredLeads(){
+  const q=state.q.trim().toLowerCase(), qd=q.replace(/\D/g,''); const f=state.f;
+  return vals(store.leads).filter(l=>{
+    if(q){const hay=[l.name,l.email,l.location,l.source,l.bhk,memberName(l.assignedTo)].join(' ').toLowerCase(); if(!hay.includes(q)&&!(qd.length>=3&&normPhone(l.phone).includes(qd)))return false}
+    if(f.stage&&l.stage!==f.stage)return false;
+    if(f.stage===''&&!q&&state.leadsMode==='list'&&f.fu===''&&false)return false;
+    if(f.score&&l.score!==f.score)return false;
+    if(f.source&&l.source!==f.source)return false;
+    if(f.assignee==='none'&&l.assignedTo)return false;
+    if(f.assignee&&f.assignee!=='none'&&l.assignedTo!==f.assignee)return false;
+    if(f.project&&!(l.projects||[]).includes(f.project))return false;
+    if(f.fu){const s=fuState(l.nextFollowUp); const active=!['booked','lost'].includes(l.stage);
+      if(f.fu==='over'&&!(active&&s==='over'))return false; if(f.fu==='today'&&!(active&&s==='today'))return false;
+      if(f.fu==='due'&&!(active&&(s==='over'||s==='today')))return false; if(f.fu==='none'&&!(active&&!l.nextFollowUp&&l.stage!=='new'))return false}
+    return true;
+  });
+}
+function viewLeads(){
+  const list=filteredLeads().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||''));
+  const f=state.f; const opt=(arr,cur)=>arr.map(([v,l])=>`<option value="${esc(v)}" ${cur===v?'selected':''}>${esc(l)}</option>`).join('');
+  const anyF=Object.values(f).some(Boolean)||state.q;
+  const filters=`<div class="filters">
+    <div class="seg"><button data-act="mode" data-v="list" class="${state.leadsMode==='list'?'on':''}">${ic.list} List</button><button data-act="mode" data-v="board" class="${state.leadsMode==='board'?'on':''}">${ic.board} Board</button></div>
+    <button class="btn sm ftog" data-act="ftog">Filters${Object.values(f).filter(Boolean).length?' ('+Object.values(f).filter(Boolean).length+')':''}</button>
+    <div class="fsel ${state.showF?'open':''}">
+    <select id="f-stage" data-chg="f" data-k="stage" aria-label="Stage"><option value="">All stages</option>${opt([...STAGES.map(s=>[s.k,s.l]),['lost','Lost']],f.stage)}</select>
+    <select id="f-score" data-chg="f" data-k="score" aria-label="Score"><option value="">Hot, warm, cold</option>${opt([['hot','Hot'],['warm','Warm'],['cold','Cold']],f.score)}</select>
+    <select id="f-source" data-chg="f" data-k="source" aria-label="Source"><option value="">All sources</option>${opt(sources().map(s=>[s,s]),f.source)}</select>
+    <select id="f-assignee" data-chg="f" data-k="assignee" aria-label="Assigned to"><option value="">Anyone</option><option value="none" ${f.assignee==='none'?'selected':''}>Not assigned</option>${opt(teamList().map(m=>[m.id,m.name]),f.assignee)}</select>
+    <select id="f-project" data-chg="f" data-k="project" aria-label="Project"><option value="">All projects</option>${opt(vals(store.projects).map(p=>[p.id,p.name]),f.project)}</select>
+    <select id="f-fu" data-chg="f" data-k="fu" aria-label="Follow-up"><option value="">Any follow-up</option>${opt([['over','Overdue'],['today','Due today'],['due','Overdue + today'],['none','No next step']],f.fu)}</select>
+    </div>
+    ${anyF?`<button class="btn sm ghost" data-act="clearF">Clear filters</button>`:''}
+    <span class="muted" style="margin-left:auto">${list.length} lead${list.length===1?'':'s'}</span>
+    <button class="btn sm" data-act="import">${ic.up}Import</button><button class="btn sm" data-act="export">${ic.down}Export</button>
+  </div>`;
+  if(!vals(store.leads).length)return topBar('Leads')+filters+`<div class="panel"><div class="empty"><h2 style="margin-bottom:6px">No leads yet</h2>Add a lead by hand, paste an enquiry from 99acres or WhatsApp, or import your Excel sheet.<div class="quick" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="addLead">${ic.plus}Add lead</button><button class="btn" data-act="import">Import Excel / CSV</button></div></div></div>`;
+  if(state.leadsMode==='board')return topBar('Leads')+filters+board(list);
+  return topBar('Leads')+filters+`<section class="panel"><div class="rows">${rowHead}${list.length?list.slice(0,state.limit).map(leadRow).join(''):'<div class="empty">No leads match these filters.</div>'}</div>
+    ${list.length>state.limit?`<div class="empty"><button class="btn" data-act="moreRows">Show ${Math.min(80,list.length-state.limit)} more</button></div>`:''}</section>`;
+}
+function board(list){
+  const cols=[...STAGES,{k:'lost',l:'Lost'}];
+  return `<div class="hint" style="margin-bottom:8px">Drag a card to another column to change its stage.</div><div class="board">${cols.map(c=>{const ls=list.filter(l=>l.stage===c.k); return `<div class="col" data-drop="${c.k}"><div class="col-h">${esc(c.l)}<span class="mono">${ls.length}</span></div>
+    ${ls.slice(0,60).map(l=>`<div class="card" draggable="true" data-drag="${esc(l.id)}" data-act="open" data-id="${esc(l.id)}"><div class="t"><span class="dot ${esc(l.score||'')}"></span>${esc(l.name)}</div><div class="s">${reqLine(l)}</div>${l.nextFollowUp&&!['booked','lost'].includes(l.stage)?`<div class="s fu ${fuState(l.nextFollowUp)}">${esc(fuText(l.nextFollowUp))}</div>`:''}${l.assignedTo?`<div class="s">${esc(memberName(l.assignedTo))}</div>`:''}</div>`).join('')}
+    ${ls.length>60?`<div class="hint">+${ls.length-60} more. Use the list view.</div>`:''}</div>`}).join('')}</div>`;
+}
+
+/* ============ Drawer (lead detail) ============ */
+function renderDrawer(){
+  const root=document.getElementById('drawer-root');
+  const l=state.openLead&&store.leads[state.openLead];
+  if(!l){root.innerHTML='';return}
+  const idx=l.stage==='lost'?-1:STAGE_IDX[l.stage];
+  const maxI=l.maxStage??idx;
+  const visits=vals(store.visits).filter(v=>v.leadId===l.id).sort((a,b)=>b.at.localeCompare(a.at));
+  const projs=(l.projects||[]).map(id=>store.projects[id]).filter(Boolean);
+  const matches=matchProjects(l);
+  const dup=vals(store.leads).filter(x=>x.id!==l.id&&normPhone(x.phone)===normPhone(l.phone)&&normPhone(l.phone).length>=8);
+  const age=birthdaySoon(l.dob);
+  root.innerHTML=`<div class="scrim" data-act="closeLead"></div><aside class="drawer" role="dialog" aria-label="Lead details">
+  <div class="dr-h"><div class="dr-title"><div style="min-width:0;margin-right:auto"><h2>${esc(l.name||'No name')}</h2>
+    <div class="quick" style="margin-top:4px"><span class="mono" style="font-size:15px">${esc(fmtPhone(l.phone))}</span><button class="iconbtn" title="Copy number" data-act="copy" data-v="${esc(normPhone(l.phone))}">${ic.copy}</button>${l.email?`<span class="muted">${esc(l.email)}</span>`:''}</div></div>
+    <button class="iconbtn" data-act="closeLead" aria-label="Close">${ic.x}</button></div>
+    <div class="acts-row">
+      <a class="btn" href="tel:+${waNum(l.phone)}" data-act="callLink" data-id="${esc(l.id)}">${ic.phone}Call</a>
+      <button class="btn wa" data-act="wa" data-id="${esc(l.id)}">${ic.wa}WhatsApp</button>
+      <button class="btn" data-act="logCall" data-id="${esc(l.id)}">${ic.note}Log call</button>
+      <button class="btn" data-act="newVisit" data-id="${esc(l.id)}">${ic.visits.replace('width="18" height="18"','width="16" height="16"')}Visit</button>
+      <button class="btn ghost" data-act="editLead" data-id="${esc(l.id)}">${ic.edit}Edit</button>
+    </div></div>
+  <div class="dr-b">
+    ${dup.length?`<div class="warn">Same phone number as ${dup.map(d=>`<a href="#" data-act="open" data-id="${esc(d.id)}">${esc(d.name)}</a>`).join(', ')}. <button class="btn sm" data-act="merge" data-id="${esc(l.id)}" data-into="${esc(dup[0].id)}">Merge into ${esc(dup[0].name)}</button></div>`:''}
+    ${age!=null?`<div class="warn">${ic.cake} Birthday ${age===0?'today':age===1?'tomorrow':'in '+age+' days'}. <button class="btn sm" data-act="wa" data-id="${esc(l.id)}" data-use="Birthday">Send wishes</button></div>`:''}
+    <div class="sec"><div class="sec-h"><h3>Next follow-up</h3>${l.nextFollowUp?`<span class="fu ${fuState(l.nextFollowUp)}">${esc(fuText(l.nextFollowUp))}</span>`:'<span class="chip tape">Not planned</span>'}</div>
+      <div class="quick">
+        <button class="btn sm" data-act="fu" data-id="${esc(l.id)}" data-h="2">In 2 hours</button>
+        <button class="btn sm" data-act="fu" data-id="${esc(l.id)}" data-t="tm11">Tomorrow 11 AM</button>
+        <button class="btn sm" data-act="fu" data-id="${esc(l.id)}" data-t="d3">In 3 days</button>
+        <button class="btn sm" data-act="fu" data-id="${esc(l.id)}" data-t="w1">Next week</button>
+        <input type="datetime-local" id="fu-custom" value="${esc(toLocalInput(l.nextFollowUp))}" data-chg="fuCustom" data-id="${esc(l.id)}" aria-label="Pick follow-up time">
+        ${l.nextFollowUp?`<button class="btn sm ghost" data-act="fu" data-id="${esc(l.id)}" data-t="clear">Clear</button>`:''}
+      </div></div>
+    <div class="sec"><div class="sec-h"><h3>Stage</h3>${l.stage==='lost'&&l.lostReason?`<span class="chip bad">${esc(l.lostReason)}</span>`:''}</div>
+      <div class="stages">${STAGES.map((s,i)=>`<button data-act="stage" data-id="${esc(l.id)}" data-v="${s.k}" class="${l.stage===s.k?'cur':(i<=maxI&&l.stage!=='lost'?'done':'')}">${esc(s.l)}</button>`).join('')}<button data-act="stage" data-id="${esc(l.id)}" data-v="lost" class="lost ${l.stage==='lost'?'cur':''}">Lost</button></div>
+      <div class="form">
+        <div class="field"><label class="label" for="d-score">Interest</label><select id="d-score" data-chg="leadField" data-k="score" data-id="${esc(l.id)}">${['hot','warm','cold'].map(s=>`<option value="${s}" ${l.score===s?'selected':''}>${s[0].toUpperCase()+s.slice(1)}</option>`).join('')}</select></div>
+        <div class="field"><label class="label" for="d-assign">Assigned to</label><select id="d-assign" data-chg="leadField" data-k="assignedTo" data-id="${esc(l.id)}"><option value="">Not assigned</option>${teamList().map(m=>`<option value="${esc(m.id)}" ${l.assignedTo===m.id?'selected':''}>${esc(m.name)}</option>`).join('')}</select></div>
+      </div></div>
+    <div class="sec"><div class="sec-h"><h3>What they want</h3><button class="btn sm ghost" data-act="editLead" data-id="${esc(l.id)}">Edit</button></div>
+      <div class="kv">
+        ${kv('Budget',fmtBudget(l))}${kv('Type',[l.bhk,l.propertyType].filter(Boolean).join(', '))}${kv('Location',l.location)}${kv('Purpose',l.purpose)}
+        ${kv('Best time to talk',l.slot)}${kv('Date of birth',fmtDob(l.dob))}${kv('Source',l.source)}${kv('Came in',fmtDT(l.createdAt))}
+      </div>
+      <div class="quick"><button class="btn sm" data-act="toggleReply">${state.replyOpen?'Hide':'Paste client reply'}</button>${SAMPLE?`<button class="btn sm" data-act="aiUpdate" data-id="${esc(l.id)}">${ic.spark}Update from call notes</button>`:''}</div>
+      ${state.replyOpen?`<div class="field"><label class="label" for="reply-txt">Paste the client's WhatsApp reply to your welcome form</label><textarea id="reply-txt" placeholder="Name- Rahul Mehta&#10;Budget- 80 L to 1 Cr&#10;DOB- 12/03/1988&#10;Time slot- Weekends after 5 PM"></textarea><div class="quick"><button class="btn sm primary" data-act="applyReply" data-id="${esc(l.id)}">Fill details from reply</button></div></div>`:''}
+    </div>
+    <div class="sec"><div class="sec-h"><h3>Interested projects</h3></div>
+      ${projs.length?`<div class="quick">${projs.map(p=>`<span class="chip acc">${esc(p.name)} <button class="iconbtn" style="padding:0" title="Remove" data-act="unproj" data-id="${esc(l.id)}" data-p="${esc(p.id)}">${I('<path d="M6 6l12 12M18 6L6 18"/>',12)}</button></span>`).join('')}</div>`:'<div class="hint">No project linked yet.</div>'}
+      ${vals(store.projects).length?`<select id="add-proj" data-chg="addProj" data-id="${esc(l.id)}" aria-label="Add project"><option value="">+ Add a project</option>${vals(store.projects).filter(p=>!(l.projects||[]).includes(p.id)).map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')}</select>`:''}
+      ${matches.length?`<div><div class="label" style="margin-bottom:6px">Good matches for this budget</div>${matches.map(({p})=>`<div class="quick" style="justify-content:space-between;padding:4px 0"><span><b>${esc(p.name)}</b> <span class="muted">${esc(p.location||'')} · ${esc(fmtL(p.priceFrom))}${p.priceTo?' – '+esc(fmtL(p.priceTo).replace('₹','')):''}</span></span><button class="btn sm" data-act="addProjBtn" data-id="${esc(l.id)}" data-p="${esc(p.id)}">Add</button></div>`).join('')}</div>`:''}
+    </div>
+    ${visits.length?`<div class="sec"><div class="sec-h"><h3>Site visits</h3></div><div class="rows" style="margin:0 -14px -12px">${visits.map(visitRow).join('')}</div></div>`:''}
+    <div class="sec"><div class="sec-h"><h3>Notes & history</h3></div>
+      <textarea id="note-${esc(l.id)}" placeholder="Write what you discussed. Example: Wants east facing, loan pre-approved, wife to visit on Sunday." data-inp="noteDraft" data-id="${esc(l.id)}">${esc(state.noteDraft[l.id]||'')}</textarea>
+      <div class="quick"><button class="btn sm primary" data-act="addNote" data-id="${esc(l.id)}">Save note</button></div>
+      <div class="tl">${(l.activity||[]).map(a=>`<div class="tl-i"><div class="tl-ic">${a.type==='call'?ic.phone:a.type==='whatsapp'?ic.wa:a.type==='stage'?ic.flag:a.type==='visit'?ic.clock:a.type==='enquiry'?ic.star:ic.note}</div><div style="min-width:0"><div class="tl-t">${esc(a.text)}</div><div class="tl-m">${esc(fmtDT(a.at))}${a.by&&memberName(a.by)?' · '+esc(memberName(a.by)):''}</div></div></div>`).join('')||'<div class="hint">Nothing logged yet.</div>'}</div>
+    </div>
+    <div class="quick" style="justify-content:flex-end"><button class="btn sm ghost danger" data-act="delLead" data-id="${esc(l.id)}">${ic.trash}Delete lead</button></div>
+  </div></aside>`;
+}
+const kv=(k,v)=>`<div><div class="label">${esc(k)}</div><div class="v">${v?esc(v):'<span class="faint">—</span>'}</div></div>`;
+
+/* ============ Visits ============ */
+function viewVisits(){
+  const all=vals(store.visits).filter(v=>store.leads[v.leadId]);
+  const n=now(); n.setHours(0,0,0,0);
+  const tab=state.visitTab;
+  let list=tab==='upcoming'?all.filter(v=>v.status==='scheduled').sort((a,b)=>a.at.localeCompare(b.at)):all.filter(v=>v.status!=='scheduled').sort((a,b)=>b.at.localeCompare(a.at));
+  const groups={}; list.forEach(v=>{const k=new Date(v.at).toDateString(); (groups[k]=groups[k]||[]).push(v)});
+  const done=all.filter(v=>v.status==='done').length, ns=all.filter(v=>v.status==='noshow').length;
+  return topBar('Site visits',`<button class="btn" data-act="newVisit">${ic.plus}Schedule visit</button>`)+`
+  <div class="filters"><div class="seg"><button data-act="vtab" data-v="upcoming" class="${tab==='upcoming'?'on':''}">Upcoming</button><button data-act="vtab" data-v="past" class="${tab==='past'?'on':''}">Done & missed</button></div>
+  <span class="muted" style="margin-left:auto">${done} done · ${ns} no-show${done+ns?` · ${Math.round(done/(done+ns)*100)}% showed up`:''}</span></div>
+  <section class="panel">${Object.keys(groups).length?Object.entries(groups).map(([k,vs])=>`<div class="day-h">${esc(new Date(k).toLocaleDateString('en-IN',{weekday:'long',day:'numeric',month:'long'}))}</div><div class="rows">${vs.map(visitRow).join('')}</div>`).join(''):`<div class="empty">${tab==='upcoming'?'No visits planned. Open a lead and press Visit to book one.':'No finished visits yet.'}</div>`}</section>`;
+}
+
+/* ============ Projects ============ */
+function viewProjects(){
+  const ps=vals(store.projects).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const L=vals(store.leads), V=vals(store.visits);
+  return topBar('Projects',`<button class="btn" data-act="editProject">${ic.plus}Add project</button>`)+(ps.length?`<div class="cards">${ps.map(p=>{
+    const interested=L.filter(l=>(l.projects||[]).includes(p.id)).length, visits=V.filter(v=>v.projectId===p.id&&v.status==='done').length, booked=L.filter(l=>(l.projects||[]).includes(p.id)&&l.stage==='booked').length;
+    return `<div class="pcard"><div class="quick" style="justify-content:space-between"><span class="chip ${p.status==='Ready to move'?'good':p.status==='Pre-launch'?'tape':'acc'}">${esc(p.status||'')}</span><button class="iconbtn" data-act="editProject" data-id="${esc(p.id)}" title="Edit">${ic.edit}</button></div>
+      <h2>${esc(p.name)}</h2><div class="muted">${esc([p.developer,p.location].filter(Boolean).join(' · '))}</div>
+      <div class="price">${esc(fmtL(p.priceFrom))}${p.priceTo?' – '+esc(fmtL(p.priceTo).replace('₹','')):''}</div>
+      <div class="muted" style="font-size:13px">${esc([p.type,p.configs,p.possession?'Possession '+p.possession:''].filter(Boolean).join(' · '))}</div>
+      ${p.rera?`<div class="hint mono">RERA ${esc(p.rera)}</div>`:''}
+      ${p.amenities?`<div class="hint">${esc(p.amenities)}</div>`:''}
+      ${p.link?`<a href="${esc(/^https?:\/\//.test(p.link)?p.link:'https://'+p.link)}" target="_blank" rel="noopener" style="font-size:13px">Brochure / site</a>`:''}
+      <div class="stats3"><div><div class="n">${interested}</div><div class="hint">Interested</div></div><div><div class="n">${visits}</div><div class="hint">Visited</div></div><div><div class="n">${booked}</div><div class="hint">Booked</div></div></div>
+      <button class="btn sm" data-act="projLeads" data-id="${esc(p.id)}">See leads</button></div>`}).join('')}</div>`:`<div class="panel"><div class="empty"><h2 style="margin-bottom:6px">No projects yet</h2>Add the projects you sell, with price range and BHK options. The CRM then suggests matching projects for every lead.<div style="margin-top:12px"><button class="btn primary" data-act="editProject">${ic.plus}Add project</button></div></div></div>`);
+}
+
+/* ============ Messages ============ */
+function viewMessages(){
+  const ts=vals(store.templates).sort((a,b)=>TPL_USES.indexOf(a.use)-TPL_USES.indexOf(b.use)||(a.name||'').localeCompare(b.name||''));
+  const ex={name:'Rahul Mehta',phone:'9800000000',budgetMin:80,budgetMax:100,location:'Whitefield',bhk:'3 BHK',projects:[],assignedTo:state.me};
+  return topBar('Messages',`<button class="btn" data-act="editTpl">${ic.plus}New template</button>`)+`
+  <p class="muted" style="max-width:70ch;margin:-4px 0 14px">Ready-made WhatsApp messages. When you press WhatsApp on a lead, pick one of these and the name, project and your number are filled in for you. Words in {{double brackets}} get replaced.</p>
+  ${ts.length?`<div class="cards">${ts.map(t=>`<div class="tpl"><div class="quick" style="justify-content:space-between"><span class="chip acc">${esc(t.use||'Other')}</span><span><button class="iconbtn" title="Edit" data-act="editTpl" data-id="${esc(t.id)}">${ic.edit}</button></span></div><h3>${esc(t.name)}</h3><pre>${esc(fillTpl(t.body,ex))}</pre></div>`).join('')}</div>`:`<div class="panel"><div class="empty"><h2 style="margin-bottom:6px">No message templates</h2>Start with the standard set: a welcome message that asks the client for their details, follow-up, visit reminder, thank-you after visit and birthday wishes.<div class="quick" style="justify-content:center;margin-top:12px"><button class="btn primary" data-act="defaultTpls">Add standard templates</button><button class="btn" data-act="editTpl">Write my own</button></div></div></div>`}`;
+}
+const DEFAULT_TPLS=[
+  {use:'Welcome',name:'Welcome + details form',body:`Hi {{name}},\n\nThank you for your interest in {{project}}! I'm {{agent}} from {{company}}.\n\nTo share the best options for you, please reply with these details:\n\nName-\nContact no.-\nEmail-\nBudget-\nDate of birth-\nPurpose of buying (self use / investment)-\nBest time slot for a Google Meet or phone call-\n\nThank you!\n{{agent}}\n{{agent_phone}}`},
+  {use:'Follow-up',name:'Gentle follow-up',body:`Hi {{name}}, this is {{agent}} from {{company}}. I tried calling you about {{project}}. When is a good time to talk for 5 minutes today?`},
+  {use:'Visit reminder',name:'Site visit reminder',body:`Hi {{name}}, a reminder of your site visit to {{project}} on {{visit_time}}. I'll be there to show you around. Location pin: (add link)\n\nCall me if anything changes: {{agent_phone}}\n– {{agent}}, {{company}}`},
+  {use:'After visit',name:'Thank you after visit',body:`Hi {{name}}, thank you for visiting {{project}} today! Did you like the {{bhk}} options? I can share the price sheet and floor plans, and help with home loan approval. – {{agent}}`},
+  {use:'Birthday',name:'Birthday wishes',body:`Happy birthday, {{name}}! 🎂 Wishing you a wonderful year ahead, and your dream home soon. – {{agent}}, {{company}}`},
+  {use:'Price / offer',name:'Price or offer update',body:`Hi {{name}}, good news: {{project}} has a limited-time offer this month. Shall I send the details and new price sheet? – {{agent}}`},
+];
+
+/* ============ Reports ============ */
+function viewReports(){
+  const days=state.reportDays, since=days?Date.now()-days*86400000:0;
+  const L=vals(store.leads).filter(l=>!since||new Date(l.createdAt).getTime()>=since);
+  const V=vals(store.visits).filter(v=>!since||new Date(v.at).getTime()>=since);
+  const total=L.length;
+  const reach=STAGES.map((s,i)=>({s,c:L.filter(l=>(l.maxStage??STAGE_IDX[l.stage]??0)>=i).length}));
+  const months=days?days/30:Math.max(1,(Date.now()-Math.min(...vals(store.leads).map(l=>new Date(l.createdAt).getTime()),Date.now()))/(30*86400000));
+  const spend=settings().spend||{};
+  const bySrc=sources().map(s=>{const ls=L.filter(l=>l.source===s); const sp=(+spend[s]||0)*months; const bk=ls.filter(l=>l.stage==='booked').length; return {s,n:ls.length,cont:ls.filter(l=>(l.maxStage??0)>=1).length,vis:ls.filter(l=>(l.maxStage??0)>=4).length,bk,sp,cpl:ls.length&&sp?sp/ls.length:null,cpb:bk&&sp?sp/bk:null}}).filter(r=>r.n||r.sp);
+  const maxN=Math.max(1,...bySrc.map(r=>r.n));
+  const team=teamList().map(m=>{const ls=L.filter(l=>l.assignedTo===m.id); const all=vals(store.leads).filter(l=>l.assignedTo===m.id); return {m,n:ls.length,cont:ls.filter(l=>(l.maxStage??0)>=1).length,vis:V.filter(v=>v.agent===m.id&&v.status==='done').length,bk:ls.filter(l=>l.stage==='booked').length,over:all.filter(l=>!['booked','lost'].includes(l.stage)&&fuState(l.nextFollowUp)==='over').length}});
+  const lost=L.filter(l=>l.stage==='lost'); const lr={}; lost.forEach(l=>{const k=l.lostReason||'No reason given'; lr[k]=(lr[k]||0)+1});
+  const lrMax=Math.max(1,...Object.values(lr));
+  const vDone=V.filter(v=>v.status==='done').length, vNs=V.filter(v=>v.status==='noshow').length;
+  const rs=`<div class="seg">${[[7,'7 days'],[30,'30 days'],[90,'90 days'],[0,'All time']].map(([d,l])=>`<button data-act="rdays" data-v="${d}" class="${days===d?'on':''}">${l}</button>`).join('')}</div>`;
+  const inr=n=>n==null?'—':'₹'+Math.round(n).toLocaleString('en-IN');
+  return topBar('Reports',rs)+`
+  <div class="kpis">
+    <div class="kpi"><div class="label">Leads in</div><div class="n">${total}</div></div>
+    <div class="kpi"><div class="label">Reached by phone</div><div class="n">${total?Math.round(reach[1].c/total*100):0}%</div></div>
+    <div class="kpi"><div class="label">Visits done</div><div class="n">${vDone}</div><div class="hint">${vDone+vNs?Math.round(vDone/(vDone+vNs)*100)+'% showed up':''}</div></div>
+    <div class="kpi"><div class="label">Bookings</div><div class="n">${reach[7].c}</div><div class="hint">${total?((reach[7].c/total)*100).toFixed(1)+'% of leads':''}</div></div>
+  </div>
+  <div class="grid2"><div class="stack">
+    <section class="panel"><div class="panel-h"><h2>Where leads drop off</h2><span class="muted">How many leads reached each stage</span></div><div class="panel-b funnel">
+      ${total?reach.map((r,i)=>{const prev=i?reach[i-1].c:r.c; return `<div class="fbar"><div>${esc(r.s.l)}</div><div class="track"><div class="fill ${r.s.k==='booked'?'booked':''}" style="width:${(r.c/total*100).toFixed(1)}%"></div></div><div class="num">${r.c}${i&&prev?` · ${Math.round(r.c/prev*100)}%`:''}</div></div>`}).join('')+`<div class="hint">The % on the right is how many moved on from the stage above.</div>`:'<div class="empty">No leads in this period.</div>'}</div></section>
+    <section class="panel"><div class="panel-h"><h2>Which source is worth the money</h2><span class="muted">Add monthly spend in Settings</span></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Source</th><th class="n">Leads</th><th></th><th class="n">Reached</th><th class="n">Visited</th><th class="n">Booked</th><th class="n">Spend</th><th class="n">Per lead</th><th class="n">Per booking</th></tr></thead><tbody>
+      ${bySrc.length?bySrc.sort((a,b)=>b.n-a.n).map(r=>`<tr><td>${esc(r.s)}</td><td class="n">${r.n}</td><td style="width:90px"><div class="hbar" style="width:${r.n/maxN*100}%"></div></td><td class="n">${r.n?Math.round(r.cont/r.n*100)+'%':'—'}</td><td class="n">${r.vis}</td><td class="n">${r.bk}</td><td class="n">${r.sp?inr(r.sp):'—'}</td><td class="n">${inr(r.cpl)}</td><td class="n">${inr(r.cpb)}</td></tr>`).join(''):'<tr><td colspan="9" class="muted">No leads in this period.</td></tr>'}</tbody></table></div></section>
+  </div><div class="stack">
+    <section class="panel"><div class="panel-h"><h2>Team</h2></div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>Name</th><th class="n">Leads</th><th class="n">Reached</th><th class="n">Visits</th><th class="n">Booked</th><th class="n">Overdue</th></tr></thead><tbody>
+      ${team.length?team.map(r=>`<tr><td>${esc(r.m.name)}</td><td class="n">${r.n}</td><td class="n">${r.n?Math.round(r.cont/r.n*100)+'%':'—'}</td><td class="n">${r.vis}</td><td class="n">${r.bk}</td><td class="n" style="color:${r.over?'var(--hot)':'inherit'}">${r.over}</td></tr>`).join(''):'<tr><td colspan="6" class="muted">Add your team in Settings.</td></tr>'}</tbody></table></div></section>
+    <section class="panel"><div class="panel-h"><h2>Why leads were lost</h2><span class="muted">${lost.length}</span></div><div class="panel-b funnel">
+      ${lost.length?Object.entries(lr).sort((a,b)=>b[1]-a[1]).map(([k,c])=>`<div class="fbar"><div>${esc(k)}</div><div class="track"><div class="fill" style="width:${c/lrMax*100}%;background:var(--hot);opacity:.7"></div></div><div class="num">${c}</div></div>`).join(''):'<div class="hint">No lost leads in this period.</div>'}</div></section>
+  </div></div>`;
+}
+
+/* ============ Settings ============ */
+function viewSettings(){
+  const s=settings(); const tm=vals(store.team).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  return topBar('Settings')+`<div class="grid2"><div class="stack">
+  <section class="panel"><div class="panel-h"><h2>Company</h2></div><div class="panel-b"><div class="form">
+    <div class="field"><label class="label" for="s-company">Company name</label><input type="text" id="s-company" value="${esc(s.company||'')}" placeholder="Doye Realty"></div>
+    <div class="field"><label class="label" for="s-phone">Office phone</label><input type="tel" id="s-phone" value="${esc(s.phone||'')}"></div>
+    <div class="field"><label class="label" for="s-appname">App name in sidebar</label><input type="text" id="s-appname" value="${esc(s.appName||'')}" placeholder="EstateDesk"></div>
+    <div class="field"><label class="label" for="s-rr">New leads</label><select id="s-rr"><option value="">Leave unassigned</option><option value="rr" ${s.autoAssign==='rr'?'selected':''}>Share evenly across the team</option></select></div>
+  </div><div class="quick" style="margin-top:12px"><button class="btn primary" data-act="saveCompany">Save</button></div></div></section>
+  <section class="panel"><div class="panel-h"><h2>Your team</h2><button class="btn sm" data-act="editMember">${ic.plus}Add person</button></div>
+    <div class="rows">${tm.length?tm.map(m=>`<div class="row callrow"><div><div class="name"><span class="chip acc">${esc(initials(m.name))}</span><span>${esc(m.name)}</span>${m.active===false?'<span class="chip">Inactive</span>':''}</div><div class="sub">${esc(m.role==='admin'?'Owner / admin':m.role==='manager'?'Manager':'Sales agent')}${m.phone?' · '+esc(fmtPhone(m.phone)):''} · ${vals(store.leads).filter(l=>l.assignedTo===m.id&&!['booked','lost'].includes(l.stage)).length} open leads</div></div><div><button class="iconbtn" data-act="editMember" data-id="${esc(m.id)}" title="Edit">${ic.edit}</button></div></div>`).join(''):'<div class="empty">Add yourself first, then your sales people. Each person picks their name under “You are” so their calls and notes are tracked.</div>'}</div>
+    <div class="panel-b hint" style="padding-top:10px">To let someone use this CRM, share this page with them and give them Editor access. Viewers can only look.</div></section>
+  </div><div class="stack">
+  <section class="panel"><div class="panel-h"><h2>Lead sources and spend</h2></div><div class="panel-b">
+    <div class="hint" style="margin-bottom:8px">Monthly money spent on each source. Reports use it to show cost per lead and per booking.</div>
+    <div class="tbl-wrap"><table class="tbl"><tbody>${sources().map((src,i)=>`<tr><td>${esc(src)}</td><td class="n"><input type="number" min="0" id="sp-${i}" data-src="${esc(src)}" value="${esc((s.spend||{})[src]??'')}" placeholder="₹ / month" aria-label="Monthly spend for ${esc(src)}"></td></tr>`).join('')}</tbody></table></div>
+    <div class="field" style="margin-top:10px"><label class="label" for="s-sources">Source list (one per line)</label><textarea id="s-sources" rows="5">${esc(sources().join('\n'))}</textarea></div>
+    <div class="quick" style="margin-top:10px"><button class="btn primary" data-act="saveSources">Save sources</button></div></div></section>
+  <section class="panel"><div class="panel-h"><h2>Data</h2></div><div class="panel-b stack" style="gap:10px">
+    <div class="quick"><button class="btn" data-act="import">${ic.up}Import leads</button><button class="btn" data-act="export">${ic.down}Export all leads</button></div>
+    ${hasSample()?`<div class="warn">Example data is loaded. Remove it before adding real leads so your reports stay correct. <div class="quick" style="margin-top:8px">${state.confirmClear?`<b>Delete all example leads, projects, visits and team members? Your message templates stay.</b><button class="btn sm danger" data-act="clearSample">Yes, delete</button><button class="btn sm" data-act="cancelClear">Keep</button>`:`<button class="btn sm" data-act="askClear">Remove example data</button>`}</div></div>`:''}
+    <div class="hint">${vals(store.leads).length} leads · ${vals(store.projects).length} projects · ${vals(store.visits).length} visits · ${MODE==='cloud'?'saved online and shared':'saved in this browser only'}</div>
+  </div></section></div></div>`;
+}
+
+/* ============ Modals ============ */
+function openModal(html,wide){document.getElementById('modal-root').innerHTML=`<div class="modal-wrap" data-act="modalBg"><div class="modal ${wide?'wide':''}" role="dialog" aria-modal="true">${html}</div></div>`; const f=document.querySelector('.modal input:not([type=hidden]),.modal textarea,.modal select'); if(f)setTimeout(()=>f.focus(),30)}
+function closeModal(){document.getElementById('modal-root').innerHTML=''}
+const mHead=t=>`<div class="m-h"><h2>${t}</h2><button class="iconbtn" data-act="closeModal" aria-label="Close">${ic.x}</button></div>`;
+const val=id=>{const e=document.getElementById(id); return e?e.value.trim():''};
+
+function leadForm(l={},isNew){
+  const opt=(arr,cur,ph)=>`<option value="">${ph||'—'}</option>`+arr.map(x=>`<option ${cur===x?'selected':''}>${esc(x)}</option>`).join('');
+  return `<div class="form">
+    <div class="field"><label class="label" for="lf-name">Name *</label><input type="text" id="lf-name" value="${esc(l.name||'')}" autocomplete="off"></div>
+    <div class="field"><label class="label" for="lf-phone">Mobile *</label><input type="tel" id="lf-phone" value="${esc(l.phone||'')}" data-inp="dupCheck" data-self="${esc(l.id||'')}" autocomplete="off"></div>
+    <div class="field full" id="dup-slot"></div>
+    <div class="field"><label class="label" for="lf-email">Email</label><input type="email" id="lf-email" value="${esc(l.email||'')}"></div>
+    <div class="field"><label class="label" for="lf-dob">Date of birth</label><input type="date" id="lf-dob" value="${esc(l.dob||'')}"></div>
+    <div class="field"><label class="label" for="lf-budget">Budget</label><input type="text" id="lf-budget" value="${esc(l.budgetMin||l.budgetMax?fmtBudget(l).replace('Up to ',''):'')}" placeholder="e.g. 60 L to 80 L, or 1.2 Cr" data-inp="budgetPrev"><span class="hint" id="budget-prev"></span></div>
+    <div class="field"><label class="label" for="lf-bhk">Looking for</label><select id="lf-bhk">${opt(BHKS,l.bhk)}</select></div>
+    <div class="field"><label class="label" for="lf-ptype">Property type</label><select id="lf-ptype">${opt(PTYPES,l.propertyType)}</select></div>
+    <div class="field"><label class="label" for="lf-loc">Preferred location</label><input type="text" id="lf-loc" value="${esc(l.location||'')}" placeholder="e.g. Whitefield, Sarjapur Road"></div>
+    <div class="field"><label class="label" for="lf-purpose">Purpose of buying</label><select id="lf-purpose">${opt(PURPOSES,l.purpose)}</select></div>
+    <div class="field"><label class="label" for="lf-slot">Best time for a call / Google Meet</label><input type="text" id="lf-slot" value="${esc(l.slot||'')}" placeholder="e.g. Weekdays after 6 PM"></div>
+    <div class="field full"><span class="label">Source</span><div class="pick" id="lf-source">${sources().map(s=>`<button type="button" data-act="pickSrc" data-v="${esc(s)}" class="${(l.source||'')===s?'on':''}">${esc(s)}</button>`).join('')}</div></div>
+    <div class="field"><label class="label" for="lf-proj">Project</label><select id="lf-proj"><option value="">—</option>${vals(store.projects).map(p=>`<option value="${esc(p.id)}" ${(l.projects||[])[0]===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></div>
+    <div class="field"><label class="label" for="lf-assign">Assign to</label><select id="lf-assign"><option value="">${isNew&&settings().autoAssign==='rr'?'Share evenly (automatic)':'Not assigned'}</option>${teamList().map(m=>`<option value="${esc(m.id)}" ${l.assignedTo===m.id?'selected':''}>${esc(m.name)}</option>`).join('')}</select></div>
+    <div class="field"><span class="label">Interest</span><div class="pick" id="lf-score">${['hot','warm','cold'].map(s=>`<button type="button" data-act="pickScore" data-v="${s}" class="${(l.score||'warm')===s?'on':''}">${s[0].toUpperCase()+s.slice(1)}</button>`).join('')}</div></div>
+    ${isNew?`<div class="field full"><label class="label" for="lf-note">First note</label><textarea id="lf-note" rows="2" placeholder="What did they ask about?"></textarea></div>`:''}
+  </div><div id="lf-err"></div>`;
+}
+function readLeadForm(){
+  const b=parseBudget(val('lf-budget'));
+  const src=document.querySelector('#lf-source button.on'), sc=document.querySelector('#lf-score button.on');
+  return {name:val('lf-name'),phone:val('lf-phone'),email:val('lf-email'),dob:val('lf-dob'),budgetMin:b?b.min:null,budgetMax:b?b.max:null,
+    bhk:val('lf-bhk'),propertyType:val('lf-ptype'),location:val('lf-loc'),purpose:val('lf-purpose'),slot:val('lf-slot'),
+    source:src?src.dataset.v:'',project:val('lf-proj'),assignedTo:val('lf-assign'),score:sc?sc.dataset.v:'warm',note:val('lf-note')};
+}
+function fillLeadForm(d){
+  const set=(id,v)=>{const e=document.getElementById(id); if(e&&v!=null&&v!=='')e.value=v};
+  set('lf-name',d.name); set('lf-phone',d.phone); set('lf-email',d.email); set('lf-dob',d.dob); set('lf-loc',d.location); set('lf-slot',d.slot);
+  if(d.budgetMax||d.budgetMin)set('lf-budget',fmtBudget(d).replace('Up to ',''));
+  if(d.bhk&&BHKS.includes(d.bhk))set('lf-bhk',d.bhk);
+  if(d.purpose&&PURPOSES.includes(d.purpose))set('lf-purpose',d.purpose);
+  if(d.source)document.querySelectorAll('#lf-source button').forEach(b=>b.classList.toggle('on',b.dataset.v===d.source));
+  dupCheck(); budgetPrev();
+}
+function addLeadModal(prefill){
+  openModal(mHead('Add lead')+`<div class="m-b">
+    <div class="tabs"><button data-act="alTab" data-v="form" class="on" id="al-t-form">Fill form</button><button data-act="alTab" data-v="paste" id="al-t-paste">Paste enquiry</button></div>
+    <div id="al-form">${leadForm(prefill||{},true)}</div>
+    <div id="al-paste" hidden><div class="field"><label class="label" for="paste-txt">Paste the enquiry text from 99acres, MagicBricks, email or WhatsApp</label>
+      <textarea id="paste-txt" rows="9" placeholder="A new lead has been received for Gaur City.&#10;Name: Kapil Sharma&#10;Phone: 9149209086&#10;Location: Greater Noida&#10;Source: 99acres"></textarea></div>
+      <button class="btn primary" data-act="parsePaste">Read details</button><div class="hint">Name, phone, email, budget, BHK, location and source are picked out for you. Check them before saving.</div></div>
+  </div><div class="m-f"><button class="btn" data-act="closeModal">Cancel</button><button class="btn primary" data-act="saveNewLead">Save lead</button></div>`,true);
+  budgetPrev();
+}
+function dupCheck(){
+  const e=document.getElementById('lf-phone'), slot=document.getElementById('dup-slot'); if(!e||!slot)return;
+  const ex=leadByPhone(e.value); const self=e.dataset.self;
+  slot.innerHTML=ex&&ex.id!==self?`<div class="warn">This number already belongs to <b>${esc(ex.name)}</b> (${esc(stageLabel(ex.stage))}${ex.assignedTo?', '+esc(memberName(ex.assignedTo)):''}). ${self?'':`Saving will add this enquiry to that lead instead of creating a copy.`} <a href="#" data-act="openFromModal" data-id="${esc(ex.id)}">Open it</a></div>`:'';
+}
+function budgetPrev(){const e=document.getElementById('budget-prev'); if(!e)return; const b=parseBudget(val('lf-budget')); e.textContent=b?'Saved as '+fmtBudget({budgetMin:b.min,budgetMax:b.max}):''}
+function saveNewLead(){
+  const d=readLeadForm(); const err=document.getElementById('lf-err');
+  if(!d.name||normPhone(d.phone).length<10){err.innerHTML='<div class="err">Add a name and a 10-digit mobile number.</div>';return}
+  const ex=leadByPhone(d.phone);
+  if(ex){upd('leads',ex.id,l=>{leadActivity(l,'enquiry',`New enquiry again${d.source?' from '+d.source:''}${d.note?': '+d.note:''}`); if(d.source&&!l.source)l.source=d.source; if(d.project&&!(l.projects||[]).includes(d.project))l.projects=[...(l.projects||[]),d.project]; if(l.score==='cold')l.score='warm'; ['email','dob','location','slot','purpose','bhk','propertyType'].forEach(k=>{if(d[k]&&!l[k])l[k]=d[k]}); if(!l.budgetMax&&d.budgetMax){l.budgetMax=d.budgetMax;l.budgetMin=d.budgetMin} if(l.stage==='lost'){l.stage='new'; leadActivity(l,'stage','Reopened after a new enquiry')} if(!l.nextFollowUp)l.nextFollowUp=new Date().toISOString()});
+    closeModal(); toast(`Added to ${ex.name}'s existing lead`); state.openLead=ex.id; scheduleRender(); return}
+  const t=new Date().toISOString();
+  const l={id:uid(),name:d.name,phone:normPhone(d.phone),email:d.email,dob:d.dob||'',budgetMin:d.budgetMin,budgetMax:d.budgetMax,bhk:d.bhk,propertyType:d.propertyType,location:d.location,purpose:d.purpose,slot:d.slot,
+    source:d.source||'Other',projects:d.project?[d.project]:[],assignedTo:d.assignedTo||(settings().autoAssign==='rr'?nextAssignee():''),score:d.score,stage:'new',maxStage:0,createdAt:t,nextFollowUp:t,activity:[]};
+  leadActivity(l,'created',`Lead added${l.source?' from '+l.source:''}${l.assignedTo?', assigned to '+memberName(l.assignedTo):''}`);
+  if(d.note)leadActivity(l,'note',d.note);
+  save('leads',l); closeModal(); toast('Lead saved'); state.openLead=l.id; scheduleRender();
+}
+function editLeadModal(id){
+  const l=store.leads[id]; if(!l)return;
+  openModal(mHead('Edit lead')+`<div class="m-b">${leadForm(l,false)}</div><div class="m-f"><button class="btn" data-act="closeModal">Cancel</button><button class="btn primary" data-act="saveEditLead" data-id="${esc(id)}">Save changes</button></div>`,true);
+  budgetPrev();
+}
+function saveEditLead(id){
+  const d=readLeadForm(); const err=document.getElementById('lf-err');
+  if(!d.name||normPhone(d.phone).length<10){err.innerHTML='<div class="err">Add a name and a 10-digit mobile number.</div>';return}
+  upd('leads',id,l=>{const before=l.assignedTo; Object.assign(l,{name:d.name,phone:normPhone(d.phone),email:d.email,dob:d.dob,budgetMin:d.budgetMin,budgetMax:d.budgetMax,bhk:d.bhk,propertyType:d.propertyType,location:d.location,purpose:d.purpose,slot:d.slot,source:d.source||l.source,score:d.score,assignedTo:d.assignedTo});
+    if(d.project&&!(l.projects||[]).includes(d.project))l.projects=[d.project,...(l.projects||[])];
+    if(before!==d.assignedTo)leadActivity(l,'note',d.assignedTo?'Assigned to '+memberName(d.assignedTo):'Unassigned')});
+  closeModal(); toast('Saved');
+}
+function logCallModal(id){
+  const l=store.leads[id]; if(!l)return;
+  openModal(mHead('Log a call with '+esc(l.name))+`<div class="m-b">
+    <div class="quick"><span class="mono" style="font-size:16px">${esc(fmtPhone(l.phone))}</span><a class="btn sm" href="tel:+${waNum(l.phone)}">${ic.phone}Call now</a></div>
+    <div class="field"><span class="label">What happened?</span><div class="pick" id="lc-out">${OUTCOMES.map((o,i)=>`<button type="button" data-act="pickOut" data-v="${o.k}" class="${i===0?'on':''}">${esc(o.l)}</button>`).join('')}</div></div>
+    <div class="field"><label class="label" for="lc-note">Notes</label><textarea id="lc-note" rows="3" placeholder="Budget, BHK, family, loan, objections…"></textarea></div>
+    <div class="form"><div class="field"><label class="label" for="lc-fu">Next follow-up</label><input type="datetime-local" id="lc-fu" value="${esc(toLocalInput(addHours(24)))}"></div>
+    <div class="field" id="lc-lost-f" hidden><label class="label" for="lc-lost">Reason</label><select id="lc-lost">${LOST_REASONS.map(r=>`<option>${esc(r)}</option>`).join('')}</select></div></div>
+  </div><div class="m-f"><button class="btn" data-act="closeModal">Cancel</button><button class="btn primary" data-act="saveCall" data-id="${esc(id)}">Save call</button></div>`);
+}
+function saveCall(id){
+  const ob=document.querySelector('#lc-out button.on'); const o=OUTCOMES.find(x=>x.k===(ob&&ob.dataset.v))||OUTCOMES[0];
+  const note=val('lc-note'), fu=fromLocalInput(val('lc-fu'));
+  upd('leads',id,l=>{
+    l.callAttempts=(l.callAttempts||0)+1;
+    leadActivity(l,'call',`Call: ${o.l}${note?'\n'+note:''}`);
+    const connected=['interested','callback','notint'].includes(o.k);
+    if(connected&&l.stage==='new')setStageOn(l,'contacted');
+    if(o.k==='interested'&&(STAGE_IDX[l.stage]??0)<2)setStageOn(l,'qualified');
+    if(o.k==='notint'||o.k==='wrong'){setStageOn(l,'lost'); l.lostReason=o.k==='wrong'?'Wrong number':(val('lc-lost')||'Not interested'); l.nextFollowUp=null}
+    else l.nextFollowUp=fu;
+    if(o.k==='interested'&&l.score==='cold')l.score='warm';
+  });
+  closeModal(); toast('Call logged');
+}
+function waModal(id,use){
+  const l=store.leads[id]; if(!l)return;
+  const ts=vals(store.templates).sort((a,b)=>TPL_USES.indexOf(a.use)-TPL_USES.indexOf(b.use));
+  const first=(use&&ts.find(t=>t.use===use))||ts.find(t=>t.use===(l.stage==='new'?'Welcome':'Follow-up'))||ts[0];
+  openModal(mHead('WhatsApp '+esc(l.name))+`<div class="m-b">
+    ${ts.length?`<div class="field"><label class="label" for="wa-tpl">Template</label><select id="wa-tpl" data-chg="waTpl" data-id="${esc(id)}">${ts.map(t=>`<option value="${esc(t.id)}" ${first&&first.id===t.id?'selected':''}>${esc(t.use)}: ${esc(t.name)}</option>`).join('')}<option value="">Blank message</option></select></div>`:`<div class="hint">No templates yet. <a href="#" data-act="navClose" data-v="messages">Add the standard set</a> to send messages in one tap.</div>`}
+    <div class="field"><label class="label" for="wa-text">Message (you can edit it)</label><textarea id="wa-text" rows="10">${esc(first?fillTpl(first.body,l):'Hi '+(l.name||'').split(' ')[0]+', ')}</textarea></div>
+    <div class="hint">WhatsApp opens with this message ready. You press send there.</div>
+  </div><div class="m-f"><button class="btn" data-act="closeModal">Cancel</button><button class="btn" data-act="copyWa">${ic.copy}Copy text</button><a class="btn wa" id="wa-go" href="${esc(waHref(l.phone,first?fillTpl(first.body,l):''))}" target="_blank" rel="noopener" data-act="waSent" data-id="${esc(id)}">${ic.wa}Open WhatsApp</a></div>`);
+}
+function visitModal(leadId,visitId){
+  const v=visitId?store.visits[visitId]:null; const lid=v?v.leadId:leadId; const l=lid&&store.leads[lid];
+  const d=new Date(); d.setDate(d.getDate()+1); d.setHours(11,0,0,0);
+  const leads=vals(store.leads).filter(x=>!['booked','lost'].includes(x.stage)).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  openModal(mHead(v?'Edit site visit':'Schedule site visit')+`<div class="m-b"><div class="form">
+    <div class="field full"><label class="label" for="vf-lead">Lead</label>${l?`<input type="text" value="${esc(l.name+' · '+fmtPhone(l.phone))}" disabled><input type="hidden" id="vf-lead" value="${esc(l.id)}">`:`<select id="vf-lead"><option value="">Choose lead</option>${leads.map(x=>`<option value="${esc(x.id)}">${esc(x.name)} · ${esc(fmtPhone(x.phone))}</option>`).join('')}</select>`}</div>
+    <div class="field"><label class="label" for="vf-proj">Project</label><select id="vf-proj"><option value="">—</option>${vals(store.projects).map(p=>`<option value="${esc(p.id)}" ${(v?v.projectId:(l&&(l.projects||[])[0]))===p.id?'selected':''}>${esc(p.name)}</option>`).join('')}</select></div>
+    <div class="field"><label class="label" for="vf-at">Date and time</label><input type="datetime-local" id="vf-at" value="${esc(toLocalInput(v?v.at:d.toISOString()))}"></div>
+    <div class="field"><label class="label" for="vf-agent">Who will meet them</label><select id="vf-agent"><option value="">—</option>${teamList().map(m=>`<option value="${esc(m.id)}" ${(v?v.agent:(l&&l.assignedTo)||state.me)===m.id?'selected':''}>${esc(m.name)}</option>`).join('')}</select></div>
+    ${v?`<div class="field"><label class="label" for="vf-status">Status</label><select id="vf-status">${[['scheduled','Scheduled'],['done','Done'],['noshow','Did not come'],['cancelled','Cancelled']].map(([k,t])=>`<option value="${k}" ${v.status===k?'selected':''}>${t}</option>`).join('')}</select></div>
+    <div class="field full"><label class="label" for="vf-fb">Feedback</label><textarea id="vf-fb" rows="2">${esc(v.feedback||'')}</textarea></div>`:''}
+  </div><div id="vf-err"></div></div><div class="m-f">${v?`<button class="btn ghost danger" data-act="delVisit" data-id="${esc(v.id)}" style="margin-right:auto">Delete</button>`:''}<button class="btn" data-act="closeModal">Cancel</button><button class="btn primary" data-act="saveVisit" data-id="${esc(v?v.id:'')}">${v?'Save':'Schedule'}</button></div>`);
+}
+function saveVisit(vid){
+  const leadId=val('vf-lead'), at=fromLocalInput(val('vf-at'));
+  if(!leadId||!at){document.getElementById('vf-err').innerHTML='<div class="err">Choose the lead and a date and time.</div>';return}
+  const projectId=val('vf-proj'), agent=val('vf-agent');
+  if(vid){upd('visits',vid,v=>{v.projectId=projectId;v.at=at;v.agent=agent;v.status=val('vf-status')||v.status;v.feedback=val('vf-fb')}); closeModal(); toast('Visit updated'); return}
+  const v={id:uid(),leadId,projectId,at,agent,status:'scheduled',feedback:'',createdAt:new Date().toISOString()};
+  save('visits',v);
+  upd('leads',leadId,l=>{if((STAGE_IDX[l.stage]??0)<3||l.stage==='lost')setStageOn(l,'visit'); if(projectId&&!(l.projects||[]).includes(projectId))l.projects=[...(l.projects||[]),projectId];
+    leadActivity(l,'visit',`Site visit booked: ${(store.projects[projectId]||{}).name||'project'} on ${fmtDT(at)}`); const day=new Date(at); day.setHours(day.getHours()-20); if(day>new Date())l.nextFollowUp=day.toISOString()});
+  closeModal(); toast('Visit scheduled. A reminder call is set for the day before.');
+}
+function visitDoneModal(vid){
+  const v=store.visits[vid]; if(!v)return; const l=store.leads[v.leadId]||{};
+  openModal(mHead('How did the visit go?')+`<div class="m-b"><div class="muted">${esc(l.name)} · ${esc((store.projects[v.projectId]||{}).name||'')}</div>
+    <div class="field"><span class="label">Result</span><div class="pick" id="vd-res"><button type="button" class="on" data-act="pickRes" data-v="done">Came and saw the site</button><button type="button" data-act="pickRes" data-v="noshow">Did not come</button></div></div>
+    <div class="field"><span class="label">Interest after visit</span><div class="pick" id="vd-int">${['hot','warm','cold'].map(s=>`<button type="button" data-act="pickScore2" data-v="${s}" class="${s==='warm'?'on':''}">${s[0].toUpperCase()+s.slice(1)}</button>`).join('')}</div></div>
+    <div class="field"><label class="label" for="vd-fb">What did they say?</label><textarea id="vd-fb" rows="3" placeholder="Liked the 3 BHK on higher floor, wants a discount on parking…"></textarea></div>
+    <div class="field"><label class="label" for="vd-fu">Next follow-up</label><input type="datetime-local" id="vd-fu" value="${esc(toLocalInput(tomorrowAt(11)))}"></div>
+  </div><div class="m-f"><button class="btn" data-act="closeModal">Cancel</button><button class="btn primary" data-act="saveVisitDone" data-id="${esc(vid)}">Save</button></div>`);
+}
+function saveVisitDone(vid){
+  const res=(document.querySelector('#vd-res button.on')||{}).dataset.v||'done', sc=(document.querySelector('#vd-int button.on')||{}).dataset.v||'warm', fb=val('vd-fb'), fu=fromLocalInput(val('vd-fu'));
+  const v=store.visits[vid]; if(!v)return;
+  upd('visits',vid,x=>{x.status=res;x.feedback=fb;x.interest=sc});
+  upd('leads',v.leadId,l=>{if(res==='done'){if((STAGE_IDX[l.stage]??0)<4)setStageOn(l,'visited'); l.score=sc} leadActivity(l,'visit',(res==='done'?'Visited ':'Did not come for visit to ')+((store.projects[v.projectId]||{}).name||'the site')+(fb?'\n'+fb:'')); l.nextFollowUp=fu});
+  closeModal(); toast('Visit updated');
+}
+function lostModal(id){
+  openModal(mHead('Mark as lost')+`<div class="m-b"><div class="field"><span class="label">Why was this lead lost?</span><div class="pick" id="lost-r">${LOST_REASONS.map((r,i)=>`<button type="button" data-act="pickLost" data-v="${esc(r)}" class="${i===0?'on':''}">${esc(r)}</button>`).join('')}</div></div>
+  <div class="field"><label class="label" for="lost-note">Note</label><textarea id="lost-note" rows="2"></textarea></div><div class="hint">Lost reasons show up in Reports, so you can see which problem costs the most deals.</div></div>
+  <div class="m-f"><button class="btn" data-act="closeModal">Cancel</button><button class="btn primary" data-act="saveLost" data-id="${esc(id)}">Mark lost</button></div>`);
+}
+function projectModal(id){
+  const p=id?store.projects[id]:{};
+  const f=(k,l,ph='',type='text')=>`<div class="field"><label class="label" for="pf-${k}">${l}</label><input type="${type}" id="pf-${k}" value="${esc(p[k]??'')}" placeholder="${esc(ph)}"></div>`;
+  openModal(mHead(id?'Edit project':'Add project')+`<div class="m-b"><div class="form">
+    ${f('name','Project name *','e.g. Lakeview Heights')}${f('developer','Developer / builder')}
+    ${f('location','Location','e.g. Hennur Road, Bengaluru')}${f('rera','RERA number')}
+    <div class="field"><label class="label" for="pf-type">Type</label><select id="pf-type">${PTYPES.map(t=>`<option ${p.type===t?'selected':''}>${t}</option>`).join('')}</select></div>
+    ${f('configs','Unit options','e.g. 2, 3 BHK')}
+    ${f('priceFrom','Price from (₹ lakh) *','65','number')}${f('priceTo','Price up to (₹ lakh)','140','number')}
+    <div class="field"><label class="label" for="pf-status">Status</label><select id="pf-status">${['Pre-launch','Under construction','Ready to move','Sold out'].map(t=>`<option ${p.status===t?'selected':''}>${t}</option>`).join('')}</select></div>
+    ${f('possession','Possession','e.g. Dec 2027')}
+    <div class="field full"><label class="label" for="pf-amenities">Highlights</label><input type="text" id="pf-amenities" value="${esc(p.amenities||'')}" placeholder="Clubhouse, 4 km from metro, 70% open space"></div>
+    ${f('link','Brochure or website link')}
+  </div><div id="pf-err"></div></div><div class="m-f">${id?`<button class="btn ghost danger" data-act="delProject" data-id="${esc(id)}" style="margin-right:auto">Delete</button>`:''}<button class="btn" data-act="closeModal">Cancel</button><button class="btn primary" data-act="saveProject" data-id="${esc(id||'')}">Save project</button></div>`,true);
+}
+function tplModal(id){
+  const t=id?store.templates[id]:{use:'Follow-up',name:'',body:''};
+  const ex=vals(store.leads)[0]||{name:'Rahul Mehta',phone:'9800000000'};
+  openModal(mHead(id?'Edit template':'New template')+`<div class="m-b"><div class="form">
+    <div class="field"><label class="label" for="tf-name">Name</label><input type="text" id="tf-name" value="${esc(t.name||'')}"></div>
+    <div class="field"><label class="label" for="tf-use">Used for</label><select id="tf-use">${TPL_USES.map(u=>`<option ${t.use===u?'selected':''}>${u}</option>`).join('')}</select></div>
+    <div class="field full"><label class="label" for="tf-body">Message</label><textarea id="tf-body" rows="10" data-inp="tplPrev">${esc(t.body||'')}</textarea>
+      <div class="vars">${VARS.map(v=>`<button type="button" data-act="insVar" data-v="${v}">{{${v}}}</button>`).join('')}</div></div>
+    <div class="field full"><span class="label">Preview${ex.name?' for '+esc(ex.name):''}</span><div class="bubble" id="tf-prev">${esc(fillTpl(t.body,ex))}</div></div>
+  </div></div><div class="m-f">${id?`<button class="btn ghost danger" data-act="delTpl" data-id="${esc(id)}" style="margin-right:auto">Delete</button>`:''}<button class="btn" data-act="closeModal">Cancel</button><button class="btn primary" data-act="saveTpl" data-id="${esc(id||'')}">Save template</button></div>`,true);
+}
+function memberModal(id){
+  const m=id?store.team[id]:{role:'agent',active:true};
+  openModal(mHead(id?'Edit team member':'Add team member')+`<div class="m-b"><div class="form">
+    <div class="field"><label class="label" for="mf-name">Name *</label><input type="text" id="mf-name" value="${esc(m.name||'')}"></div>
+    <div class="field"><label class="label" for="mf-phone">Mobile</label><input type="tel" id="mf-phone" value="${esc(m.phone||'')}"></div>
+    <div class="field"><label class="label" for="mf-role">Role</label><select id="mf-role">${[['admin','Owner / admin'],['manager','Manager'],['agent','Sales agent']].map(([k,l])=>`<option value="${k}" ${m.role===k?'selected':''}>${l}</option>`).join('')}</select></div>
+    <div class="field"><label class="label" for="mf-active">Status</label><select id="mf-active"><option value="1">Active</option><option value="0" ${m.active===false?'selected':''}>Inactive (left the team)</option></select></div>
+  </div><div id="mf-err"></div></div><div class="m-f">${id?`<button class="btn ghost danger" data-act="delMember" data-id="${esc(id)}" style="margin-right:auto">Remove</button>`:''}<button class="btn" data-act="closeModal">Cancel</button><button class="btn primary" data-act="saveMember" data-id="${esc(id||'')}">Save</button></div>`);
+}
+
+/* ============ Import / export ============ */
+let IMPORT=null;
+const HMAP={name:['name','customer name','customer_name','full name','client','client name','lead name','buyer name'],phone:['phone','mobile','mobile no','mobile_no','mobile number','contact','contact no','contact number','phone number','number','whatsapp','whatsapp number','cell'],email:['email','email id','e-mail','mail','email address'],budget:['budget','price','budget range'],location:['location','city','area','locality','preferred location'],bhk:['bhk','configuration','config','unit','unit type'],source:['source','lead source','platform'],notes:['notes','note','remarks','comment','comments','requirement','message'],dob:['dob','date of birth','birthday']};
+function importModal(){
+  IMPORT=null;
+  openModal(mHead('Import leads')+`<div class="m-b">
+    <div class="hint">Upload an Excel (.xlsx) or CSV file, or paste rows copied from Excel or Google Sheets. The first row must have column names like Name, Mobile, Email, Budget, Location, Source.</div>
+    <input type="file" id="imp-file" accept=".csv,.xlsx,.xls,.txt" data-chg="impFile">
+    <div class="field"><label class="label" for="imp-paste">Or paste rows here</label><textarea id="imp-paste" rows="5" placeholder="Name	Mobile	Budget	Location&#10;Rahul Mehta	9876543210	80 L	Whitefield"></textarea><div class="quick"><button class="btn sm" data-act="impPaste">Read pasted rows</button></div></div>
+    <div id="imp-prev"></div>
+  </div><div class="m-f"><button class="btn" data-act="closeModal">Cancel</button><button class="btn primary" data-act="impGo" id="imp-go" disabled>Import</button></div>`,true);
+}
+function parseCSV(text){const rows=[];let row=[],f='',q=false; const delim=(text.split('\n')[0].match(/\t/g)||[]).length>(text.split('\n')[0].match(/,/g)||[]).length?'\t':',';
+  for(let i=0;i<text.length;i++){const c=text[i]; if(q){if(c==='"'){if(text[i+1]==='"'){f+='"';i++}else q=false}else f+=c}else{if(c==='"')q=true; else if(c===delim){row.push(f);f=''} else if(c==='\n'){row.push(f);rows.push(row);row=[];f=''} else if(c!=='\r')f+=c}}
+  if(f||row.length){row.push(f);rows.push(row)} return rows.filter(r=>r.some(x=>String(x).trim()))}
+function loadXLSX(){return new Promise((res,rej)=>{if(window.XLSX)return res(window.XLSX); const s=document.createElement('script'); s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'; s.onload=()=>res(window.XLSX); s.onerror=()=>rej(); document.head.appendChild(s)})}
+async function readImportFile(file){
+  try{
+    let rows;
+    if(/\.xlsx?$/i.test(file.name)){const X=await loadXLSX(); const wb=X.read(await file.arrayBuffer(),{type:'array'}); rows=X.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,raw:false,defval:''})}
+    else rows=parseCSV(await file.text());
+    prepImport(rows);
+  }catch(e){document.getElementById('imp-prev').innerHTML='<div class="err">Could not read that file. Save it as .xlsx or .csv and try again.</div>'}
+}
+function prepImport(rows){
+  const box=document.getElementById('imp-prev'); if(!rows||rows.length<2){box.innerHTML='<div class="err">Need a header row and at least one lead.</div>';return}
+  const hdr=rows[0].map(h=>String(h).toLowerCase().replace(/[_.]/g,' ').replace(/\s+/g,' ').trim());
+  const map={}; Object.entries(HMAP).forEach(([k,names])=>{const i=hdr.findIndex(h=>names.includes(h)); if(i>=0)map[k]=i});
+  if(map.name==null||map.phone==null){box.innerHTML=`<div class="err">Could not find a Name column and a Mobile column. Columns found: ${esc(rows[0].join(', '))}</div>`;return}
+  const seen=new Set(); const items=[]; let dupFile=0,dupDb=0,bad=0;
+  rows.slice(1).forEach(r=>{const g=k=>map[k]!=null?String(r[map[k]]||'').trim():''; const ph=normPhone(g('phone')); if(ph.length<10||!g('name')){bad++;return} if(seen.has(ph)){dupFile++;return} seen.add(ph); const ex=leadByPhone(ph); if(ex)dupDb++;
+    const b=parseBudget(g('budget')); const bk=(g('bhk').match(/(\d)/)||[])[1];
+    items.push({ex:ex&&ex.id,name:g('name'),phone:ph,email:g('email'),location:g('location'),source:g('source'),notes:g('notes'),budgetMin:b?b.min:null,budgetMax:b?b.max:null,bhk:bk?(+bk>=5?'5+':bk)+' BHK':'',dob:parseDate(g('dob'))||''})});
+  IMPORT=items;
+  box.innerHTML=`<div class="sec"><div><b>${items.length-dupDb}</b> new leads ready. ${dupDb?`<b>${dupDb}</b> already in your CRM (they get a note, not a copy). `:''}${dupFile?`${dupFile} repeated rows skipped. `:''}${bad?`${bad} rows skipped for a missing name or mobile.`:''}</div>
+    <div class="form"><div class="field"><label class="label" for="imp-src">Source for rows without one</label><select id="imp-src">${sources().map(s=>`<option ${s==='Bulk call'?'':''}>${esc(s)}</option>`).join('')}</select></div>
+    <div class="field"><label class="label" for="imp-asg">Assign to</label><select id="imp-asg"><option value="">Not assigned</option><option value="rr">Share evenly across the team</option>${teamList().map(m=>`<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('')}</select></div>
+    <div class="field"><label class="label" for="imp-proj">Project</label><select id="imp-proj"><option value="">—</option>${vals(store.projects).map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')}</select></div></div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>Name</th><th>Mobile</th><th>Budget</th><th>Location</th><th></th></tr></thead><tbody>${items.slice(0,6).map(i=>`<tr><td>${esc(i.name)}</td><td class="mono">${esc(fmtPhone(i.phone))}</td><td>${esc(fmtBudget(i))}</td><td>${esc(i.location)}</td><td>${i.ex?'<span class="chip tape">Already exists</span>':''}</td></tr>`).join('')}</tbody></table></div>${items.length>6?`<div class="hint">and ${items.length-6} more</div>`:''}</div>`;
+  document.getElementById('imp-go').disabled=!items.length;
+}
+async function runImport(){
+  if(!IMPORT||!guardWrite())return;
+  const src=val('imp-src'), asg=val('imp-asg'), proj=val('imp-proj'); const btn=document.getElementById('imp-go'); btn.disabled=true;
+  let n=0,m=0; const t=Date.now();
+  for(const [i,it] of IMPORT.entries()){
+    if(it.ex){upd('leads',it.ex,l=>leadActivity(l,'enquiry',`Came again in an imported list${it.source||src?' ('+(it.source||src)+')':''}${it.notes?': '+it.notes:''}`)); m++; continue}
+    const l={id:uid(),name:it.name,phone:it.phone,email:it.email,dob:it.dob,budgetMin:it.budgetMin,budgetMax:it.budgetMax,bhk:it.bhk,location:it.location,source:it.source||src||'Other',projects:proj?[proj]:[],
+      assignedTo:asg==='rr'?nextAssignee():asg,score:'warm',stage:'new',maxStage:0,createdAt:new Date(t+i).toISOString(),nextFollowUp:new Date(t).toISOString(),activity:[]};
+    store.leads[l.id]=l; leadActivity(l,'created','Imported from a list'); if(it.notes)leadActivity(l,'note',it.notes);
+    const ok=await save('leads',l); if(ok===false)break; n++;
+    if(n%10===0){btn.textContent=`Importing ${n}…`; await new Promise(r=>setTimeout(r,60))}
+  }
+  closeModal(); toast(`Imported ${n} new leads${m?`, updated ${m} existing`:''}`);
+}
+async function exportLeads(){
+  const cols=['Name','Mobile','Email','Stage','Interest','Source','Budget','Looking for','Location','Purpose','Best time','Date of birth','Assigned to','Next follow-up','Projects','Created','Last note'];
+  const q=v=>{v=String(v??''); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
+  const rows=vals(store.leads).map(l=>[l.name,l.phone,l.email,stageLabel(l.stage),l.score,l.source,fmtBudget(l),l.bhk,l.location,l.purpose,l.slot,l.dob,memberName(l.assignedTo),l.nextFollowUp?fmtDT(l.nextFollowUp):'',(l.projects||[]).map(id=>(store.projects[id]||{}).name).filter(Boolean).join('; '),fmtDT(l.createdAt),((l.activity||[]).find(a=>a.type==='note'||a.type==='call')||{}).text||'']);
+  const csv='﻿'+[cols,...rows].map(r=>r.map(q).join(',')).join('\n');
+  if(!DL){openModal(mHead('Export leads')+`<div class="m-b"><div class="hint">Downloads are not available here. Copy this and paste it into Excel or Google Sheets.</div><textarea id="exp-txt" rows="12">${esc(csv)}</textarea></div><div class="m-f"><button class="btn primary" data-act="copyExp">Copy</button></div>`,true);return}
+  try{await DL.save({filename:`leads-${new Date().toISOString().slice(0,10)}.csv`,data:csv})}catch(e){if(e&&e.code!=='declined')toast('Could not create the file. Try again in a moment.')}
+}
+
+/* ============ AI update from notes ============ */
+function aiModal(id){
+  const l=store.leads[id]; if(!l||!SAMPLE)return;
+  openModal(mHead('Update from call notes')+`<div class="m-b"><div class="hint">Paste your rough notes or a call transcript (Hindi or English). Claude reads it and suggests updates to budget, BHK, location, stage and the next follow-up. You check before anything is saved.</div>
+  <textarea id="ai-txt" rows="8" placeholder="baat hui, 2 bhk chahiye panvel ke paas, budget 60-70 lakh, loan approved hai, sunday ko site visit pe aayenge wife ke saath"></textarea>
+  <div id="ai-out"></div></div><div class="m-f"><button class="btn" data-act="closeModal">Cancel</button><button class="btn primary" data-act="aiRun" data-id="${esc(id)}" id="ai-run">${ic.spark}Read notes</button></div>`);
+}
+async function aiRun(id){
+  const l=store.leads[id], txt=val('ai-txt'), out=document.getElementById('ai-out'), btn=document.getElementById('ai-run');
+  if(!txt){out.innerHTML='<div class="err">Paste some notes first.</div>';return}
+  btn.disabled=true; out.innerHTML='<div class="hint">Reading the notes…</div>';
+  const prompt=`You update a real-estate CRM lead in India from a salesperson's call notes (may be Hindi, Hinglish or English).
+Current lead: ${JSON.stringify({name:l.name,budget:fmtBudget(l),bhk:l.bhk,location:l.location,purpose:l.purpose,stage:l.stage,score:l.score})}
+Today is ${new Date().toString()}.
+Notes:
+"""${txt}"""
+Return ONLY a JSON object with any of these keys you can fill from the notes (omit keys not mentioned):
+budgetMinLakh (number), budgetMaxLakh (number), bhk (one of ${JSON.stringify(BHKS)}), location (string), purpose ("Self use"|"Investment"|"Both"),
+stage (one of ${JSON.stringify(STAGES.map(s=>s.k).concat('lost'))}), score ("hot"|"warm"|"cold"), nextFollowUpISO (ISO 8601 datetime in the user's local time if a callback or visit time is mentioned), summary (one short English sentence for the notes log).`;
+  try{
+    const r=await SAMPLE.json(prompt,{modelTier:'quick'});
+    const ch={};
+    if(r.budgetMinLakh||r.budgetMaxLakh){ch.budgetMin=r.budgetMinLakh||null; ch.budgetMax=r.budgetMaxLakh||r.budgetMinLakh}
+    ['bhk','location','purpose','score'].forEach(k=>{if(r[k])ch[k]=r[k]});
+    if(r.stage&&(STAGE_IDX[r.stage]!=null||r.stage==='lost'))ch.stage=r.stage;
+    if(r.nextFollowUpISO&&!isNaN(new Date(r.nextFollowUpISO)))ch.nextFollowUp=new Date(r.nextFollowUpISO).toISOString();
+    window.__ai={id,ch,summary:r.summary||'',raw:txt};
+    const rowsH=[ch.budgetMax!=null?['Budget',fmtBudget(ch)]:null,ch.bhk?['Looking for',ch.bhk]:null,ch.location?['Location',ch.location]:null,ch.purpose?['Purpose',ch.purpose]:null,ch.stage?['Stage',stageLabel(ch.stage)]:null,ch.score?['Interest',ch.score]:null,ch.nextFollowUp?['Next follow-up',fmtDT(ch.nextFollowUp)]:null].filter(Boolean);
+    out.innerHTML=`<div class="sec"><h3>Suggested updates</h3>${rowsH.length?`<div class="kv">${rowsH.map(([k,v])=>kv(k,v)).join('')}</div>`:'<div class="hint">No field changes found.</div>'}${r.summary?`<div class="hint">Note: ${esc(r.summary)}</div>`:''}<div class="quick"><button class="btn primary sm" data-act="aiApply">Apply these</button></div></div>`;
+  }catch(e){out.innerHTML=`<div class="err">${e&&e.code==='not_granted'?'Claude was not allowed to read the notes. You can still fill the details by hand.':'Could not read the notes right now. Try again in a minute.'}</div>`}
+  btn.disabled=false;
+}
+
+/* ============ Toast ============ */
+let tt=0;
+function toast(msg){const r=document.getElementById('toast-root'); r.innerHTML=`<div class="toast" role="status">${esc(msg)}</div>`; clearTimeout(tt); tt=setTimeout(()=>r.innerHTML='',3200)}
+function copyText(t){const done=()=>toast('Copied'); try{navigator.clipboard.writeText(t).then(done,()=>toast('Select the text and copy it'))}catch(e){toast('Select the text and copy it')}}
+
+/* ============ Events ============ */
+const A={
+  nav:d=>{state.view=d.v;state.more=false;state.openLead=null;state.limit=80;window.scrollTo(0,0);render()},
+  navClose:d=>{closeModal();A.nav(d)},
+  more:()=>{state.more=!state.more;renderSide()},
+  scope:d=>{state.scope=d.v;render()},
+  goFilter:d=>{state.f={stage:d.stage||'',score:'',source:'',assignee:state.scope==='mine'&&state.me?state.me:'',project:'',fu:d.fu||''}; state.q=''; state.view='leads'; state.leadsMode='list'; render()},
+  clearF:()=>{state.f={stage:'',score:'',source:'',assignee:'',project:'',fu:''};state.q='';render()},
+  mode:d=>{state.leadsMode=d.v;render()},
+  ftog:()=>{state.showF=!state.showF;render()},
+  moreRows:()=>{state.limit+=80;render()},
+  open:(d,el,e)=>{if(e.target.closest('a,button')&&e.target.closest('a,button')!==el)return; e.preventDefault(); state.openLead=d.id; state.replyOpen=false; render(); const dr=document.querySelector('.drawer'); if(dr)dr.scrollTop=0},
+  openFromModal:(d,el,e)=>{e.preventDefault();closeModal();state.openLead=d.id;render()},
+  closeLead:()=>{state.openLead=null;render()},
+  addLead:()=>addLeadModal(),
+  editLead:d=>editLeadModal(d.id),
+  saveNewLead:()=>saveNewLead(),
+  saveEditLead:d=>saveEditLead(d.id),
+  alTab:d=>{document.getElementById('al-form').hidden=d.v!=='form';document.getElementById('al-paste').hidden=d.v!=='paste';document.getElementById('al-t-form').classList.toggle('on',d.v==='form');document.getElementById('al-t-paste').classList.toggle('on',d.v==='paste')},
+  parsePaste:()=>{const p=parseEnquiry(val('paste-txt')); A.alTab({v:'form'}); fillLeadForm(p); const n=Object.keys(p).length; toast(n?`Found ${n} details. Check them and save.`:'Could not find details in that text.')},
+  pickSrc:(d,el)=>{el.parentNode.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b===el))},
+  pickScore:(d,el)=>A.pickSrc(d,el), pickScore2:(d,el)=>A.pickSrc(d,el), pickRes:(d,el)=>A.pickSrc(d,el), pickLost:(d,el)=>A.pickSrc(d,el),
+  pickOut:(d,el)=>{A.pickSrc(d,el); const o=OUTCOMES.find(x=>x.k===d.v); const lf=document.getElementById('lc-lost-f'); lf.hidden=d.v!=='notint'; const fu=document.getElementById('lc-fu'); if(o&&o.fu)fu.value=toLocalInput(addHours(o.fu)); if(d.v==='callback')fu.value=toLocalInput(tomorrowAt(11)); fu.disabled=['notint','wrong'].includes(d.v)},
+  logCall:d=>logCallModal(d.id), saveCall:d=>saveCall(d.id),
+  callLink:d=>{/* tel: links may not open everywhere; the number is shown so it can be dialled by hand */},
+  wa:d=>waModal(d.id,d.use),
+  copyWa:()=>copyText(val('wa-text')),
+  waSent:d=>{const t=val('wa-text'); const tplId=val('wa-tpl'); const tp=store.templates[tplId]; upd('leads',d.id,l=>leadActivity(l,'whatsapp',`WhatsApp opened${tp?' with “'+tp.name+'”':''}`)); setTimeout(closeModal,300)},
+  copy:d=>copyText(d.v),
+  fu:d=>{const v=d.h?addHours(+d.h):d.t==='tm11'?tomorrowAt(11):d.t==='d3'?inDaysAt(3,11):d.t==='w1'?inDaysAt(7,11):null; upd('leads',d.id,l=>{l.nextFollowUp=v}); toast(v?'Follow-up set for '+fmtDT(v):'Follow-up cleared')},
+  stage:d=>{if(d.v==='lost'){lostModal(d.id);return} upd('leads',d.id,l=>setStageOn(l,d.v)); if(d.v==='visit'&&!vals(store.visits).some(v=>v.leadId===d.id&&v.status==='scheduled'))visitModal(d.id)},
+  saveLost:d=>{const r=(document.querySelector('#lost-r button.on')||{}).dataset.v||'Other', n=val('lost-note'); upd('leads',d.id,l=>{setStageOn(l,'lost');l.lostReason=r;l.nextFollowUp=null;if(n)leadActivity(l,'note',n)}); closeModal(); toast('Marked as lost')},
+  addNote:d=>{const t=(state.noteDraft[d.id]||'').trim(); if(!t){toast('Write a note first');return} upd('leads',d.id,l=>{leadActivity(l,'note',t); if(l.stage==='new')setStageOn(l,'contacted')}); state.noteDraft[d.id]=''; const ta=document.getElementById('note-'+d.id); if(ta)ta.value=''; toast('Note saved')},
+  toggleReply:()=>{state.replyOpen=!state.replyOpen;renderDrawer()},
+  applyReply:d=>{const p=parseEnquiry(val('reply-txt')); delete p.source; const keys=Object.keys(p); if(!keys.length){toast('Could not find details in that reply');return}
+    upd('leads',d.id,l=>{['name','email','dob','location','purpose','slot','bhk'].forEach(k=>{if(p[k])l[k]=p[k]}); if(p.budgetMax){l.budgetMin=p.budgetMin;l.budgetMax=p.budgetMax} if(p.phone&&normPhone(p.phone)!==normPhone(l.phone))l.altPhone=p.phone; leadActivity(l,'note','Client sent their details:\n'+val('reply-txt').slice(0,600))});
+    state.replyOpen=false; toast(`Filled ${keys.length} details from the reply`)},
+  aiUpdate:d=>aiModal(d.id), aiRun:d=>aiRun(d.id),
+  aiApply:()=>{const a=window.__ai; if(!a)return; upd('leads',a.id,l=>{const {stage,...rest}=a.ch; Object.assign(l,rest); if(stage&&stage!==l.stage){if(stage==='lost'){setStageOn(l,'lost');l.lostReason=l.lostReason||'Other'}else setStageOn(l,stage)} leadActivity(l,'call','Call notes: '+(a.summary||a.raw.slice(0,300)))}); closeModal(); toast('Lead updated from notes')},
+  unproj:d=>upd('leads',d.id,l=>{l.projects=(l.projects||[]).filter(x=>x!==d.p)}),
+  addProjBtn:d=>upd('leads',d.id,l=>{l.projects=[...(l.projects||[]),d.p];leadActivity(l,'note','Interested in '+((store.projects[d.p]||{}).name||'a project'))}),
+  merge:d=>{const from=store.leads[d.id], into=store.leads[d.into]; if(!from||!into)return;
+    upd('leads',d.into,l=>{l.activity=[...(l.activity||[]),...(from.activity||[])].sort((a,b)=>b.at.localeCompare(a.at)).slice(0,200); l.projects=[...new Set([...(l.projects||[]),...(from.projects||[])])]; ['email','dob','location','purpose','slot','bhk','propertyType'].forEach(k=>{if(!l[k]&&from[k])l[k]=from[k]}); if(!l.budgetMax&&from.budgetMax){l.budgetMax=from.budgetMax;l.budgetMin=from.budgetMin} if((STAGE_IDX[from.stage]??-1)>(STAGE_IDX[l.stage]??-1))l.stage=from.stage; l.maxStage=Math.max(l.maxStage??0,from.maxStage??0); leadActivity(l,'note',`Merged duplicate “${from.name}” (${from.source||'unknown source'}) into this lead`)});
+    vals(store.visits).filter(v=>v.leadId===d.id).forEach(v=>upd('visits',v.id,x=>{x.leadId=d.into}));
+    removeDoc('leads',d.id); state.openLead=d.into; toast('Duplicates merged')},
+  delLead:(d,el)=>{if(el.dataset.sure){vals(store.visits).filter(v=>v.leadId===d.id).forEach(v=>removeDoc('visits',v.id)); removeDoc('leads',d.id); state.openLead=null; toast('Lead deleted'); return} el.dataset.sure='1'; el.innerHTML='Press again to delete for good'},
+  newVisit:d=>visitModal(d.id||null), editVisit:d=>visitModal(null,d.id), saveVisit:d=>saveVisit(d.id),
+  visitDone:d=>visitDoneModal(d.id), saveVisitDone:d=>saveVisitDone(d.id),
+  delVisit:(d,el)=>{if(el.dataset.sure){removeDoc('visits',d.id);closeModal();toast('Visit deleted');return} el.dataset.sure='1'; el.textContent='Press again to delete'},
+  vtab:d=>{state.visitTab=d.v;render()},
+  editProject:d=>projectModal(d.id),
+  saveProject:d=>{const name=val('pf-name'), pf=parseFloat(val('pf-priceFrom')); if(!name||!pf){document.getElementById('pf-err').innerHTML='<div class="err">Add the project name and starting price in lakh.</div>';return}
+    const p={...(d.id?store.projects[d.id]:{id:uid(),createdAt:new Date().toISOString()}),name,developer:val('pf-developer'),location:val('pf-location'),rera:val('pf-rera'),type:val('pf-type'),configs:val('pf-configs'),priceFrom:pf,priceTo:parseFloat(val('pf-priceTo'))||null,status:val('pf-status'),possession:val('pf-possession'),amenities:val('pf-amenities'),link:val('pf-link')};
+    save('projects',JSON.parse(JSON.stringify(p))); closeModal(); toast('Project saved')},
+  delProject:(d,el)=>{if(el.dataset.sure){removeDoc('projects',d.id);closeModal();toast('Project deleted');return} el.dataset.sure='1'; el.textContent='Press again to delete'},
+  projLeads:d=>{state.f={stage:'',score:'',source:'',assignee:'',project:d.id,fu:''};state.view='leads';render()},
+  editTpl:d=>tplModal(d.id),
+  insVar:d=>{const ta=document.getElementById('tf-body'); const s=ta.selectionStart??ta.value.length; ta.value=ta.value.slice(0,s)+'{{'+d.v+'}}'+ta.value.slice(ta.selectionEnd??s); ta.focus(); IN.tplPrev()},
+  saveTpl:d=>{const body=val('tf-body'); if(!body){toast('Write the message first');return} const t={...(d.id?store.templates[d.id]:{id:uid()}),name:val('tf-name')||val('tf-use'),use:val('tf-use'),body}; save('templates',JSON.parse(JSON.stringify(t))); closeModal(); toast('Template saved')},
+  delTpl:(d,el)=>{if(el.dataset.sure){removeDoc('templates',d.id);closeModal();return} el.dataset.sure='1'; el.textContent='Press again to delete'},
+  defaultTpls:()=>{DEFAULT_TPLS.forEach(t=>save('templates',{id:uid(),...t})); toast('Standard templates added')},
+  editMember:d=>memberModal(d.id),
+  saveMember:d=>{const name=val('mf-name'); if(!name){document.getElementById('mf-err').innerHTML='<div class="err">Add a name.</div>';return}
+    const m={...(d.id?store.team[d.id]:{id:uid()}),name,phone:normPhone(val('mf-phone')),role:val('mf-role'),active:val('mf-active')!=='0'}; save('team',JSON.parse(JSON.stringify(m)));
+    if(!state.me){state.me=m.id;lsSet('ed-me',m.id)} closeModal(); toast('Saved')},
+  delMember:(d,el)=>{if(el.dataset.sure){removeDoc('team',d.id);if(state.me===d.id){state.me='';lsSet('ed-me','')}closeModal();return} el.dataset.sure='1'; el.textContent='Press again to remove'},
+  saveCompany:()=>{const s={...settings(),id:'settings',company:val('s-company'),phone:val('s-phone'),appName:val('s-appname'),autoAssign:val('s-rr')}; save('meta',s); toast('Saved')},
+  saveSources:()=>{const list=val('s-sources').split('\n').map(x=>x.trim()).filter(Boolean); const spend={}; document.querySelectorAll('[data-src]').forEach(i=>{if(i.value!=='')spend[i.dataset.src]=+i.value}); save('meta',{...settings(),id:'settings',sources:[...new Set(list)],spend}); toast('Sources saved')},
+  askClear:()=>{state.confirmClear=true;render()}, cancelClear:()=>{state.confirmClear=false;render()},
+  clearSample:()=>{COLS.forEach(c=>vals(store[c]).filter(x=>x.sample).forEach(x=>removeDoc(c,x.id))); if(state.me&&store.team[state.me]===undefined){state.me='';lsSet('ed-me','')} state.confirmClear=false; toast('Example data removed')},
+  import:()=>importModal(),
+  impPaste:()=>prepImport(parseCSV(val('imp-paste'))),
+  impGo:()=>runImport(),
+  export:()=>exportLeads(),
+  copyExp:()=>copyText(val('exp-txt')),
+  rdays:d=>{state.reportDays=+d.v;render()},
+  closeModal:()=>closeModal(),
+  modalBg:(d,el,e)=>{if(e.target===el)closeModal()},
+};
+const CH={
+  me:e=>{state.me=e.target.value;lsSet('ed-me',state.me);state.scope=state.me?'mine':'all';render()},
+  f:e=>{state.f[e.target.dataset.k]=e.target.value;state.limit=80;render()},
+  leadField:e=>{const t=e.target; upd('leads',t.dataset.id,l=>{const before=l[t.dataset.k]; l[t.dataset.k]=t.value; if(t.dataset.k==='assignedTo'&&before!==t.value)leadActivity(l,'note',t.value?'Assigned to '+memberName(t.value):'Unassigned')})},
+  fuCustom:e=>{const v=fromLocalInput(e.target.value); if(v){upd('leads',e.target.dataset.id,l=>{l.nextFollowUp=v}); toast('Follow-up set for '+fmtDT(v))}},
+  addProj:e=>{const p=e.target.value; if(p)A.addProjBtn({id:e.target.dataset.id,p})},
+  waTpl:e=>{const l=store.leads[e.target.dataset.id], t=store.templates[e.target.value]; const txt=t?fillTpl(t.body,l):'Hi '+(l.name||'').split(' ')[0]+', '; document.getElementById('wa-text').value=txt; IN.waText()},
+  impFile:e=>{const f=e.target.files[0]; if(f)readImportFile(f)},
+};
+const IN={
+  gsearch:e=>{state.q=e.target.value; if(state.view!=='leads'){state.view='leads'} state.limit=80; render()},
+  noteDraft:e=>{state.noteDraft[e.target.dataset.id]=e.target.value},
+  dupCheck:()=>dupCheck(),
+  budgetPrev:()=>budgetPrev(),
+  tplPrev:()=>{const p=document.getElementById('tf-prev'); if(p)p.textContent=fillTpl(val('tf-body'),vals(store.leads)[0]||{name:'Rahul Mehta'})},
+  waText:()=>{const a=document.getElementById('wa-go'); const l=store.leads[a&&a.dataset.id]; if(a&&l)a.href=waHref(l.phone,document.getElementById('wa-text').value)},
+};
+document.addEventListener('click',e=>{const el=e.target.closest('[data-act]'); if(!el)return; const fn=A[el.dataset.act]; if(!fn)return; if(el.tagName==='A'&&el.getAttribute('href')==='#')e.preventDefault(); fn(el.dataset,el,e)});
+document.addEventListener('change',e=>{const k=e.target.dataset&&e.target.dataset.chg; if(k&&CH[k])CH[k](e)});
+document.addEventListener('input',e=>{const k=e.target.dataset&&e.target.dataset.inp; if(k&&IN[k])IN[k](e); if(e.target.id==='wa-text')IN.waText()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(document.getElementById('modal-root').innerHTML)closeModal(); else if(state.openLead){state.openLead=null;render()}}});
+document.addEventListener('dragstart',e=>{const c=e.target.closest&&e.target.closest('[data-drag]'); if(c){e.dataTransfer.setData('text/plain',c.dataset.drag);e.dataTransfer.effectAllowed='move'}});
+document.addEventListener('dragover',e=>{const c=e.target.closest&&e.target.closest('[data-drop]'); if(c){e.preventDefault();document.querySelectorAll('.col.over').forEach(x=>x!==c&&x.classList.remove('over'));c.classList.add('over')}});
+document.addEventListener('dragleave',e=>{const c=e.target.closest&&e.target.closest('[data-drop]'); if(c&&!c.contains(e.relatedTarget))c.classList.remove('over')});
+document.addEventListener('drop',e=>{const c=e.target.closest&&e.target.closest('[data-drop]'); if(!c)return; e.preventDefault(); c.classList.remove('over'); const id=e.dataTransfer.getData('text/plain'); if(!id||!store.leads[id])return; const st=c.dataset.drop; if(st==='lost'){lostModal(id);return} upd('leads',id,l=>setStageOn(l,st)); if(st==='visit'&&!vals(store.visits).some(v=>v.leadId===id&&v.status==='scheduled'))visitModal(id)});
+setInterval(()=>{if(!document.getElementById('modal-root').innerHTML&&!(document.activeElement&&/INPUT|TEXTAREA|SELECT/.test(document.activeElement.tagName)))scheduleRender()},60000);
+boot();
+</script>
