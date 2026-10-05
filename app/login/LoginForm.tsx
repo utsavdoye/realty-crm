@@ -8,6 +8,8 @@ type Method = 'phone' | 'email' | 'demo';
 
 // Practice logins made by supabase/demo-seed.sql. Shown only when NEXT_PUBLIC_DEMO_LOGIN=true (never turn this on for real customers).
 const DEMO_ON = process.env.NEXT_PUBLIC_DEMO_LOGIN === 'true';
+// WhatsApp login is on hold. Set NEXT_PUBLIC_WHATSAPP_LOGIN=true once the WhatsApp setup is done.
+const WA_ON = process.env.NEXT_PUBLIC_WHATSAPP_LOGIN === 'true';
 const DEMO_PASSWORD = 'Demo@12345';
 const DEMO_USERS = [
   { email: 'owner', name: 'Rajesh Doye', role: 'Admin · sees everything incl. money' },
@@ -26,7 +28,7 @@ const DEMO_USERS = [
 export default function LoginForm({ next, inviteHint, linkError }: { next: string; inviteHint?: string; linkError?: boolean }) {
   const router = useRouter();
   const supabase = createClient();
-  const [method, setMethod] = useState<Method>(DEMO_ON ? 'demo' : 'phone');
+  const [method, setMethod] = useState<Method>(DEMO_ON ? 'demo' : WA_ON ? 'phone' : 'email');
   const [step, setStep] = useState<'enter' | 'code'>('enter');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -109,9 +111,9 @@ export default function LoginForm({ next, inviteHint, linkError }: { next: strin
       {step === 'enter' ? (
         <>
           <h1>Log in</h1>
-          <p className="muted">{inviteHint || 'We will send a 6-digit code on WhatsApp. No password needed.'}</p>
+          <p className="muted">{inviteHint || (method === 'phone' ? 'We will send a 6-digit code on WhatsApp. No password needed.' : 'We will email you a sign-in link or code. No password needed.')}</p>
           <div className="tabs" role="tablist">
-            <button role="tab" aria-selected={method === 'phone'} className={method === 'phone' ? 'on' : ''} onClick={() => { setMethod('phone'); setError(''); }}>WhatsApp</button>
+            {WA_ON && <button role="tab" aria-selected={method === 'phone'} className={method === 'phone' ? 'on' : ''} onClick={() => { setMethod('phone'); setError(''); }}>WhatsApp</button>}
             <button role="tab" aria-selected={method === 'email'} className={method === 'email' ? 'on' : ''} onClick={() => { setMethod('email'); setError(''); }}>Email</button>
             {DEMO_ON && <button role="tab" aria-selected={method === 'demo'} className={method === 'demo' ? 'on' : ''} onClick={() => { setMethod('demo'); setError(''); }}>Demo</button>}
           </div>
