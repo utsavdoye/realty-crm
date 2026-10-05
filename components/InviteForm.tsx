@@ -7,6 +7,7 @@ import { CopyButton } from '@/components/CopyButton';
 import { ROLE_HELP, ROLE_LABEL, type Role } from '@/lib/roles';
 import { useState } from 'react';
 import { APP_NAME } from '@/lib/brand';
+import { waLink } from '@/lib/crm';
 
 export function InviteForm({ canInviteManager, companyName }: { canInviteManager: boolean; companyName: string }) {
   // canInviteManager is true only for admins: they can add employees, managers and other admins.
@@ -48,7 +49,7 @@ export function InviteForm({ canInviteManager, companyName }: { canInviteManager
           <div className="row-gap">
             {state.phone && (
               <a className="btn wa sm" target="_blank" rel="noopener noreferrer"
-                 href={`https://wa.me/91${state.phone}?text=${encodeURIComponent(waText)}`}>Send on WhatsApp</a>
+                 href={waLink(state.phone ?? '', waText)}>Send on WhatsApp</a>
             )}
             <CopyButton text={state.link} />
           </div>

@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireOrg } from '@/lib/context';
-import { fmtPhone, isManager, siteUrl } from '@/lib/roles';
+import { fmtPhone, isManager, siteUrl, telHref } from '@/lib/roles';
 import { ShortlistPanel } from '@/components/ShortlistPanel';
 import { inrShort } from '@/lib/money';
 import { dismissMatches, recycleCall, addNote, assignLead, deleteLead, markLost, scheduleVisit, setFollowUp, setScore, setStage, updateLead, visitResult } from '@/app/crm-actions';
@@ -51,7 +51,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
   const fs = fuState(lead.next_follow_up);
   const closed = ['booked', 'lost'].includes(lead.stage);
   const assignable = (people ?? []).filter((p) => p.active && p.role !== 'partner');
-  const tel = `tel:+91${lead.phone}`;
+  const tel = telHref(lead.phone);
 
   return (
     <>

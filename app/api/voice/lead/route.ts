@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireOrg } from '@/lib/context';
 import { BHKS, PTYPES, PURPOSES, SOURCES } from '@/lib/crm';
+import { normPhone, validPhone } from '@/lib/roles';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -30,7 +31,7 @@ Return ONLY what was actually said. Use "" for anything not mentioned. Never inv
 
 Rules:
 - name: the client's name in English letters (e.g. "राहुल शर्मा" → "Rahul Sharma").
-- phone: digits only. Numbers may be spoken in Hindi ("nau aath chaar…") or English or in groups ("double five"). If you are not sure of every digit, return "".
+- phone: digits only; for a number outside India start with + and the country code (e.g. +971501234567). Numbers may be spoken in Hindi ("nau aath chaar…") or English or in groups ("double five"). If you are not sure of every digit, return "".
 - email: lower case, "at" → "@", "dot" → ".".
 - budget: short form like "80 L to 1 Cr", "1.2 Cr", "up to 60 L". "lakh/lac/lakhs" → L, "crore/cr" → Cr.
 - bhk: one of ${BHKS.map((x) => `"${x}"`).join(', ')}.
@@ -82,13 +83,12 @@ Rules:
     if (!list) return s;
     return list.find((x) => x.toLowerCase() === s.toLowerCase()) ?? '';
   };
-  const digits = String(out.phone ?? '').replace(/\D/g, '');
-  const phone = digits.length === 12 && digits.startsWith('91') ? digits.slice(2) : digits.length === 11 && digits.startsWith('0') ? digits.slice(1) : digits;
+  const phone = normPhone(String(out.phone ?? ''));
   return NextResponse.json({
     transcript: pick(out.transcript),
     fields: {
       name: pick(out.name).slice(0, 120),
-      phone: /^[6-9]\d{9}$/.test(phone) ? phone : '',
+      phone: validPhone(phone) ? phone : '',
       email: /^\S+@\S+\.\S+$/.test(String(out.email ?? '')) ? pick(out.email).toLowerCase() : '',
       budget: pick(out.budget).slice(0, 40),
       bhk: pick(out.bhk, BHKS),

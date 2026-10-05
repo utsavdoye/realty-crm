@@ -5,7 +5,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { ORG_COOKIE, requireOrg } from '@/lib/context';
-import { siteUrl, normPhone } from '@/lib/roles';
+import { PHONE_HELP, siteUrl, normPhone, validPhone } from '@/lib/roles';
 import { notifyLeadAssigned } from '@/lib/whatsapp';
 
 export type FormState = { error?: string; ok?: string; link?: string; phone?: string; name?: string } | null;
@@ -122,7 +122,7 @@ export async function addLead(_: FormState, fd: FormData): Promise<FormState> {
   const name = str(fd, 'name');
   const phone = normPhone(str(fd, 'phone'));
   if (!name) return { error: 'Enter the client name' };
-  if (phone.length !== 10) return { error: 'Enter a valid 10-digit mobile number' };
+  if (!validPhone(phone)) return { error: PHONE_HELP };
   const assigned = role === 'owner' || role === 'manager' ? str(fd, 'assigned_to') || null : role === 'agent' ? user.id : null;
   const { data, error } = await supabase
     .from('leads')

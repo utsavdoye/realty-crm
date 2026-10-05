@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { requireOrg } from '@/lib/context';
-import { isManager, normPhone } from '@/lib/roles';
+import { PHONE_HELP, isManager, normPhone, validPhone } from '@/lib/roles';
 import { OUTCOMES, STAGE_IDX, fmtDT, fromLocalInput, istAt, parseBudget, stageLabel } from '@/lib/crm';
 import { notifyLeadAssigned } from '@/lib/whatsapp';
 import type { FormState } from '@/app/actions';
@@ -63,7 +63,7 @@ export async function createLeadFull(_: FormState, fd: FormData): Promise<FormSt
   const { supabase, org, role, user, activity } = await ctx();
   const f = readLeadFields(fd);
   if (!f.name) return { error: 'Enter the client name.' };
-  if (f.phone.length !== 10) return { error: 'Enter a valid 10-digit mobile number.' };
+  if (!validPhone(f.phone)) return { error: PHONE_HELP };
   let assigned: string | null = null;
   if (isManager(role)) {
     assigned = str(fd, 'assigned_to') || null;
@@ -102,7 +102,7 @@ export async function updateLead(_: FormState, fd: FormData): Promise<FormState>
   const id = str(fd, 'id');
   const f = readLeadFields(fd);
   if (!f.name) return { error: 'Enter the client name.' };
-  if (f.phone.length !== 10) return { error: 'Enter a valid 10-digit mobile number.' };
+  if (!validPhone(f.phone)) return { error: PHONE_HELP };
   const { error, count } = await supabase.from('leads').update(f, { count: 'exact' }).eq('id', id).eq('org_id', org.id);
   if (error) return { error: friendly(error.message) };
   if (!count) return { error: 'You can only edit leads assigned to you.' };

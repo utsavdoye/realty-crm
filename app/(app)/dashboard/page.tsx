@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { requireOrg } from '@/lib/context';
-import { ROLE_HELP, ROLE_LABEL, fmtPhone, isManager } from '@/lib/roles';
+import { ROLE_HELP, ROLE_LABEL, fmtPhone, isManager, telHref } from '@/lib/roles';
 import { recycleCall, recycleSnooze } from '@/app/crm-actions';
 import { fmtBudget, fmtTime, fuState, fuText, istAt, istDay, rel, stageChip, stageLabel } from '@/lib/crm';
 
@@ -104,7 +104,7 @@ export default async function Today({ searchParams }: { searchParams: { welcome?
                       <b><span className={`dot ${l.score}`} />{l.name} <span className={`chip ${stageChip(l.stage)}`}>{stageLabel(l.stage)}</span></b>
                       <span className="hint"><span className={`fu ${fuState(l.next_follow_up)}`}>{fuText(l.next_follow_up)}</span>{req(l) ? ' · ' + req(l) : ''}{!mine && l.assigned_to ? ' · ' + (nameOf.get(l.assigned_to) ?? '') : ''}</span>
                     </Link>
-                    <a className="btn sm" href={`tel:+91${l.phone}`} aria-label={`Call ${l.name}`}>Call</a>
+                    <a className="btn sm" href={telHref(l.phone)} aria-label={`Call ${l.name}`}>Call</a>
                   </div>
                 ))}
               </div>
@@ -122,7 +122,7 @@ export default async function Today({ searchParams }: { searchParams: { welcome?
                         <b>{l.name} {l.source && <span className="chip">{l.source}</span>}</b>
                         <span className="hint">Came in {rel(l.created_at)}{mins > 30 ? <span className="fu over"> · waiting too long</span> : null}{req(l) ? ' · ' + req(l) : ''}{!mine && l.assigned_to ? ' · ' + (nameOf.get(l.assigned_to) ?? '') : !l.assigned_to ? ' · not assigned' : ''}</span>
                       </Link>
-                      <a className="btn sm" href={`tel:+91${l.phone}`}>Call</a>
+                      <a className="btn sm" href={telHref(l.phone)}>Call</a>
                     </div>
                   );
                 })}

@@ -9,7 +9,7 @@ const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods
 const MESSAGES: Record<string, [number, string]> = {
   unknown_key: [404, 'This lead link is not valid or was switched off.'],
   plan_ended: [402, 'This CRM account is not active.'],
-  bad_phone: [422, 'A valid 10-digit mobile number is required.'],
+  bad_phone: [422, 'A valid mobile number is required (India: 10 digits, other countries: + and country code).'],
   server_error: [500, 'Could not save the lead. Please try again.'],
 };
 

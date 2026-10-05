@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { importLeads, type ImportRow } from '@/app/crm-actions';
 import { BHKS, SOURCES, parseBudget } from '@/lib/crm';
+import { normPhone, validPhone } from '@/lib/roles';
 
 type Person = { user_id: string; full_name: string };
 type Project = { id: string; name: string };
@@ -60,7 +61,7 @@ function guess(headers: string[]): Record<FieldKey, number> {
   return out;
 }
 
-const tenDigits = (v: string) => v.replace(/\D/g, '').slice(-10);
+const tenDigits = (v: string) => normPhone(v);
 function fixBhk(v: string) {
   const s = v.trim();
   if (!s) return '';
@@ -127,7 +128,7 @@ export function ImportLeads({ people, projects }: { people: Person[]; projects: 
         name, phone, email: get(r, 'email'), location: get(r, 'location'),
         budget_min: b?.min ?? null, budget_max: b?.max ?? null,
         bhk: fixBhk(get(r, 'bhk')), source: fixSource(get(r, 'source')), note: get(r, 'note'),
-        ok: !!name && phone.length === 10,
+        ok: !!name && validPhone(phone),
       };
     });
   }, [body, map]);

@@ -25,7 +25,7 @@ export function EnquiryForm({ token, project }: { token: string; project: string
     <form action={action} className="stack">
       <input type="hidden" name="token" value={token} />
       <label className="field"><span className="label">Your name</span><input name="name" required maxLength={120} autoComplete="name" /></label>
-      <label className="field"><span className="label">Mobile number</span><input name="phone" required inputMode="numeric" autoComplete="tel-national" placeholder="98765 43210" /></label>
+      <label className="field"><span className="label">Mobile number</span><input name="phone" required inputMode="tel" autoComplete="tel" placeholder="98765 43210 or +971 50 123 4567" /></label>
       <label className="check"><input type="checkbox" checked={visit} onChange={(e) => setVisit(e.target.checked)} /> I want to visit {project}</label>
       {visit && <label className="field"><span className="label">Preferred date and time</span><input type="datetime-local" name="when" required /></label>}
       <label className="field"><span className="label">Anything to tell us? (optional)</span><textarea name="message" rows={2} maxLength={500} placeholder="e.g. 3 BHK, east facing, budget ₹1.2 Cr" /></label>

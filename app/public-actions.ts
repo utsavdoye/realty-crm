@@ -2,16 +2,17 @@
 
 import { createAnonClient } from '@/lib/supabase/admin';
 import { fromLocalInput } from '@/lib/crm';
+import { normPhone, validPhone } from '@/lib/roles';
 
 const TOKEN = /^[a-f0-9]{24,64}$/;
 
 export async function sendEnquiry(_: { ok?: boolean; error?: string } | null, fd: FormData): Promise<{ ok?: boolean; error?: string }> {
   const token = String(fd.get('token') ?? '');
   const name = String(fd.get('name') ?? '').trim();
-  const phone = String(fd.get('phone') ?? '').replace(/\D/g, '').slice(-10);
+  const phone = normPhone(String(fd.get('phone') ?? ''));
   if (!TOKEN.test(token)) return { error: 'This link is not valid.' };
   if (!name) return { error: 'Please enter your name.' };
-  if (!/^[6-9]\d{9}$/.test(phone)) return { error: 'Please enter a valid 10-digit mobile number.' };
+  if (!validPhone(phone)) return { error: 'Please enter a valid mobile number. Outside India, start with + and your country code.' };
   const when = fromLocalInput(String(fd.get('when') ?? ''));
   const { data, error } = await createAnonClient().rpc('public_enquiry', {
     p_token: token, p_name: name.slice(0, 120), p_phone: phone, p_message: String(fd.get('message') ?? '').slice(0, 500), p_when: when,

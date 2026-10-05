@@ -10,6 +10,12 @@ type Method = 'phone' | 'email' | 'demo';
 const DEMO_ON = process.env.NEXT_PUBLIC_DEMO_LOGIN === 'true';
 // WhatsApp login is on hold. Set NEXT_PUBLIC_WHATSAPP_LOGIN=true once the WhatsApp setup is done.
 const WA_ON = process.env.NEXT_PUBLIC_WHATSAPP_LOGIN === 'true';
+const COUNTRIES: [string, string][] = [
+  ['+91', 'India'], ['+971', 'UAE'], ['+1', 'USA / Canada'], ['+44', 'UK'], ['+65', 'Singapore'], ['+61', 'Australia'], ['+974', 'Qatar'],
+  ['+966', 'Saudi Arabia'], ['+968', 'Oman'], ['+965', 'Kuwait'], ['+973', 'Bahrain'], ['+64', 'New Zealand'], ['+49', 'Germany'], ['+33', 'France'],
+  ['+353', 'Ireland'], ['+31', 'Netherlands'], ['+60', 'Malaysia'], ['+852', 'Hong Kong'], ['+81', 'Japan'], ['+27', 'South Africa'], ['+254', 'Kenya'],
+  ['+977', 'Nepal'], ['+94', 'Sri Lanka'], ['+880', 'Bangladesh'],
+];
 const DEMO_PASSWORD = 'Demo@12345';
 const DEMO_USERS = [
   { email: 'owner', name: 'Rajesh Doye', role: 'Admin · sees everything incl. money' },
@@ -31,6 +37,7 @@ export default function LoginForm({ next, inviteHint, linkError }: { next: strin
   const [method, setMethod] = useState<Method>(DEMO_ON ? 'demo' : WA_ON ? 'phone' : 'email');
   const [step, setStep] = useState<'enter' | 'code'>('enter');
   const [phone, setPhone] = useState('');
+  const [cc, setCc] = useState('+91');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
   const [error, setError] = useState(linkError ? 'That sign-in link did not work or has expired. Send a new one.' : '');
@@ -48,15 +55,17 @@ export default function LoginForm({ next, inviteHint, linkError }: { next: strin
     if (step === 'code') codeRef.current?.focus();
   }, [step]);
 
-  const digits = phone.replace(/\D/g, '').replace(/^91(?=\d{10}$)/, '').replace(/^0(?=\d{10}$)/, '');
+  const digits = cc === '+91' ? phone.replace(/\D/g, '').replace(/^91(?=\d{10}$)/, '').replace(/^0(?=\d{10}$)/, '') : phone.replace(/\D/g, '').replace(/^0+/, '');
+  const fullPhone = cc + digits;
+  const phoneOk = cc === '+91' ? /^[6-9]\d{9}$/.test(digits) : /^\d{6,14}$/.test(digits);
 
   async function send() {
     setError('');
-    if (method === 'phone' && !/^[6-9]\d{9}$/.test(digits)) return setError('Enter your 10-digit mobile number.');
+    if (method === 'phone' && !phoneOk) return setError(cc === '+91' ? 'Enter your 10-digit mobile number.' : 'Enter your mobile number without the country code.');
     if (method === 'email' && !/^\S+@\S+\.\S+$/.test(email.trim())) return setError('Enter a valid email address.');
     setBusy(true);
     const { error } = method === 'phone'
-      ? await supabase.auth.signInWithOtp({ phone: '+91' + digits })
+      ? await supabase.auth.signInWithOtp({ phone: fullPhone })
       : await supabase.auth.signInWithOtp({
           email: email.trim().toLowerCase(),
           options: { shouldCreateUser: true, emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
@@ -95,7 +104,7 @@ export default function LoginForm({ next, inviteHint, linkError }: { next: strin
     if (!/^\d{6}$/.test(value)) return setError('Enter the 6-digit code.');
     setBusy(true);
     const { error } = method === 'phone'
-      ? await supabase.auth.verifyOtp({ phone: '+91' + digits, token: value, type: 'sms' })
+      ? await supabase.auth.verifyOtp({ phone: fullPhone, token: value, type: 'sms' })
       : await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token: value, type: 'email' });
     if (error) {
       setBusy(false);
@@ -136,8 +145,10 @@ export default function LoginForm({ next, inviteHint, linkError }: { next: strin
               <label className="field">
                 <span className="label">Your WhatsApp number</span>
                 <div className="prefix-input">
-                  <span>+91</span>
-                  <input id="phone" autoFocus inputMode="numeric" autoComplete="tel-national" placeholder="98765 43210" value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={14} />
+                  <select className="cc" value={cc} onChange={(e) => setCc(e.target.value)} aria-label="Country code">
+                    {COUNTRIES.map(([c, n]) => <option key={c + n} value={c}>{c} {n}</option>)}
+                  </select>
+                  <input id="phone" autoFocus inputMode="numeric" autoComplete="tel-national" placeholder={cc === '+91' ? '98765 43210' : 'Mobile number'} value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={16} />
                 </div>
               </label>
             ) : (
@@ -155,7 +166,7 @@ export default function LoginForm({ next, inviteHint, linkError }: { next: strin
         <>
           <h1>{method === 'email' ? 'Check your email' : 'Check WhatsApp'}</h1>
           <p className="muted">
-            Sent to <b>{method === 'phone' ? '+91 ' + digits.slice(0, 5) + ' ' + digits.slice(5) : email}</b>.{' '}
+            Sent to <b>{method === 'phone' ? (cc === '+91' ? '+91 ' + digits.slice(0, 5) + ' ' + digits.slice(5) : cc + ' ' + digits) : email}</b>.{' '}
             <button className="linkbtn" onClick={() => { setStep('enter'); setError(''); }}>Change</button>
           </p>
           {method === 'phone' && (

@@ -423,3 +423,4 @@ form.inline { display: inline; }
 .vheard { flex-basis: 100%; }
 .vheard p { margin: 4px 0 0; }
 .voice-filled { outline: 2px solid var(--good); outline-offset: 1px; background: var(--good-soft) !important; transition: background .3s; }
+.prefix-input select.cc { border: 0; border-right: 1px solid var(--line-2); border-radius: 0; background: var(--surface-2); padding: 9px 8px; max-width: 120px; font-family: var(--f-mono); }

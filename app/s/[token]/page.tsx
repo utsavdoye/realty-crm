@@ -2,7 +2,8 @@ import type { Metadata } from 'next';
 import { createAnonClient } from '@/lib/supabase/admin';
 import { ProjectBlock, type PubProject } from '@/components/public/ProjectBlock';
 import { PublicMap, ReactButtons, SeenPing } from '@/components/public/PublicBits';
-import { fmtPhone } from '@/lib/roles';
+import { fmtPhone, telHref } from '@/lib/roles';
+import { waLink } from '@/lib/crm';
 
 export const dynamic = 'force-dynamic';
 type Data = { client: string; note: string | null; reactions: Record<string, string>; agent_name: string | null; agent_phone: string | null; company: string; projects: PubProject[] };
@@ -26,7 +27,7 @@ export default async function Shortlist({ params }: { params: { token: string } 
     <main className="pub">
       <SeenPing token={params.token} />
       <header className="pub-head"><div className="pub-wrap row-gap"><b className="pub-brand">{d.company}</b>
-        {d.agent_phone && <><a className="btn sm" href={`tel:+91${d.agent_phone}`}>Call {d.agent_name?.split(' ')[0]}</a><a className="btn sm wa" href={`https://wa.me/91${d.agent_phone}`} target="_blank" rel="noopener noreferrer">WhatsApp</a></>}
+        {d.agent_phone && <><a className="btn sm" href={telHref(d.agent_phone)}>Call {d.agent_name?.split(' ')[0]}</a><a className="btn sm wa" href={waLink(d.agent_phone)} target="_blank" rel="noopener noreferrer">WhatsApp</a></>}
       </div></header>
       <div className="pub-wrap stack">
         <section className="pub-intro">

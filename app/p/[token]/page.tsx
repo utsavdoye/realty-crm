@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { createAnonClient } from '@/lib/supabase/admin';
 import { ProjectBlock, type PubProject } from '@/components/public/ProjectBlock';
 import { EnquiryForm, PublicMap } from '@/components/public/PublicBits';
-import { fmtPhone, siteUrl } from '@/lib/roles';
+import { fmtPhone, siteUrl, telHref } from '@/lib/roles';
 
 export const dynamic = 'force-dynamic';
 type Data = PubProject & { company: string; company_rera: string | null; contact_name: string | null; contact_phone: string | null };
@@ -29,7 +29,7 @@ export default async function PublicProject({ params }: { params: { token: strin
   if (!d) return <main className="pub"><div className="pub-wrap"><h1>This link is not active</h1><p className="muted">Please ask the person who sent it for a new link.</p></div></main>;
   return (
     <main className="pub">
-      <header className="pub-head"><div className="pub-wrap row-gap"><b className="pub-brand">{d.company}</b>{d.contact_phone && <a className="btn sm" href={`tel:+91${d.contact_phone}`}>Call {fmtPhone(d.contact_phone)}</a>}</div></header>
+      <header className="pub-head"><div className="pub-wrap row-gap"><b className="pub-brand">{d.company}</b>{d.contact_phone && <a className="btn sm" href={telHref(d.contact_phone)}>Call {fmtPhone(d.contact_phone)}</a>}</div></header>
       <div className="pub-wrap pub-grid">
         <div className="stack">
           <ProjectBlock p={d} />

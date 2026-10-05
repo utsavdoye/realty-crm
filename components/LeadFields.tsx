@@ -16,7 +16,7 @@ export function LeadFields({ lead = {}, projects, people, showAssign, showNote }
     <div className="grid2f">
       {lead.id && <input type="hidden" name="id" value={lead.id} />}
       <label className="field"><span className="label">Client name *</span><input name="name" required defaultValue={lead.name ?? ''} /></label>
-      <label className="field"><span className="label">Mobile *</span><input name="phone" required inputMode="numeric" defaultValue={lead.phone ?? ''} placeholder="98765 43210" /></label>
+      <label className="field"><span className="label">Mobile *</span><input name="phone" required inputMode="tel" defaultValue={lead.phone ?? ''} placeholder="98765 43210 or +971 50 123 4567" title="India: 10 digits. Other countries: + and country code" /></label>
       <label className="field"><span className="label">Email</span><input name="email" type="email" defaultValue={lead.email ?? ''} /></label>
       <label className="field"><span className="label">Date of birth</span><input name="dob" type="date" defaultValue={lead.dob ?? ''} /></label>
       <label className="field"><span className="label">Budget</span><input name="budget" defaultValue={fmtBudget(lead.budget_min, lead.budget_max).replace('Up to ', '')} placeholder="e.g. 60 L to 80 L, or 1.2 Cr" /></label>
