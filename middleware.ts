@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-const PUBLIC_PATHS = ['/login', '/join', '/blocked', '/auth', '/api/hooks', '/api/leads', '/api/cron', '/p', '/s'];
+const PUBLIC_PATHS = ['/login', '/join', '/blocked', '/auth', '/api/hooks', '/api/leads', '/api/cron', '/p', '/s', '/forgot'];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -27,6 +27,14 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isPublic = PUBLIC_PATHS.some((p) => path === p || path.startsWith(p + '/'));
+  // Signed in with a code but no password yet → choose one first (not needed for public pages and APIs).
+  if (user && !user.user_metadata?.pw_set && !path.startsWith('/auth') && !path.startsWith('/api') && !['/p', '/s', '/forgot'].some((p) => path.startsWith(p + '/') || path === p)) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/auth/set-password';
+    url.search = '';
+    url.searchParams.set('next', path === '/login' ? '/dashboard' : path + request.nextUrl.search);
+    return NextResponse.redirect(url);
+  }
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';

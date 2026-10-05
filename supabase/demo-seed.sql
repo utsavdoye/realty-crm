@@ -60,7 +60,7 @@ insert into auth.users (instance_id, id, aud, role, email, encrypted_password, e
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at, confirmation_token, email_change, email_change_token_new, recovery_token)
 select '00000000-0000-0000-0000-000000000000', id, 'authenticated', 'authenticated', email,
   extensions.crypt('Demo@12345', extensions.gen_salt('bf')), now(),
-  '{"provider":"email","providers":["email"]}'::jsonb, jsonb_build_object('full_name', full_name),
+  '{"provider":"email","providers":["email"]}'::jsonb, jsonb_build_object('full_name', full_name, 'pw_set', true, 'phone', phone),
   now() - interval '200 days', now(), '', '', '', ''
 from demo_people;
 

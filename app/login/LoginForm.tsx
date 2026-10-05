@@ -1,21 +1,19 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useFormState, useFormStatus } from 'react-dom';
 import { createClient } from '@/lib/supabase/client';
+import { signInAction } from '@/app/auth-actions';
+import { PhoneInput } from '@/components/PhoneInput';
 
-type Method = 'phone' | 'email' | 'demo';
+type Mode = 'signin' | 'signup' | 'demo';
 
-// Practice logins made by supabase/demo-seed.sql. Shown only when NEXT_PUBLIC_DEMO_LOGIN=true (never turn this on for real customers).
+// Practice logins made by supabase/demo-seed.sql. Shown only when NEXT_PUBLIC_DEMO_LOGIN=true (never on the real website).
 const DEMO_ON = process.env.NEXT_PUBLIC_DEMO_LOGIN === 'true';
-// WhatsApp login is on hold. Set NEXT_PUBLIC_WHATSAPP_LOGIN=true once the WhatsApp setup is done.
+// Sign-up by mobile needs WhatsApp/SMS codes. Set NEXT_PUBLIC_WHATSAPP_LOGIN=true once that is set up.
 const WA_ON = process.env.NEXT_PUBLIC_WHATSAPP_LOGIN === 'true';
-const COUNTRIES: [string, string][] = [
-  ['+91', 'India'], ['+971', 'UAE'], ['+1', 'USA / Canada'], ['+44', 'UK'], ['+65', 'Singapore'], ['+61', 'Australia'], ['+974', 'Qatar'],
-  ['+966', 'Saudi Arabia'], ['+968', 'Oman'], ['+965', 'Kuwait'], ['+973', 'Bahrain'], ['+64', 'New Zealand'], ['+49', 'Germany'], ['+33', 'France'],
-  ['+353', 'Ireland'], ['+31', 'Netherlands'], ['+60', 'Malaysia'], ['+852', 'Hong Kong'], ['+81', 'Japan'], ['+27', 'South Africa'], ['+254', 'Kenya'],
-  ['+977', 'Nepal'], ['+94', 'Sri Lanka'], ['+880', 'Bangladesh'],
-];
 const DEMO_PASSWORD = 'Demo@12345';
 const DEMO_USERS = [
   { email: 'owner', name: 'Rajesh Doye', role: 'Admin · sees everything incl. money' },
@@ -31,173 +29,153 @@ const DEMO_USERS = [
   { email: 'deepak', name: 'Deepak Rao', role: 'Removed employee (should be blocked)' },
 ];
 
+function Btn({ children, busyText }: { children: string; busyText: string }) {
+  const { pending } = useFormStatus();
+  return <button className="btn primary block" disabled={pending}>{pending ? busyText : children}</button>;
+}
+
 export default function LoginForm({ next, inviteHint, linkError }: { next: string; inviteHint?: string; linkError?: boolean }) {
   const router = useRouter();
   const supabase = createClient();
-  const [method, setMethod] = useState<Method>(DEMO_ON ? 'demo' : WA_ON ? 'phone' : 'email');
+  const [mode, setMode] = useState<Mode>(DEMO_ON ? 'demo' : 'signin');
+  const [via, setVia] = useState<'email' | 'phone'>('email');
+  const [signState, signAction] = useFormState(signInAction, null);
+  const [showPw, setShowPw] = useState(false);
+
+  // sign-up
+  const [upVia, setUpVia] = useState<'email' | 'phone'>('email');
   const [step, setStep] = useState<'enter' | 'code'>('enter');
-  const [phone, setPhone] = useState('');
-  const [cc, setCc] = useState('+91');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
-  const [error, setError] = useState(linkError ? 'That sign-in link did not work or has expired. Send a new one.' : '');
+  const [error, setError] = useState(linkError ? 'That link did not work or has expired. Please try again.' : '');
   const [busy, setBusy] = useState(false);
   const [wait, setWait] = useState(0);
   const codeRef = useRef<HTMLInputElement>(null);
+  const afterCode = `/auth/set-password?next=${encodeURIComponent(next)}`;
 
-  useEffect(() => {
-    if (!wait) return;
-    const t = setTimeout(() => setWait((w) => w - 1), 1000);
-    return () => clearTimeout(t);
-  }, [wait]);
+  useEffect(() => { if (!wait) return; const t = setTimeout(() => setWait((w) => w - 1), 1000); return () => clearTimeout(t); }, [wait]);
+  useEffect(() => { if (step === 'code') codeRef.current?.focus(); }, [step]);
 
-  useEffect(() => {
-    if (step === 'code') codeRef.current?.focus();
-  }, [step]);
+  function switchTo(m: Mode) { setMode(m); setError(''); setStep('enter'); }
 
-  const digits = cc === '+91' ? phone.replace(/\D/g, '').replace(/^91(?=\d{10}$)/, '').replace(/^0(?=\d{10}$)/, '') : phone.replace(/\D/g, '').replace(/^0+/, '');
-  const fullPhone = cc + digits;
-  const phoneOk = cc === '+91' ? /^[6-9]\d{9}$/.test(digits) : /^\d{6,14}$/.test(digits);
-
-  async function send() {
+  async function sendCode() {
     setError('');
-    if (method === 'phone' && !phoneOk) return setError(cc === '+91' ? 'Enter your 10-digit mobile number.' : 'Enter your mobile number without the country code.');
-    if (method === 'email' && !/^\S+@\S+\.\S+$/.test(email.trim())) return setError('Enter a valid email address.');
+    if (upVia === 'email' && !/^\S+@\S+\.\S+$/.test(email.trim())) return setError('Enter a valid email address.');
+    if (upVia === 'phone' && !/^(\d{10}|\+\d{8,15})$/.test(phone)) return setError('Enter a valid mobile number.');
     setBusy(true);
-    const { error } = method === 'phone'
-      ? await supabase.auth.signInWithOtp({ phone: fullPhone })
-      : await supabase.auth.signInWithOtp({
-          email: email.trim().toLowerCase(),
-          options: { shouldCreateUser: true, emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
-        });
+    const { error } = upVia === 'email'
+      ? await supabase.auth.signInWithOtp({ email: email.trim().toLowerCase(), options: { shouldCreateUser: true, emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(afterCode)}` } })
+      : await supabase.auth.signInWithOtp({ phone: phone.startsWith('+') ? phone : '+91' + phone });
     setBusy(false);
     if (error) {
-      const m = error.message.toLowerCase();
-      if (m.includes('sms') || m.includes('provider') || m.includes('phone')) {
-        setError('WhatsApp login is not switched on yet. Use the Email tab for now.');
-      } else if (m.includes('rate') || m.includes('seconds')) {
-        setError('Too many tries. Wait a minute and try again.');
-      } else setError(error.message);
+      setError(/rate|seconds/i.test(error.message) ? 'Too many tries. Wait a minute and try again.' : /sms|provider|phone/i.test(error.message) ? 'Mobile codes are not switched on yet. Use email.' : error.message);
       return;
     }
-    setStep('code');
-    setCode('');
-    setWait(30);
-  }
-
-  async function demoLogin(who: string) {
-    setError('');
-    setBusy(true);
-    await supabase.auth.signOut();
-    const { error } = await supabase.auth.signInWithPassword({ email: `${who}@demo.estatedesk.test`, password: DEMO_PASSWORD });
-    if (error) {
-      setBusy(false);
-      setError('Demo login failed. Run supabase/demo-seed.sql in Supabase first.');
-      return;
-    }
-    router.replace(next);
-    router.refresh();
+    setStep('code'); setCode(''); setWait(30);
   }
 
   async function verify(value = code) {
     setError('');
-    if (!/^\d{6}$/.test(value)) return setError('Enter the 6-digit code.');
+    if (!/^\d{6,8}$/.test(value)) return setError('Enter the code from the message.');
     setBusy(true);
-    const { error } = method === 'phone'
-      ? await supabase.auth.verifyOtp({ phone: fullPhone, token: value, type: 'sms' })
-      : await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token: value, type: 'email' });
-    if (error) {
-      setBusy(false);
-      setError(error.message.toLowerCase().includes('expired') ? 'That code has expired. Send a new one.' : 'That code is not right. Check it and try again.');
-      return;
-    }
-    router.replace(next);
+    const { error } = upVia === 'email'
+      ? await supabase.auth.verifyOtp({ email: email.trim().toLowerCase(), token: value, type: 'email' })
+      : await supabase.auth.verifyOtp({ phone: phone.startsWith('+') ? phone : '+91' + phone, token: value, type: 'sms' });
+    if (error) { setBusy(false); setError(/expired/i.test(error.message) ? 'That code has expired. Send a new one.' : 'That code is not right. Check it and try again.'); return; }
+    router.replace(afterCode);
     router.refresh();
+  }
+
+  async function demoLogin(who: string) {
+    setError(''); setBusy(true);
+    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signInWithPassword({ email: `${who}@demo.estatedesk.test`, password: DEMO_PASSWORD });
+    if (error) { setBusy(false); setError('Demo login failed. Run supabase/demo-seed.sql in Supabase first.'); return; }
+    router.replace(next); router.refresh();
   }
 
   return (
     <div className="auth-card">
-      {step === 'enter' ? (
-        <>
-          <h1>Log in</h1>
-          <p className="muted">{inviteHint || (method === 'phone' ? 'We will send a 6-digit code on WhatsApp. No password needed.' : 'We will email you a sign-in link or code. No password needed.')}</p>
-          <div className="tabs" role="tablist">
-            {WA_ON && <button role="tab" aria-selected={method === 'phone'} className={method === 'phone' ? 'on' : ''} onClick={() => { setMethod('phone'); setError(''); }}>WhatsApp</button>}
-            <button role="tab" aria-selected={method === 'email'} className={method === 'email' ? 'on' : ''} onClick={() => { setMethod('email'); setError(''); }}>Email</button>
-            {DEMO_ON && <button role="tab" aria-selected={method === 'demo'} className={method === 'demo' ? 'on' : ''} onClick={() => { setMethod('demo'); setError(''); }}>Demo</button>}
+      <div className="tabs" role="tablist">
+        <button role="tab" aria-selected={mode === 'signin'} className={mode === 'signin' ? 'on' : ''} onClick={() => switchTo('signin')}>Sign in</button>
+        <button role="tab" aria-selected={mode === 'signup'} className={mode === 'signup' ? 'on' : ''} onClick={() => switchTo('signup')}>Create account</button>
+        {DEMO_ON && <button role="tab" aria-selected={mode === 'demo'} className={mode === 'demo' ? 'on' : ''} onClick={() => switchTo('demo')}>Demo</button>}
+      </div>
+      {inviteHint && <p className="hint">{inviteHint}</p>}
+
+      {mode === 'signin' && (
+        <form action={signAction} className="stack">
+          <input type="hidden" name="next" value={next} />
+          <input type="hidden" name="via" value={via} />
+          <div className="seg small-seg">
+            <button type="button" className={via === 'email' ? 'on' : ''} onClick={() => setVia('email')}>Email</button>
+            <button type="button" className={via === 'phone' ? 'on' : ''} onClick={() => setVia('phone')}>Mobile number</button>
           </div>
-          {method === 'demo' ? (
-            <div className="stack">
-              <p className="hint">Practice accounts with fake data. Tap a person to log in as them.</p>
-              <div className="demo-list">
-                {DEMO_USERS.map((u) => (
-                  <button key={u.email} type="button" className="org-pick" disabled={busy} onClick={() => demoLogin(u.email)}>
-                    <span className="org-initial">{u.name[0]}</span>
-                    <span className="org-text"><b>{u.name}</b><span className="hint">{u.role}</span></span>
-                  </button>
-                ))}
-              </div>
-              {error && <p className="msg err" role="alert">{error}</p>}
-            </div>
+          {via === 'email' ? (
+            <label className="field"><span className="label">Email</span><input name="email" type="email" autoComplete="username" required placeholder="you@company.com" /></label>
           ) : (
-          <form className="stack" onSubmit={(e) => { e.preventDefault(); send(); }}>
-            {method === 'phone' ? (
-              <label className="field">
-                <span className="label">Your WhatsApp number</span>
-                <div className="prefix-input">
-                  <select className="cc" value={cc} onChange={(e) => setCc(e.target.value)} aria-label="Country code">
-                    {COUNTRIES.map(([c, n]) => <option key={c + n} value={c}>{c} {n}</option>)}
-                  </select>
-                  <input id="phone" autoFocus inputMode="numeric" autoComplete="tel-national" placeholder={cc === '+91' ? '98765 43210' : 'Mobile number'} value={phone} onChange={(e) => setPhone(e.target.value)} maxLength={16} />
-                </div>
-              </label>
-            ) : (
-              <label className="field">
-                <span className="label">Email</span>
-                <input id="email" autoFocus type="email" autoComplete="email" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} />
-              </label>
-            )}
-            {error && <p className="msg err" role="alert">{error}</p>}
-            <button className="btn primary block" disabled={busy}>{busy ? 'Sending…' : 'Send code'}</button>
-          </form>
+            <label className="field"><span className="label">Mobile number</span><PhoneInput name="phone" required /></label>
           )}
-        </>
-      ) : (
-        <>
-          <h1>{method === 'email' ? 'Check your email' : 'Check WhatsApp'}</h1>
-          <p className="muted">
-            Sent to <b>{method === 'phone' ? (cc === '+91' ? '+91 ' + digits.slice(0, 5) + ' ' + digits.slice(5) : cc + ' ' + digits) : email}</b>.{' '}
-            <button className="linkbtn" onClick={() => { setStep('enter'); setError(''); }}>Change</button>
-          </p>
-          {method === 'phone' && (
-            <p className="msg ok">Open WhatsApp. You will get a message with your 6-digit code. Tap <b>Copy code</b> and paste it here.</p>
+          <label className="field">
+            <span className="label row-between">Password <Link href={`/forgot?next=${encodeURIComponent(next)}`} className="hint">Forgot password?</Link></span>
+            <div className="pw-wrap">
+              <input name="password" type={showPw ? 'text' : 'password'} autoComplete="current-password" required />
+              <button type="button" className="linkbtn" onClick={() => setShowPw((s) => !s)}>{showPw ? 'Hide' : 'Show'}</button>
+            </div>
+          </label>
+          {(signState?.error || error) && <p className="msg err" role="alert">{signState?.error || error}</p>}
+          <Btn busyText="Signing in…">Sign in</Btn>
+          <p className="hint center">New here? <button type="button" className="linkbtn" onClick={() => switchTo('signup')}>Create an account</button></p>
+        </form>
+      )}
+
+      {mode === 'signup' && step === 'enter' && (
+        <form className="stack" onSubmit={(e) => { e.preventDefault(); sendCode(); }}>
+          <p className="muted">We will send you a code to check it is you. Then you choose a password.</p>
+          {WA_ON && (
+            <div className="seg small-seg">
+              <button type="button" className={upVia === 'email' ? 'on' : ''} onClick={() => setUpVia('email')}>Email</button>
+              <button type="button" className={upVia === 'phone' ? 'on' : ''} onClick={() => setUpVia('phone')}>Mobile number</button>
+            </div>
           )}
-          {method === 'email' && (
-            <p className="msg ok">Open the email and tap <b>Sign in</b> on this same device and browser. If your email shows a 6-digit code instead, type it below.</p>
+          {upVia === 'email' ? (
+            <label className="field"><span className="label">Email</span><input type="email" autoComplete="email" autoFocus value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@company.com" /></label>
+          ) : (
+            <label className="field"><span className="label">Mobile number</span><PhoneInput name="signup_phone" onValue={setPhone} autoFocus /></label>
           )}
-          <form className="stack" onSubmit={(e) => { e.preventDefault(); verify(); }}>
-            <input
-              ref={codeRef}
-              className="otp"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              maxLength={6}
-              aria-label="6-digit code"
-              placeholder="••••••"
-              value={code}
-              onChange={(e) => {
-                const v = e.target.value.replace(/\D/g, '').slice(0, 6);
-                setCode(v);
-                if (v.length === 6) verify(v);
-              }}
-            />
-            {error && <p className="msg err" role="alert">{error}</p>}
-            <button className="btn primary block" disabled={busy}>{busy ? 'Checking…' : 'Verify and continue'}</button>
-            <p className="hint center">
-              {wait > 0 ? `Resend code in ${wait}s` : <button type="button" className="linkbtn" onClick={send}>Resend code</button>}
-            </p>
-          </form>
-        </>
+          {error && <p className="msg err" role="alert">{error}</p>}
+          <button className="btn primary block" disabled={busy}>{busy ? 'Sending…' : 'Send code'}</button>
+          <p className="hint center">Already have an account? <button type="button" className="linkbtn" onClick={() => switchTo('signin')}>Sign in</button></p>
+        </form>
+      )}
+
+      {mode === 'signup' && step === 'code' && (
+        <form className="stack" onSubmit={(e) => { e.preventDefault(); verify(); }}>
+          <h1>{upVia === 'email' ? 'Check your email' : 'Check your messages'}</h1>
+          <p className="muted">Sent to <b>{upVia === 'email' ? email : phone}</b>. <button type="button" className="linkbtn" onClick={() => setStep('enter')}>Change</button></p>
+          {upVia === 'email' && <p className="msg ok">Type the code from the email below. If the email has a button instead, tap it <b>on this same device</b>.</p>}
+          <input ref={codeRef} className="otp" inputMode="numeric" autoComplete="one-time-code" maxLength={8} aria-label="Code" placeholder="••••••" value={code}
+            onChange={(e) => { const v = e.target.value.replace(/\D/g, '').slice(0, 8); setCode(v); if (v.length === 6) verify(v); }} />
+          {error && <p className="msg err" role="alert">{error}</p>}
+          <button className="btn primary block" disabled={busy}>{busy ? 'Checking…' : 'Continue'}</button>
+          <p className="hint center">{wait > 0 ? `Send again in ${wait}s` : <button type="button" className="linkbtn" onClick={sendCode}>Send the code again</button>}</p>
+        </form>
+      )}
+
+      {mode === 'demo' && (
+        <div className="stack">
+          <p className="hint">Practice accounts with fake data. Tap a person to log in as them.</p>
+          <div className="demo-list">
+            {DEMO_USERS.map((u) => (
+              <button key={u.email} type="button" className="org-pick" disabled={busy} onClick={() => demoLogin(u.email)}>
+                <span className="org-initial">{u.name[0]}</span>
+                <span className="org-text"><b>{u.name}</b><span className="hint">{u.role}</span></span>
+              </button>
+            ))}
+          </div>
+          {error && <p className="msg err" role="alert">{error}</p>}
+        </div>
       )}
     </div>
   );
