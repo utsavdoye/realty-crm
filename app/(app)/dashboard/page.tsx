@@ -59,7 +59,10 @@ export default async function Today({ searchParams }: { searchParams: { welcome?
   return (
     <>
       <div className="top">
-        <h1>{greet}{first ? `, ${first}` : ''}</h1>
+        <div className="top-title">
+          <h1>{greet}{first ? `, ${first}` : ''}</h1>
+          <p className="hint">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' })} · Here is what needs your attention today.</p>
+        </div>
         {mgr && (
           <div className="seg">
             <Link href="/dashboard?scope=mine" className={mine ? 'on' : ''}>My leads</Link>
@@ -73,11 +76,11 @@ export default async function Today({ searchParams }: { searchParams: { welcome?
       {searchParams.denied && <div className="banner warn">That page is only for admins and managers.</div>}
 
       <div className="kpis">
-        <Link className={`kpi ${overdue.length ? 'alert' : ''}`} href="/leads?fu=over"><span className="label">Overdue calls</span><span className="n">{overdue.length}</span></Link>
-        <Link className="kpi" href="/leads?fu=today"><span className="label">Calls due today</span><span className="n">{today.length}</span></Link>
-        <Link className={`kpi ${freshList.length ? 'alert' : ''}`} href="/leads?stage=new"><span className="label">New, not called</span><span className="n">{freshList.length}</span></Link>
-        <Link className="kpi" href="/visits"><span className="label">Site visits today</span><span className="n">{visitsToday.length}</span></Link>
-        <Link className="kpi" href="/leads?stage=booked"><span className="label">Booked this month</span><span className="n">{booked.count ?? 0}</span></Link>
+        <Link className={`kpi ${overdue.length ? 'alert' : ''}`} href="/leads?fu=over"><i className="kpi-ic hot" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></i><span className="label">Overdue calls</span><span className="n">{overdue.length}</span></Link>
+        <Link className="kpi" href="/leads?fu=today"><i className="kpi-ic" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg></i><span className="label">Calls due today</span><span className="n">{today.length}</span></Link>
+        <Link className={`kpi ${freshList.length ? 'alert' : ''}`} href="/leads?stage=new"><i className="kpi-ic warn" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg></i><span className="label">New, not called</span><span className="n">{freshList.length}</span></Link>
+        <Link className="kpi" href="/visits"><i className="kpi-ic" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg></i><span className="label">Site visits today</span><span className="n">{visitsToday.length}</span></Link>
+        <Link className="kpi" href="/leads?stage=booked"><i className="kpi-ic good" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg></i><span className="label">Booked this month</span><span className="n">{booked.count ?? 0}</span></Link>
       </div>
 
       {role === 'owner' && done < steps.length && (

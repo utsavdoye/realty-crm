@@ -26,26 +26,27 @@ export function NavLinks({ role, mobile = false }: { role: Role; mobile?: boolea
   const path = usePathname();
   const m = role === 'owner' || role === 'manager';
   const all = [
-    { href: '/dashboard', label: 'Today', icon: ICONS.today, show: true },
+    { href: '/dashboard', label: 'Today', icon: ICONS.today, show: true, sec: 'Work' },
     { href: '/leads', label: 'Leads', icon: ICONS.leads, show: true },
     { href: '/visits', label: 'Visits', icon: ICONS.visits, show: role !== 'partner' },
     { href: '/projects', label: 'Projects', icon: ICONS.projects, show: true },
     { href: '/map', label: 'Map', icon: ICONS.map, show: role !== 'partner' },
-    { href: '/money', label: 'Money', icon: ICONS.money, show: role === 'owner' },
-    { href: '/messages', label: 'Messages', icon: ICONS.messages, show: role !== 'partner' },
+    { href: '/money', label: 'Money', icon: ICONS.money, show: role === 'owner', sec: 'Business' },
+    { href: '/messages', label: 'Messages', icon: ICONS.messages, show: role !== 'partner', sec: role === 'owner' ? undefined : 'Business' },
     { href: '/reports', label: 'Reports', icon: ICONS.reports, show: m },
     { href: '/sources', label: 'Lead sources', icon: ICONS.sources, show: m },
-    { href: '/team', label: 'Team', icon: ICONS.team, show: m },
-    { href: '/profile', label: 'Profile', icon: ICONS.me, show: true },
-  ].filter((i) => i.show);
+    { href: '/team', label: 'Team', icon: ICONS.team, show: m, sec: 'Settings' },
+    { href: '/profile', label: 'Profile', icon: ICONS.me, show: true, sec: m ? undefined : 'Settings' },
+  ].filter((i) => i.show) as { href: string; label: string; icon: string; show: boolean; sec?: string }[];
   const items = mobile ? [...all.slice(0, 4), { href: '/more', label: 'More', icon: ICONS.more, show: true }] : all;
   return (
     <nav className={mobile ? 'bottomnav' : 'nav'} aria-label="Main">
-      {items.map((i) => (
+      {items.map((i) => [
+        !mobile && i.sec ? <div key={'s-' + i.sec} className="nav-sec">{i.sec}</div> : null,
         <Link key={i.href} href={i.href} className={path.startsWith(i.href) || (i.href === '/more' && all.slice(4).some((x) => path.startsWith(x.href))) ? 'on' : ''}>
           {I(i.icon)}<span>{i.label}</span>
-        </Link>
-      ))}
+        </Link>,
+      ])}
     </nav>
   );
 }

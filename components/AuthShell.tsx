@@ -18,12 +18,17 @@ export function AuthShell({ children }: { children: ReactNode }) {
       <div className="auth-side">
         <Logo />
         <div className="auth-pitch">
-          <h2>Every lead called. Every visit followed up.</h2>
+          <h2>Every lead called.<br /><em>Every visit</em> followed up.</h2>
           <ul>
             <li>Leads from 99acres, MagicBricks and walk-ins in one list</li>
             <li>Each agent sees only their own leads</li>
             <li>Follow-ups, site visits and WhatsApp in one place</li>
           </ul>
+        </div>
+        <div className="auth-demo" aria-hidden="true">
+          <div className="auth-toast"><i>↘</i><div><b>New lead from 99acres</b><span>Given to the next free agent, in seconds</span></div></div>
+          <div className="auth-toast"><i>✓</i><div><b>Site visit confirmed</b><span>Reminder set for the agent and the client</span></div></div>
+          <div className="auth-toast"><i>☎</i><div><b>Client opened the price list</b><span>Good time to call</span></div></div>
         </div>
         <p className="faint">Your company data stays private to your team.</p>
       </div>
