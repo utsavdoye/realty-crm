@@ -87,7 +87,7 @@ export default async function Projects() {
               <div className="row-gap">
                 <Link className="btn sm" href={`/leads?project=${p.id}`}>See leads</Link>
                 {p.lat != null && <Link className="btn sm ghost" href="/map">On map</Link>}
-                {mgr && p.status !== 'Sold out' && <form action={rematchProject}><input type="hidden" name="id" value={p.id} /><button className="btn sm ghost" title="Look again through all leads for people who fit this project">Find matching leads</button></form>}
+                {mgr && p.status !== 'Sold out' && <form action={rematchProject}><input type="hidden" name="id" value={p.id} /><Submit className="btn sm ghost" pendingText="Checking…">Find matching leads</Submit></form>}
                 {mgr && (
                   <details className="grow">
                     <summary className="btn sm ghost">Edit</summary>

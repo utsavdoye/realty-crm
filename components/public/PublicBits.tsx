@@ -17,9 +17,9 @@ function Send({ children }: { children: string }) {
   return <button className="btn primary block" disabled={pending}>{pending ? 'Sending…' : children}</button>;
 }
 
-export function EnquiryForm({ token, project }: { token: string; project: string }) {
+export function EnquiryForm({ token, project, defaultVisit = false }: { token: string; project: string; defaultVisit?: boolean }) {
   const [state, action] = useFormState(sendEnquiry, null);
-  const [visit, setVisit] = useState(false);
+  const [visit, setVisit] = useState(defaultVisit);
   if (state?.ok) return <div className="msg ok">Thank you! Our team will call you shortly{visit ? ' to confirm your site visit' : ''}.</div>;
   return (
     <form action={action} className="stack">

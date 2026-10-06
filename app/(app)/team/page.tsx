@@ -3,15 +3,15 @@ import { changeRole, deactivateMember, reactivateMember, revokeInvite, updateCom
 import { ActionForm, Submit } from '@/components/forms';
 import { InviteForm } from '@/components/InviteForm';
 import { CopyButton } from '@/components/CopyButton';
-import { ROLE_LABEL, fmtPhone, siteUrl, type Role } from '@/lib/roles';
+import { PICK_LABEL, fmtPhone, memberRole, siteUrl, type PickRole } from '@/lib/roles';
 
 export const metadata = { title: 'Team' };
 
 export default async function Team() {
   const { supabase, org, role, user } = await requireOrg(['owner', 'manager']);
   const [{ data: members }, { data: invites }] = await Promise.all([
-    supabase.from('members').select('user_id, full_name, role, phone, email, active, joined_at').eq('org_id', org.id).order('joined_at'),
-    supabase.from('invites').select('id, token, full_name, phone, email, role, expires_at, accepted_at').eq('org_id', org.id).is('accepted_at', null).order('created_at', { ascending: false }),
+    supabase.from('members').select('*').eq('org_id', org.id).order('joined_at'),
+    supabase.from('invites').select('*').eq('org_id', org.id).is('accepted_at', null).order('created_at', { ascending: false }),
   ]);
   const list = members ?? [];
   const activeAssignable = list.filter((m) => m.active && m.role !== 'partner');
@@ -34,15 +34,15 @@ export default async function Team() {
                       <span className="avatar">{(m.full_name || '?').slice(0, 1).toUpperCase()}</span>
                       <div>
                         <div className="pname">{m.full_name || 'No name'} {self && <span className="chip">You</span>} {!m.active && <span className="chip bad">Access removed</span>}</div>
-                        <div className="hint">{ROLE_LABEL[m.role as Role]}{m.phone ? ' · ' + fmtPhone(m.phone) : ''}{m.email ? ' · ' + m.email : ''}</div>
+                        <div className="hint">{PICK_LABEL[memberRole(m)]}{m.phone ? ' · ' + fmtPhone(m.phone) : ''}{m.email ? ' · ' + m.email : ''}</div>
                       </div>
                     </div>
                     <div className="person-acts">
                       {m.active && canEditRole && (
                         <ActionForm action={changeRole} className="inline">
                           <input type="hidden" name="user_id" value={m.user_id} />
-                          <select name="role" defaultValue={m.role} aria-label={`Role for ${m.full_name}`}>
-                            {(['owner', 'manager', 'agent'] as Role[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
+                          <select name="role" defaultValue={memberRole(m)} aria-label={`Role for ${m.full_name}`}>
+                            {(['owner', 'manager', 'agent', 'intern'] as PickRole[]).map((r) => <option key={r} value={r}>{PICK_LABEL[r]}</option>)}
                           </select>
                           <Submit className="btn sm">Save</Submit>
                         </ActionForm>
@@ -80,7 +80,7 @@ export default async function Team() {
                     <div key={i.id} className="person">
                       <div className="person-main"><span className="avatar faint-bg">?</span>
                         <div><div className="pname">{i.full_name || 'Invited person'} {expired && <span className="chip bad">Expired</span>}</div>
-                          <div className="hint">{ROLE_LABEL[i.role as Role]} · {i.phone ? fmtPhone(i.phone) : i.email}</div></div></div>
+                          <div className="hint">{PICK_LABEL[memberRole(i)]} · {i.phone ? fmtPhone(i.phone) : i.email}</div></div></div>
                       <div className="person-acts">
                         {!expired && <CopyButton text={`${siteUrl()}/join/${i.token}`} />}
                         <form action={revokeInvite}><input type="hidden" name="id" value={i.id} /><button className="btn sm ghost">Cancel</button></form>
@@ -113,18 +113,19 @@ export default async function Team() {
           <section className="panel">
             <div className="panel-h"><h2>Who can do what</h2></div>
             <div className="table-wrap"><table className="tbl small">
-              <thead><tr><th></th><th>Admin</th><th>Manager</th><th>Employee</th></tr></thead>
+              <thead><tr><th></th><th>Admin</th><th>Manager</th><th>Employee</th><th>Intern</th></tr></thead>
               <tbody>
                 {[
-                  ['See all leads', 1, 1, 0],
-                  ['See own leads, call, add notes', 1, 1, 1],
-                  ['Send client links (shortlists)', 1, 1, 1],
-                  ['Reports and team performance', 1, 1, 0],
-                  ['Reassign and delete leads', 1, 1, 0],
-                  ['Invite employees', 1, 1, 0],
-                  ['Money: deals, payments, expenses', 1, 0, 0],
-                  ['Add admins or managers, change roles', 1, 0, 0],
-                  ['Export all data', 1, 0, 0],
+                  ['See all leads', 1, 1, 0, 0],
+                  ['See own leads, call, add notes', 1, 1, 1, 1],
+                  ['Send client links (shortlists)', 1, 1, 1, 1],
+                  ['Delete their own client links', 1, 1, 1, 0],
+                  ['Reports and team performance', 1, 1, 0, 0],
+                  ['Reassign and delete leads', 1, 1, 0, 0],
+                  ['Invite employees and interns', 1, 1, 0, 0],
+                  ['Money: deals, payments, expenses', 1, 0, 0, 0],
+                  ['Add admins or managers, change roles', 1, 0, 0, 0],
+                  ['Export all data', 1, 0, 0, 0],
                 ].map(([label, ...v]) => (
                   <tr key={label as string}><td>{label}</td>{v.map((x, i) => <td key={i} className="c">{x ? '✓' : '—'}</td>)}</tr>
                 ))}

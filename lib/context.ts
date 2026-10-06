@@ -20,6 +20,7 @@ export type Membership = {
   role: Role;
   active: boolean;
   full_name: string;
+  is_intern?: boolean | null;
   organizations: Org | null;
 };
 
@@ -29,7 +30,7 @@ export const getContext = cache(async () => {
   if (!user) return { supabase, user: null, memberships: [] as Membership[] };
   const { data } = await supabase
     .from('members')
-    .select('org_id, role, active, full_name, organizations(id, name, city, rera_no, plan_status, trial_ends_at)')
+    .select('*, organizations(id, name, city, rera_no, plan_status, trial_ends_at)')
     .eq('user_id', user.id);
   return { supabase, user, memberships: (data ?? []) as unknown as Membership[] };
 });

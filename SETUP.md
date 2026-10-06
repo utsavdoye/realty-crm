@@ -22,7 +22,7 @@ Takes about 30–40 minutes the first time.
    - Save the database password somewhere safe.
 2. Wait 2 minutes for it to start.
 3. Left menu → **SQL Editor** → **New query**. Open `supabase/schema.sql` from this folder, copy everything, paste, press **Run**. You should see "Success. No rows returned".
-   Then do the same, one by one and in this order, for `supabase/patch-002-whatsapp.sql`, `patch-003-lead-capture.sql`, `patch-004-crm.sql`, `patch-005-alerts-import.sql`, `patch-006-project-photos.sql`, `patch-007-admins-money-sharing-map.sql` and `patch-008-project-matches.sql`. Each one is safe to run again if you are not sure you ran it.
+   Then do the same, one by one and in this order, for `supabase/patch-002-whatsapp.sql`, `patch-003-lead-capture.sql`, `patch-004-crm.sql`, `patch-005-alerts-import.sql`, `patch-006-project-photos.sql`, `patch-007-admins-money-sharing-map.sql`, `patch-008-project-matches.sql`, `patch-009-international-phones.sql`, `patch-010-passwords.sql` and `patch-011-forms-interns-teaser.sql`. Each one is safe to run again if you are not sure you ran it.
    **Before patch-005:** left menu → **Database → Extensions** → search `pg_cron` → switch it on. This runs the "move a lead if nobody calls it" check every minute. If you forget, run patch-005 again after switching it on.
 4. Left menu → **Project Settings → API**. Copy two things:
    - **Project URL**

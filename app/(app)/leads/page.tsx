@@ -10,7 +10,7 @@ import { dismissMatches } from '@/app/crm-actions';
 export const metadata = { title: 'Leads' };
 
 type SP = { q?: string; stage?: string; score?: string; source?: string; agent?: string; project?: string; fu?: string; view?: string; page?: string;
-  from?: string; to?: string; bmin?: string; bmax?: string; bhk?: string; ptype?: string; area?: string; purpose?: string; req?: string; match?: string };
+  from?: string; to?: string; bmin?: string; bmax?: string; bhk?: string; ptype?: string; area?: string; purpose?: string; req?: string; match?: string; found?: string };
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const clean = (v: string) => v.replace(/[%_,()."']/g, '').slice(0, 60);
 const PAGE = 50;
@@ -93,16 +93,24 @@ export default async function Leads({ searchParams: sp }: { searchParams: SP }) 
       <div className="top">
         <h1>Leads</h1>
         <AutoFilterForm className="search" action="/leads">
-          {Object.entries(sp).filter(([k, v]) => v && k !== 'q' && k !== 'page').map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
+          {Object.entries(sp).filter(([k, v]) => v && k !== 'q' && k !== 'page' && k !== 'found').map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
           <input type="search" name="q" defaultValue={term} placeholder="Search name, mobile or area" aria-label="Search leads" />
         </AutoFilterForm>
         {mgr && <Link className="btn" href="/leads/import">Import</Link>}
         {role === 'owner' && <a className="btn" href="/api/export">Export</a>}
+        <Link className="btn" href="/profile#form" title="Send a link where the client fills their own requirement">Client form</Link>
         <Link className="btn primary" href="/leads/new">+ Add lead</Link>
       </div>
-      {matchName && (
+      {matchName && sp.found === 'err' && <div className="banner">Could not check the leads just now. Please try again.</div>}
+      {matchName && sp.found === '0' && (
         <div className="banner match-banner">
-          <span><b>🔔 These leads wanted something like {matchName}.</b> Their budget fits, plus the home type or area. Call them or send the project from the lead page.</span>
+          <span><b>No leads fit {matchName} yet.</b> A lead fits when the budget matches, plus the home type or area. Leads without a budget cannot be matched, so add budgets to old leads. Click “Find matching leads” again any time.</span>
+          <Link className="btn sm ghost" href="/projects">Back to projects</Link>
+        </div>
+      )}
+      {matchName && sp.found !== '0' && sp.found !== 'err' && (
+        <div className="banner match-banner">
+          <span><b>🔔 {sp.found ? `${sp.found} lead${sp.found === '1' ? '' : 's'}` : 'These leads'} wanted something like {matchName}.</b> Their budget fits, plus the home type or area. Call them or send the project from the lead page.</span>
           <form action={dismissMatches}><input type="hidden" name="project_id" value={sp.match} /><button className="btn sm ghost">Hide this list</button></form>
         </div>
       )}

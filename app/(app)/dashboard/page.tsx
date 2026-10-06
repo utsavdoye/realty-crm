@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { requireOrg } from '@/lib/context';
-import { ROLE_HELP, ROLE_LABEL, fmtPhone, isManager, telHref } from '@/lib/roles';
+import { PICK_HELP, PICK_LABEL, fmtPhone, isManager, memberRole, telHref } from '@/lib/roles';
 import { recycleCall, recycleSnooze } from '@/app/crm-actions';
 import { fmtBudget, fmtTime, fuState, fuText, istAt, istDay, rel, stageChip, stageLabel } from '@/lib/crm';
 
@@ -69,7 +69,7 @@ export default async function Today({ searchParams }: { searchParams: { welcome?
         <Link className="btn primary" href="/leads/new">+ Add lead</Link>
       </div>
       {searchParams.welcome && <div className="banner">Your company account is ready. Next, invite your team.</div>}
-      {searchParams.joined && <div className="banner">You joined {org.name} as {ROLE_LABEL[role]}. {ROLE_HELP[role]}</div>}
+      {searchParams.joined && <div className="banner">You joined {org.name} as {PICK_LABEL[memberRole(me)]}. {PICK_HELP[memberRole(me)]}</div>}
       {searchParams.denied && <div className="banner warn">That page is only for admins and managers.</div>}
 
       <div className="kpis">

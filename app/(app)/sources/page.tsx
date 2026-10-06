@@ -4,6 +4,7 @@ import { ActionForm, Submit } from '@/components/forms';
 import { CopyButton } from '@/components/CopyButton';
 import { SourceKindPicker } from '@/components/SourceKindPicker';
 import { siteUrl } from '@/lib/roles';
+import { ShareButtons } from '@/components/ShareButtons';
 
 export const metadata = { title: 'Lead sources' };
 
@@ -51,18 +52,27 @@ export default async function Sources() {
   const [{ data: sources }, { data: projects }, { data: orgRow }] = await Promise.all([
     supabase.from('lead_sources').select('id, name, kind, key, active, lead_count, last_lead_at, external_id, default_project_id').eq('org_id', org.id).order('created_at'),
     supabase.from('projects').select('id, name').eq('org_id', org.id).order('name'),
-    supabase.from('organizations').select('auto_assign, reassign_minutes').eq('id', org.id).single(),
+    supabase.from('organizations').select('*').eq('id', org.id).single(),
   ]);
   const base = siteUrl();
   const list = (sources ?? []) as Source[];
   const auto = (orgRow as { auto_assign?: boolean } | null)?.auto_assign ?? true;
   const reassign = (orgRow as { reassign_minutes?: number | null } | null)?.reassign_minutes ?? null;
+  const formToken = (orgRow as { form_token?: string | null } | null)?.form_token ?? null;
   return (
     <>
       <div className="top"><h1>Lead sources</h1></div>
       <p className="muted" style={{ marginTop: -8, maxWidth: '70ch' }}>
         Connect each place your leads come from. New leads land in your CRM within seconds, go to the next agent automatically, and the agent gets a WhatsApp alert. A number that enquires again is added to the same lead, never copied.
       </p>
+
+      <section className="panel" style={{ marginBottom: 16 }}>
+        <div className="panel-h"><h2>Client requirement form</h2><span className="hint">Free · no portal needed</span></div>
+        <div className="panel-b stack">
+          <p className="hint">One link for the company: put it in your Instagram bio, WhatsApp status, Google profile and ads. Clients pick their budget, home type and area, and it becomes a lead (shared automatically). Each person also has their own link in Profile, so their clients come to them.</p>
+          {formToken ? <ShareButtons url={`${siteUrl()}/r/${formToken}`} text="Looking for a home? Tell us your budget and area in 1 minute, and we will send you options that fit:" /> : <p className="msg err">Run patch-011 in Supabase to switch this on.</p>}
+        </div>
+      </section>
 
       <div className="grid-main">
         <div className="stack">

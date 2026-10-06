@@ -472,7 +472,10 @@ export async function dismissMatches(fd: FormData) {
 export async function rematchProject(fd: FormData) {
   const { supabase, role } = await ctx();
   if (!isManager(role)) return;
-  await supabase.rpc('rematch_project', { p_project: str(fd, 'id') });
+  const id = str(fd, 'id');
+  if (!/^[0-9a-f-]{36}$/.test(id)) return;
+  const { data, error } = await supabase.rpc('rematch_project', { p_project: id });
   revalidatePath('/projects');
-  refresh();
+  if (error) redirect(`/leads?match=${id}&found=err`);
+  redirect(`/leads?match=${id}&found=${Number(data ?? 0)}`);
 }

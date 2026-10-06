@@ -14,6 +14,12 @@ export const ROLE_HELP: Record<Role, string> = {
   partner: 'Sees only the leads they brought in and their status.',
 };
 
+/** Roles you can pick when inviting someone. An intern is stored as an employee with an "intern" mark. */
+export type PickRole = Role | 'intern';
+export const PICK_LABEL: Record<PickRole, string> = { ...ROLE_LABEL, intern: 'Intern' };
+export const PICK_HELP: Record<PickRole, string> = { ...ROLE_HELP, intern: 'Works like an employee: sees only the leads given to them. Cannot delete anything.' };
+export const memberRole = (m: { role: string; is_intern?: boolean | null }): PickRole => (m.role === 'agent' && m.is_intern ? 'intern' : (m.role as Role));
+
 export const isManager = (r: Role | null | undefined) => r === 'owner' || r === 'manager';
 export const isAdmin = (r: Role | null | undefined) => r === 'owner';
 

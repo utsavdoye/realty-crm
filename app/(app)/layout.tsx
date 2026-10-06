@@ -4,7 +4,7 @@ import { Logo } from '@/components/AuthShell';
 import { NavLinks } from '@/components/NavLinks';
 import { SignOutButtons } from '@/components/SignOutButtons';
 import { switchOrg } from '@/app/actions';
-import { ROLE_LABEL } from '@/lib/roles';
+import { PICK_LABEL, memberRole } from '@/lib/roles';
 import { Bell } from '@/components/Bell';
 
 export const dynamic = 'force-dynamic';
@@ -19,7 +19,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <Logo />
         <div className="org-box">
           <div className="org-name">{org.name}</div>
-          <div className="hint">{me.full_name} · {ROLE_LABEL[role]}</div>
+          <div className="hint">{me.full_name} · {PICK_LABEL[memberRole(me)]}</div>
           {memberships.length > 1 && (
             <form action={switchOrg} className="org-switch">
               <select name="org_id" defaultValue={org.id} aria-label="Switch company">

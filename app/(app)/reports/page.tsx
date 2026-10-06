@@ -1,18 +1,66 @@
 import Link from 'next/link';
 import { requireOrg } from '@/lib/context';
-import { STAGES } from '@/lib/crm';
+import { STAGES, istDay } from '@/lib/crm';
+import { AutoFilterForm } from '@/components/AutoFilterForm';
 
 export const metadata = { title: 'Reports' };
 
-type L = { stage: string; max_stage: number; source: string | null; assigned_to: string | null; lost_reason: string | null; next_follow_up: string | null; call_attempts: number };
+type L = { created_at: string; stage: string; max_stage: number; source: string | null; assigned_to: string | null; lost_reason: string | null; next_follow_up: string | null; call_attempts: number };
 
-export default async function Reports({ searchParams }: { searchParams: { days?: string } }) {
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+const addDays = (d: string, n: number) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
+const istStart = (d: string) => new Date(d + 'T00:00:00+05:30').toISOString();
+const fmtD = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+
+/** Works out the period from the link: a preset (?p=today|7|30|month|lastmonth|90|all) or a custom ?from=&to= (IST days). */
+function period(sp: { p?: string; days?: string; from?: string; to?: string }) {
+  const today = istDay(new Date());
+  if (sp.from && DAY.test(sp.from)) {
+    let to = sp.to && DAY.test(sp.to) ? sp.to : today;
+    let from = sp.from;
+    if (from > to) [from, to] = [to, from];
+    return { key: 'custom', from, to, label: from === to ? fmtD(from) : `${fmtD(from)} – ${fmtD(to)}` };
+  }
+  const p = sp.p ?? (sp.days === '7' ? '7' : sp.days === '90' ? '90' : sp.days === '0' ? 'all' : '30');
+  const month = today.slice(0, 8) + '01';
+  switch (p) {
+    case 'today': return { key: p, from: today, to: today, label: 'Today' };
+    case '7': return { key: p, from: addDays(today, -6), to: today, label: 'Last 7 days' };
+    case 'month': return { key: p, from: month, to: today, label: 'This month' };
+    case 'lastmonth': { const lmEnd = addDays(month, -1); return { key: p, from: lmEnd.slice(0, 8) + '01', to: lmEnd, label: 'Last month' }; }
+    case '90': return { key: p, from: addDays(today, -89), to: today, label: 'Last 90 days' };
+    case 'all': return { key: p, from: null, to: null, label: 'All time' };
+    default: return { key: '30', from: addDays(today, -29), to: today, label: 'Last 30 days' };
+  }
+}
+
+export default async function Reports({ searchParams }: { searchParams: { p?: string; days?: string; from?: string; to?: string } }) {
   const { supabase, org } = await requireOrg(['owner', 'manager']);
-  const days = [7, 30, 90, 0].includes(Number(searchParams.days)) ? Number(searchParams.days ?? 30) : 30;
-  const since = days ? new Date(Date.now() - days * 86400000).toISOString() : null;
-  let lq = supabase.from('leads').select('stage, max_stage, source, assigned_to, lost_reason, next_follow_up, call_attempts').eq('org_id', org.id).limit(10000);
-  let vq = supabase.from('visits').select('status, agent_id').eq('org_id', org.id).limit(10000);
-  if (since) { lq = lq.gte('created_at', since); vq = vq.gte('at', since); }
+  const per = period(searchParams);
+  let lq = supabase.from('leads').select('created_at, stage, max_stage, source, assigned_to, lost_reason, next_follow_up, call_attempts').eq('org_id', org.id).limit(10000);
+  let vq = supabase.from('visits').select('status, agent_id, at').eq('org_id', org.id).limit(10000);
+  if (per.from && per.to) {
+    const a = istStart(per.from), b = istStart(addDays(per.to, 1));
+    lq = lq.gte('created_at', a).lt('created_at', b); vq = vq.gte('at', a).lt('at', b);
+  }
+  // Calendar: the months of the chosen period (at most the last 3), with leads and visits per day.
+  const calEnd = per.to ?? istDay(new Date());
+  let calStart = (per.from ?? addDays(calEnd, -60)).slice(0, 8) + '01';
+  const minStart = addDays(calEnd.slice(0, 8) + '01', -62).slice(0, 8) + '01';
+  if (calStart < minStart) calStart = minStart;
+  const calLast = (() => { const t = new Date(calEnd.slice(0, 8) + '01T00:00:00Z'); t.setUTCMonth(t.getUTCMonth() + 1); t.setUTCDate(0); return t.toISOString().slice(0, 10); })();
+  const [{ data: calLeads }, { data: calVisits }] = await Promise.all([
+    supabase.from('leads').select('created_at').eq('org_id', org.id).gte('created_at', istStart(calStart)).lt('created_at', istStart(addDays(calLast, 1))).limit(10000),
+    supabase.from('visits').select('at, status').eq('org_id', org.id).gte('at', istStart(calStart)).lt('at', istStart(addDays(calLast, 1))).limit(10000),
+  ]);
+  const perDay = new Map<string, number>();
+  (calLeads ?? []).forEach((l) => { const d = istDay(l.created_at); perDay.set(d, (perDay.get(d) ?? 0) + 1); });
+  const visitDay = new Map<string, number>();
+  (calVisits ?? []).filter((v) => v.status === 'done').forEach((v) => { const d = istDay(v.at); visitDay.set(d, (visitDay.get(d) ?? 0) + 1); });
+  const maxDay = Math.max(1, ...perDay.values());
+  const months: string[] = [];
+  for (let m = calStart; m <= calLast; ) { months.push(m); const t = new Date(m + 'T00:00:00Z'); t.setUTCMonth(t.getUTCMonth() + 1); m = t.toISOString().slice(0, 10); }
+  const todayIst = istDay(new Date());
   const open = '(booked,lost)';
   const [{ data: leadsRaw }, { data: visitsRaw }, { data: people }, { count: openOverdue }, { count: noNext }, { count: unassigned }, { count: stale }] = await Promise.all([
     lq, vq,
@@ -63,8 +111,45 @@ export default async function Reports({ searchParams }: { searchParams: { days?:
     <>
       <div className="top">
         <h1>Reports</h1>
-        <div className="seg">{[[7, '7 days'], [30, '30 days'], [90, '90 days'], [0, 'All time']].map(([d, l]) => <Link key={d} href={`/reports?days=${d}`} className={days === d ? 'on' : ''}>{l}</Link>)}</div>
+        <div className="seg seg-wrap">{[['today', 'Today'], ['7', '7 days'], ['30', '30 days'], ['month', 'This month'], ['lastmonth', 'Last month'], ['90', '90 days'], ['all', 'All time']].map(([k, l]) => <Link key={k} href={`/reports?p=${k}`} className={per.key === k ? 'on' : ''}>{l}</Link>)}</div>
       </div>
+      <div className="report-range">
+        <AutoFilterForm key={per.label} action="/reports" className="row-gap">
+          <label className="field inline-field"><span className="label">From</span><input type="date" name="from" defaultValue={per.from ?? ''} max={istDay(new Date())} /></label>
+          <label className="field inline-field"><span className="label">To</span><input type="date" name="to" defaultValue={per.to ?? ''} max={istDay(new Date())} /></label>
+        </AutoFilterForm>
+        <span className="hint">Showing <b>{per.label}</b>. Pick any dates, or tap a day in the calendar below.</span>
+      </div>
+      <section className="panel cal-panel">
+        <div className="panel-h"><h2>Calendar</h2><span className="hint">Number = new leads that day · green dot = site visits done · tap a day to see its report</span></div>
+        <div className="cal-months">
+          {months.map((m) => {
+            const first = new Date(m + 'T00:00:00Z');
+            const pad = (first.getUTCDay() + 6) % 7; // Monday first
+            const daysIn = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth() + 1, 0)).getUTCDate();
+            const cells = [...Array(pad).fill(null), ...Array.from({ length: daysIn }, (_, i) => addDays(m, i))];
+            return (
+              <div key={m} className="cal">
+                <b className="cal-title">{first.toLocaleDateString('en-IN', { month: 'long', year: 'numeric', timeZone: 'UTC' })}</b>
+                <div className="cal-grid">
+                  {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => <span key={i} className="cal-dow">{d}</span>)}
+                  {cells.map((d, i) => {
+                    if (!d) return <span key={'p' + i} />;
+                    const n = perDay.get(d) ?? 0;
+                    const inRange = per.from && per.to ? d >= per.from && d <= per.to : true;
+                    const future = d > todayIst;
+                    const cls = `cal-day ${inRange ? 'in' : ''} ${d === todayIst ? 'today' : ''} ${future ? 'future' : ''}`;
+                    const style = n ? { background: `color-mix(in srgb, var(--accent) ${Math.round(12 + (n / maxDay) * 58)}%, var(--surface))`, color: n / maxDay > 0.55 ? 'var(--accent-fg)' : undefined } : undefined;
+                    const body = <><span className="cal-num">{Number(d.slice(8))}</span>{n > 0 && <b className="cal-n">{n}</b>}{visitDay.get(d) ? <i className="cal-dot" title={`${visitDay.get(d)} visit(s) done`} /> : null}</>;
+                    return future ? <span key={d} className={cls}>{body}</span>
+                      : <Link key={d} href={`/reports?from=${d}&to=${d}`} className={cls} style={style} title={`${fmtD(d)}: ${n} new lead${n === 1 ? '' : 's'}`}>{body}</Link>;
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
       <div className="kpis">
         <div className="kpi"><span className="label">Leads in</span><span className="n">{total}</span></div>
         <div className="kpi"><span className="label">Reached by phone</span><span className="n">{pct(funnel[1].n, total)}</span></div>
