@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { requireOrg } from '@/lib/context';
 import { Logo } from '@/components/AuthShell';
@@ -35,6 +36,13 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <Bell userId={user.id} initial={unread ?? 0} />
         <NavLinks role={role} />
         <div className="side-foot">
+          {role !== 'partner' && (
+            <Link href="/profile#form" className="side-promo">
+              <b>Get more leads</b>
+              <span>Send your client form. Buyers pick budget and area in 1 minute.</span>
+              <span className="side-promo-btn">Share my form →</span>
+            </Link>
+          )}
           {daysLeft !== null && <div className="trial">{daysLeft > 0 ? `${daysLeft} day${daysLeft === 1 ? '' : 's'} left in free trial` : 'Trial ends today'}</div>}
           <SignOutButtons compact />
         </div>

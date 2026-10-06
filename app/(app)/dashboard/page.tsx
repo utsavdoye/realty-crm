@@ -30,6 +30,25 @@ export default async function Today({ searchParams }: { searchParams: { welcome?
     role === 'partner' ? Promise.resolve({ data: [] }) : scoped(supabase.from('leads').select('id, name, phone, lost_reason, recycle_step, assigned_to, bhk, budget_min, budget_max, location').eq('org_id', org.id).eq('stage', 'lost').lte('recycle_at', now).order('recycle_at').limit(10)),
     role === 'partner' ? Promise.resolve({ data: [] }) : supabase.from('project_matches').select('project_id, lead_id, created_at, projects(name), leads!inner(name, stage, assigned_to)').eq('org_id', org.id).is('dismissed_at', null).gte('created_at', new Date(Date.now() - 14 * 86400000).toISOString()).order('created_at', { ascending: false }).limit(300),
   ]);
+  // Chart + comparison data
+  const chartFrom = new Date(`${istDay(new Date(Date.now() - 13 * 86400000))}T00:00:00+05:30`).toISOString();
+  const lastMonthStart = (() => { const d = new Date(`${istDay(new Date()).slice(0, 8)}01T00:00:00Z`); d.setUTCMonth(d.getUTCMonth() - 1); return new Date(`${d.toISOString().slice(0, 10)}T00:00:00+05:30`).toISOString(); })();
+  const [recent, bookedPrev] = await Promise.all([
+    scoped(supabase.from('leads').select('created_at, max_stage').eq('org_id', org.id).gte('created_at', chartFrom).limit(5000)),
+    scoped(supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).gte('booked_at', lastMonthStart).lt('booked_at', monthStart)),
+  ]);
+  const days = Array.from({ length: 14 }, (_, i) => istDay(new Date(Date.now() - (13 - i) * 86400000)));
+  const perDay = new Map(days.map((d) => [d, { n: 0, reached: 0 }]));
+  ((recent.data ?? []) as { created_at: string; max_stage: number }[]).forEach((l) => { const r = perDay.get(istDay(l.created_at)); if (r) { r.n++; if (l.max_stage >= 1) r.reached++; } });
+  const series = days.map((d) => ({ d, ...perDay.get(d)! }));
+  const total14 = series.reduce((a, b) => a + b.n, 0);
+  const reached14 = series.reduce((a, b) => a + b.reached, 0);
+  const top = Math.max(4, ...series.map((x) => x.n));
+  const step = Math.ceil(top / 4);
+  const yMax = step * 4;
+  const bookedNow = booked.count ?? 0;
+  const bookedBefore = bookedPrev.count ?? 0;
+  const bookedTrend = bookedBefore ? Math.round(((bookedNow - bookedBefore) / bookedBefore) * 100) : null;
   type M = { project_id: string; lead_id: string; created_at: string; projects: { name: string } | null; leads: { name: string; stage: string; assigned_to: string | null } | null };
   const myMatches = ((matches.data ?? []) as unknown as M[]).filter((m) => !mine || m.leads?.assigned_to === user.id);
   const matchGroups = [...myMatches.reduce((acc, m) => { const g = acc.get(m.project_id) ?? { id: m.project_id, name: m.projects?.name ?? 'Project', n: 0, lost: 0, names: [] as string[] }; g.n++; if (m.leads?.stage === 'lost') g.lost++; if (g.names.length < 3) g.names.push(m.leads?.name ?? ''); acc.set(m.project_id, g); return acc; }, new Map<string, { id: string; name: string; n: number; lost: number; names: string[] }>()).values()];
@@ -76,12 +95,54 @@ export default async function Today({ searchParams }: { searchParams: { welcome?
       {searchParams.denied && <div className="banner warn">That page is only for admins and managers.</div>}
 
       <div className="kpis">
-        <Link className={`kpi ${overdue.length ? 'alert' : ''}`} href="/leads?fu=over"><i className="kpi-ic hot" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></i><span className="label">Overdue calls</span><span className="n">{overdue.length}</span></Link>
-        <Link className="kpi" href="/leads?fu=today"><i className="kpi-ic" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg></i><span className="label">Calls due today</span><span className="n">{today.length}</span></Link>
-        <Link className={`kpi ${freshList.length ? 'alert' : ''}`} href="/leads?stage=new"><i className="kpi-ic warn" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14"/></svg></i><span className="label">New, not called</span><span className="n">{freshList.length}</span></Link>
-        <Link className="kpi" href="/visits"><i className="kpi-ic" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg></i><span className="label">Site visits today</span><span className="n">{visitsToday.length}</span></Link>
-        <Link className="kpi" href="/leads?stage=booked"><i className="kpi-ic good" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg></i><span className="label">Booked this month</span><span className="n">{booked.count ?? 0}</span></Link>
+        <Link className="kpi hero" href="/leads?fu=over">
+          <div className="kpi-top"><i className="kpi-ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></i>{overdue.length > 0 && <span className="trend bad">Call now</span>}</div>
+          <span className="label">Overdue calls</span><span className="n">{overdue.length}</span>
+          <span className="kpi-sub">Follow-up time has passed</span>
+        </Link>
+        <Link className="kpi" href="/leads?fu=today">
+          <div className="kpi-top"><i className="kpi-ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg></i></div>
+          <span className="label">Calls due today</span><span className="n">{today.length}</span>
+          <span className="kpi-sub">Planned for later today</span>
+        </Link>
+        <Link className="kpi" href="/leads?stage=new">
+          <div className="kpi-top"><i className="kpi-ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M19 8v6M16 11h6"/></svg></i>{freshList.length > 0 && <span className="trend warn">Waiting</span>}</div>
+          <span className="label">New, not called</span><span className="n">{freshList.length}</span>
+          <span className="kpi-sub">Call within 5 minutes</span>
+        </Link>
+        <Link className="kpi" href="/visits">
+          <div className="kpi-top"><i className="kpi-ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M3 10.5 12 4l9 6.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg></i></div>
+          <span className="label">Site visits today</span><span className="n">{visitsToday.length}</span>
+          <span className="kpi-sub">{allVisits.length - visitsToday.length} more tomorrow</span>
+        </Link>
+        <Link className="kpi" href="/leads?stage=booked">
+          <div className="kpi-top"><i className="kpi-ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg></i>{bookedTrend !== null && <span className={`trend ${bookedTrend >= 0 ? 'good' : 'bad'}`}>{bookedTrend >= 0 ? '+' : ''}{bookedTrend}%</span>}</div>
+          <span className="label">Booked this month</span><span className="n">{bookedNow}</span>
+          <span className="kpi-sub">{bookedBefore} last month</span>
+        </Link>
       </div>
+
+      <section className="panel chart-panel">
+        <div className="panel-h">
+          <div className="ph-title"><h2>Leads coming in</h2><span className="hint">Last 14 days{mine ? ' · your leads' : ''} · {total14} new, {total14 ? Math.round((reached14 / total14) * 100) : 0}% reached by phone</span></div>
+          <div className="legend"><span><i className="lg grey" />New leads</span><span><i className="lg blue" />Reached</span></div>
+        </div>
+        <div className="bars" style={{ ['--rows' as string]: 4 }}>
+          <div className="bars-y">{[4, 3, 2, 1, 0].map((k) => <span key={k}>{k * step}</span>)}</div>
+          <div className="bars-plot">
+            {series.map((x) => (
+              <Link key={x.d} href={`/leads?from=${x.d}&to=${x.d}`} className="bar-day" aria-label={`${x.d}: ${x.n} new, ${x.reached} reached`}>
+                <span className="bar-pair">
+                  <span className="bar grey" style={{ height: `${(x.n / yMax) * 100}%` }} />
+                  <span className="bar blue" style={{ height: `${(x.reached / yMax) * 100}%` }} />
+                </span>
+                <span className="bar-tip"><b>{new Date(x.d + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', timeZone: 'UTC' })}</b><span><i className="lg grey" />{x.n} new</span><span><i className="lg blue" />{x.reached} reached</span></span>
+                <span className="bar-x">{Number(x.d.slice(8))}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
 
       {role === 'owner' && done < steps.length && (
         <section className="panel" style={{ marginBottom: 16 }}>
