@@ -700,3 +700,37 @@ a.kpi:hover { box-shadow: var(--shadow); border-color: var(--line-2); transform:
 .rpick input:checked + span { background: var(--accent); border-color: var(--accent); color: #fff; }
 .req-tick { background: var(--good-soft); color: var(--good); }
 .cta-bar { background: rgba(255,255,255,.95); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+
+/* ---------- Foldable sidebar ---------- */
+.side-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.side-top .brand { min-width: 0; }
+.side-toggle { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: #8a93a5; cursor: pointer; transition: color .15s var(--ease), border-color .15s var(--ease), background .15s var(--ease); }
+.side-toggle:hover { color: var(--fg); border-color: var(--line-2); background: var(--surface-2); }
+.side-out { gap: 8px; color: #475467; }
+@media (min-width: 901px) {
+  .app { transition: grid-template-columns .22s var(--ease); }
+  .app.mini { grid-template-columns: 72px minmax(0, 1fr); }
+  .app.mini .side { padding: 18px 12px; align-items: center; }
+  .app.mini .side-top { flex-direction: column; gap: 12px; }
+  .app.mini .brand { padding: 0; }
+  .app.mini .brand-name, .app.mini .org-box, .app.mini .trial { display: none; }
+  .app.mini .nav { align-items: center; width: 100%; }
+  .app.mini .nav a, .app.mini .bell, .app.mini .side-out { width: 44px; height: 40px; padding: 0; justify-content: center; position: relative; margin-bottom: 0; }
+  .app.mini .side-foot { align-items: center; }
+  /* keep the words for screen readers, hide them on screen */
+  .app.mini .nav a > span, .app.mini .bell > span:not(.badge), .app.mini .side-out > span {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap;
+  }
+  .app.mini .bell .badge { position: absolute; top: 3px; right: 3px; min-width: 16px; height: 16px; padding: 0 4px; font-size: 10px; margin: 0; }
+  .app.mini .nav-sec { font-size: 0; padding: 8px 0; width: 100%; }
+  .app.mini .nav-sec::before { content: ""; display: block; height: 1px; width: 28px; margin: 0 auto; background: var(--line); }
+  /* hover labels */
+  .app.mini .nav a::after, .app.mini .bell::after, .app.mini .side-out::after {
+    content: attr(data-label); position: absolute; left: calc(100% + 12px); top: 50%; transform: translate(-4px, -50%);
+    background: #0f172a; color: #fff; font-size: 12px; font-weight: 500; padding: 5px 9px; border-radius: 6px; white-space: nowrap;
+    opacity: 0; pointer-events: none; transition: opacity .12s var(--ease), transform .12s var(--ease); z-index: 60; box-shadow: var(--shadow);
+  }
+  .app.mini .nav a:hover::after, .app.mini .bell:hover::after, .app.mini .side-out:hover::after,
+  .app.mini .nav a:focus-visible::after, .app.mini .bell:focus-visible::after { opacity: 1; transform: translate(0, -50%); }
+}
+@media (max-width: 900px) { .side-toggle { display: none; } }

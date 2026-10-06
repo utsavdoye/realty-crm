@@ -26,7 +26,7 @@ export function Bell({ userId, initial, floating = false }: { userId: string; in
 
   const label = n ? `${n} new alert${n === 1 ? '' : 's'}` : 'Alerts';
   return (
-    <Link href="/notifications" className={floating ? 'bell-float' : `bell ${path.startsWith('/notifications') ? 'on' : ''}`} aria-label={label}>
+    <Link href="/notifications" className={floating ? 'bell-float' : `bell ${path.startsWith('/notifications') ? 'on' : ''}`} aria-label={label} data-label={label}>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
         <path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8" /><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0" />
       </svg>

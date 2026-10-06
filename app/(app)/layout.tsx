@@ -6,17 +6,20 @@ import { SignOutButtons } from '@/components/SignOutButtons';
 import { switchOrg } from '@/app/actions';
 import { PICK_LABEL, memberRole } from '@/lib/roles';
 import { Bell } from '@/components/Bell';
+import { SideToggle } from '@/components/SideToggle';
+import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const { supabase, org, role, me, memberships, user } = await requireOrg();
   const { count: unread } = await supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).is('read_at', null);
+  const mini = cookies().get('ed_side')?.value === 'mini';
   const daysLeft = org.plan_status === 'trial' ? Math.ceil((new Date(org.trial_ends_at).getTime() - Date.now()) / 86400000) : null;
   return (
-    <div className="app">
+    <div className={`app ${mini ? 'mini' : ''}`}>
       <aside className="side">
-        <Logo />
+        <div className="side-top"><Logo /><SideToggle initial={mini} /></div>
         <div className="org-box">
           <div className="org-name">{org.name}</div>
           <div className="hint">{me.full_name} · {PICK_LABEL[memberRole(me)]}</div>

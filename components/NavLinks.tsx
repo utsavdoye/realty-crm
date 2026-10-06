@@ -43,7 +43,7 @@ export function NavLinks({ role, mobile = false }: { role: Role; mobile?: boolea
     <nav className={mobile ? 'bottomnav' : 'nav'} aria-label="Main">
       {items.map((i) => [
         !mobile && i.sec ? <div key={'s-' + i.sec} className="nav-sec">{i.sec}</div> : null,
-        <Link key={i.href} href={i.href} className={path.startsWith(i.href) || (i.href === '/more' && all.slice(4).some((x) => path.startsWith(x.href))) ? 'on' : ''}>
+        <Link key={i.href} href={i.href} data-label={i.label} className={path.startsWith(i.href) || (i.href === '/more' && all.slice(4).some((x) => path.startsWith(x.href))) ? 'on' : ''}>
           {I(i.icon)}<span>{i.label}</span>
         </Link>,
       ])}
