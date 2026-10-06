@@ -24,7 +24,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
   const [{ data: acts }, { data: visits }, { data: projects }, { data: people }, { data: templates }] = await Promise.all([
     supabase.from('activities').select('id, type, body, by_user, created_at').eq('lead_id', lead.id).order('created_at', { ascending: false }).limit(150),
     supabase.from('visits').select('id, at, status, feedback, interest, agent_id, project_id').eq('lead_id', lead.id).order('at', { ascending: false }),
-    supabase.from('projects').select('id, name, location, price_from, price_to, configs').eq('org_id', org.id).order('name'),
+    supabase.from('projects').select('id, name, location, price_from, price_to, configs, type, status, photos').eq('org_id', org.id).order('name'),
     supabase.from('members').select('user_id, full_name, phone, role, active').eq('org_id', org.id),
     supabase.from('templates').select('id, name, use_for, body').eq('org_id', org.id).order('use_for'),
   ]);
