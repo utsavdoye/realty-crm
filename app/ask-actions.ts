@@ -212,11 +212,14 @@ export async function askHelper(question: string): Promise<AskAnswer> {
   const { data, count } = await q.order('next_follow_up', { ascending: true, nullsFirst: false }).limit(5);
   const rows = data ?? [];
   const n = count ?? rows.length;
-  const describe = [f.score, f.stage && stageLabel(f.stage).toLowerCase(), f.bhk, f.area && `in ${f.area}`, (f.bmin || f.bmax) && fmtBudget(f.bmin ?? null, f.bmax ?? null), f.source && `from ${f.source}`, f.fu === 'over' && 'with a missed follow-up', f.fu === 'today' && 'to call today']
+  const before = [f.score, f.stage && stageLabel(f.stage).toLowerCase(), f.bhk].filter(Boolean).join(' ');
+  const after = [f.area && `in ${f.area}`, (f.bmin || f.bmax) && `(${fmtBudget(f.bmin ?? null, f.bmax ?? null)})`, f.source && `from ${f.source}`,
+    f.fu === 'over' && 'with a missed follow-up', f.fu === 'today' && 'to call today', f.fu === 'none' && 'with no next call planned']
     .filter(Boolean).join(' ');
+  const noun = (k: number) => `${before ? before + ' ' : ''}lead${k === 1 ? '' : 's'}${after ? ' ' + after : ''}`;
   const text = !n
-    ? via === 'search' ? `I could not find anything for “${qText}”. Try words like “hot leads VIP Road”, “visits today” or “how to import leads”.` : `No ${describe || 'matching'} leads.${mgr ? '' : ' (You only see leads given to you.)'}`
-    : n > 5 ? `${n} ${describe} leads. Here are the first 5; open the list to see all.` : `${n} ${describe} lead${n === 1 ? '' : 's'}.`;
+    ? via === 'search' ? `I could not find anything for “${qText}”. Try words like “hot leads VIP Road”, “visits today” or “how to import leads”.` : `No ${noun(2)}.${mgr ? '' : ' (You only see leads given to you.)'}`
+    : n > 5 ? `${n} ${noun(n)}. Here are the first 5; open the list to see all.` : `${n} ${noun(n)}.`;
   return {
     text: text.replace(/\s+/g, ' '),
     items: rows.map((l) => ({ title: l.name, sub: [stageLabel(l.stage), l.bhk, fmtBudget(l.budget_min, l.budget_max), l.location].filter(Boolean).join(' · '), href: `/leads/${l.id}`, tel: l.phone })),

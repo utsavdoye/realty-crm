@@ -20,7 +20,7 @@ export function AskHelper() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setOpen((o) => !o); }
-      if (e.key === 'Escape') setOpen(false);
+      if (e.key === 'Escape') { setOpen(false); setMsgs([]); setText(''); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -40,7 +40,7 @@ export function AskHelper() {
 
   return (
     <>
-      <button type="button" className={`ask-fab ${open ? 'on' : ''}`} onClick={() => setOpen((o) => !o)} aria-expanded={open} aria-label="Ask a question">
+      <button type="button" className={`ask-fab ${open ? 'on' : ''}`} onClick={() => { if (open) { setMsgs([]); setText(''); } setOpen((o) => !o); }} aria-expanded={open} aria-label={open ? 'Close and clear' : 'Ask a question'}>
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           {open ? <path d="M6 6l12 12M18 6 6 18" /> : <><path d="M12 3l1.8 4.6L18.5 9l-4.7 1.6L12 15l-1.8-4.4L5.5 9l4.7-1.4z" /><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z" /></>}
         </svg>
