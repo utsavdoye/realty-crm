@@ -157,7 +157,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
           {canEdit && (
             <section className="panel">
               <div className="panel-h"><h2>Log a call</h2>{lead.call_attempts ? <span className="hint">{lead.call_attempts} call{lead.call_attempts === 1 ? '' : 's'} so far</span> : null}</div>
-              <div className="panel-b"><LogCallForm leadId={lead.id} /></div>
+              <div className="panel-b"><LogCallForm leadId={lead.id} voice={Boolean(process.env.GEMINI_API_KEY)} /></div>
             </section>
           )}
 

@@ -165,7 +165,7 @@ export async function setFollowUp(fd: FormData) {
 }
 
 export async function logCall(_: FormState, fd: FormData): Promise<FormState> {
-  const { supabase, org, activity, getLead } = await ctx();
+  const { supabase, org, user, activity, getLead } = await ctx();
   const id = str(fd, 'id');
   const o = OUTCOMES.find((x) => x.k === str(fd, 'outcome'));
   if (!o) return { error: 'Pick what happened on the call.' };
@@ -184,11 +184,30 @@ export async function logCall(_: FormState, fd: FormData): Promise<FormState> {
     if (o.k === 'interested' && lead.score === 'cold') patch.score = 'warm';
     patch.next_follow_up = fromLocalInput(str(fd, 'next')) ?? (o.hours ? new Date(Date.now() + o.hours * 3600000).toISOString() : null);
   }
+  // New needs said on the call (typed or filled by voice)
+  const changed: string[] = [];
+  const bhk = str(fd, 'upd_bhk');
+  if (bhk && bhk !== lead.bhk) { patch.bhk = bhk; changed.push(bhk); }
+  const b = parseBudget(str(fd, 'upd_budget'));
+  if (b && (b.min !== lead.budget_min || b.max !== lead.budget_max)) { patch.budget_min = b.min; patch.budget_max = b.max; changed.push(`budget ${str(fd, 'upd_budget')}`); }
+  const loc = str(fd, 'upd_location').slice(0, 200);
+  if (loc && loc !== lead.location) { patch.location = loc; changed.push(loc); }
+  const visitAt = o.k === 'notint' || o.k === 'wrong' ? null : fromLocalInput(str(fd, 'visit_at'));
+  if (visitAt) {
+    if ((STAGE_IDX[String(patch.stage ?? lead.stage)] ?? -1) < 3) patch.stage = 'visit';
+    const dayBefore = new Date(new Date(visitAt).getTime() - 20 * 3600000);
+    if (dayBefore.getTime() > Date.now()) patch.next_follow_up = dayBefore.toISOString();
+  }
   const { error } = await supabase.from('leads').update(patch).eq('id', id).eq('org_id', org.id);
   if (error) return { error: friendly(error.message) };
-  await activity(id, 'call', `Call: ${o.l}${note ? '\n' + note : ''}`);
+  await activity(id, 'call', `Call: ${o.l}${note ? '\n' + note : ''}${changed.length ? '\nUpdated: ' + changed.join(', ') : ''}`);
+  if (visitAt) {
+    await supabase.from('visits').insert({ org_id: org.id, lead_id: id, project_id: lead.project_id || null, at: visitAt, agent_id: lead.assigned_to || user.id, status: 'scheduled' });
+    await activity(id, 'visit', `Site visit booked on ${fmtDT(visitAt)}`);
+  }
   if (patch.stage && patch.stage !== lead.stage) await activity(id, 'stage', `Stage: ${stageLabel(lead.stage)} → ${stageLabel(String(patch.stage))}`);
   refresh(id);
+  if (visitAt) return { ok: `Saved. Site visit on ${fmtDT(visitAt)}; a reminder call is set for the day before.` };
   return { ok: patch.next_follow_up ? `Saved. Next call ${fmtDT(String(patch.next_follow_up))}.` : 'Saved.' };
 }
 

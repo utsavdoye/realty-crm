@@ -1,10 +1,10 @@
 'use client';
 
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Map as MLMap, Marker as MLMarker, StyleSpecification } from 'maplibre-gl';
 import type { MapboxOverlay } from '@deck.gl/mapbox';
-import { CITY_CENTER, KIND_ICON, KIND_LABEL, PLACES, type PlaceKind } from '@/lib/places';
+import { AREAS, CITY_CENTER, KIND_ICON, KIND_LABEL, PLACES, type PlaceKind } from '@/lib/places';
 
 /**
  * 3D map: MapLibre (free, no key, no billing) + deck.gl for 3D demand bars.
@@ -15,6 +15,27 @@ import { CITY_CENTER, KIND_ICON, KIND_LABEL, PLACES, type PlaceKind } from '@/li
 export type Pin3D = { id: string; name: string; lat: number; lng: number; status?: string | null; sub?: string; photo?: string | null };
 export type Demand3D = { area: string; lat: number; lng: number; n: number };
 type Base = 'map' | 'satellite';
+type Zone = { area: string; lat: number; lng: number; r: number; projects: Pin3D[] };
+
+/** Groups projects by their nearest known area, so hovering an area shows what is there. */
+function zonesFor(projects: Pin3D[]): Zone[] {
+  const names = Object.keys(AREAS);
+  if (!names.length || projects.length < 2) return [];
+  const dist = (a: [number, number], lat: number, lng: number) => {
+    const dy = (a[0] - lat) * 111320, dx = (a[1] - lng) * 111320 * Math.cos((lat * Math.PI) / 180);
+    return Math.sqrt(dx * dx + dy * dy);
+  };
+  const by = new Map<string, Pin3D[]>();
+  projects.forEach((p) => {
+    let best = '', bd = Infinity;
+    names.forEach((n) => { const d = dist(AREAS[n], p.lat, p.lng); if (d < bd) { bd = d; best = n; } });
+    if (best && bd < 6000) by.set(best, [...(by.get(best) ?? []), p]);
+  });
+  return [...by.entries()].map(([area, ps]) => {
+    const [lat, lng] = AREAS[area];
+    return { area, lat, lng, projects: ps, r: Math.min(3000, Math.max(...ps.map((p) => dist([lat, lng], p.lat, p.lng))) + 600) };
+  });
+}
 
 const STATUS_COLOR: Record<string, string> = { 'Ready to move': '#16a34a', 'Under construction': '#4a55ec', 'Pre-launch': '#f59e0b', 'Sold out': '#9ca3af' };
 const KIND_COLOR: Record<PlaceKind, string> = { metro: '#7b3fa0', airport: '#0b7285', rail: '#5c4033', tech: '#2f6fd6', mall: '#c2255c', hospital: '#d6336c', school: '#2b8a3e' };
@@ -41,16 +62,17 @@ const BLANK: StyleSpecification = { version: 8, sources: {}, layers: [{ id: 'bg'
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
 
 export function Map3D({
-  projects = [], demand = [], kinds = [], selected, onSelect, height = 560, base: base0 = 'map', autoOrbit = false, compact = false,
+  projects = [], demand = [], kinds = [], selected, onSelect, height = 560, base: base0 = 'map', autoOrbit = false, compact = false, areas = false,
 }: {
   projects?: Pin3D[]; demand?: Demand3D[]; kinds?: PlaceKind[]; selected?: string | null; onSelect?: (id: string) => void;
-  height?: number | string; base?: Base; autoOrbit?: boolean; compact?: boolean;
+  height?: number | string; base?: Base; autoOrbit?: boolean; compact?: boolean; areas?: boolean;
 }) {
   const box = useRef<HTMLDivElement>(null);
   const map = useRef<MLMap | null>(null);
   const lib = useRef<typeof import('maplibre-gl') | null>(null);
   const deck = useRef<MapboxOverlay | null>(null);
   const meshMod = useRef<typeof import('@deck.gl/mesh-layers') | null>(null);
+  const layersMod = useRef<typeof import('@deck.gl/layers') | null>(null);
   const pins = useRef<MLMarker[]>([]);
   const marks = useRef<MLMarker[]>([]);
   const orbit = useRef<number | null>(null);
@@ -94,9 +116,9 @@ export function Map3D({
     let dead = false;
     (async () => {
       try {
-        const [ml, { MapboxOverlay: Overlay }, mesh] = await Promise.all([import('maplibre-gl'), import('@deck.gl/mapbox'), import('@deck.gl/mesh-layers')]);
+        const [ml, { MapboxOverlay: Overlay }, mesh, lay] = await Promise.all([import('maplibre-gl'), import('@deck.gl/mapbox'), import('@deck.gl/mesh-layers'), import('@deck.gl/layers')]);
         if (dead || !box.current) return;
-        lib.current = ml; meshMod.current = mesh;
+        lib.current = ml; meshMod.current = mesh; layersMod.current = lay;
         const m = new ml.Map({
           container: box.current, style: base0 === 'satellite' ? SATELLITE : STREETS,
           center: [CITY_CENTER[1], CITY_CENTER[0]], zoom: 11, pitch: 50, bearing: -12, maxPitch: 75,
@@ -105,10 +127,16 @@ export function Map3D({
         m.addControl(new ml.NavigationControl({ visualizePitch: true }), 'top-right');
         const overlay = new Overlay({
           interleaved: true, layers: [],
-          getTooltip: ({ object }: { object?: Demand3D }) => object ? {
-            html: `<b>${esc(object.area)}</b><br>${object.n} open lead${object.n === 1 ? '' : 's'} want to buy here`,
-            style: { background: '#15161b', color: '#fff', borderRadius: '12px', padding: '8px 10px', fontSize: '12px', fontFamily: 'inherit' },
-          } : null,
+          getTooltip: ({ object }: { object?: Demand3D | Zone }) => {
+            if (!object) return null;
+            const style = { background: '#15161b', color: '#fff', borderRadius: '12px', padding: '8px 10px', fontSize: '12px', fontFamily: 'inherit', maxWidth: '260px', lineHeight: '1.45' };
+            if ('projects' in object) {
+              const list = object.projects.slice(0, 6).map((p) => `• ${esc(p.name)}${p.sub ? ` <span style="opacity:.7">${esc(p.sub)}</span>` : ''}`).join('<br>');
+              const more = object.projects.length > 6 ? `<br><span style="opacity:.7">+${object.projects.length - 6} more</span>` : '';
+              return { html: `<b>${esc(object.area)}</b> · ${object.projects.length} project${object.projects.length === 1 ? '' : 's'}<br>${list}${more}<br><span style="opacity:.6">Click to zoom in</span>`, style };
+            }
+            return { html: `<b>${esc(object.area)}</b><br>${object.n} open lead${object.n === 1 ? '' : 's'} want to buy here`, style };
+          },
         });
         m.addControl(overlay as unknown as import('maplibre-gl').IControl);
         deck.current = overlay;
@@ -193,8 +221,9 @@ export function Map3D({
 
   // Real 3D apartment towers (our own models in /public/models): where leads want to buy.
   // More leads = more and taller towers. They fade out when you zoom in close to a project, so they never hide it.
+  const zones = useMemo(() => (areas ? zonesFor(projects) : []), [areas, projects]);
   useEffect(() => {
-    const M = meshMod.current; const o = deck.current; if (!M || !o) return;
+    const M = meshMod.current; const L = layersMod.current; const o = deck.current; if (!M || !L || !o) return;
     const max = Math.max(1, ...demand.map((d) => d.n));
     const fade = zoom <= 14 ? 1 : zoom >= 15.5 ? 0 : 1 - (zoom - 14) / 1.5;
     type Tower = Demand3D & { pos: [number, number]; size: 's' | 'm' | 'l'; turn: number };
@@ -215,8 +244,23 @@ export function Map3D({
       getPosition: (d) => d.pos, getOrientation: (d) => [0, d.turn, 90], sizeScale: 7, opacity: fade,
       _lighting: 'pbr', pickable: true, autoHighlight: true, highlightColor: [245, 158, 11, 160],
     });
-    o.setProps({ layers: towers.length && fade > 0 ? [make('s'), make('m'), make('l')] : [] });
-  }, [demand, inited, zoom]);
+    // Area circles: hover to see the projects in that area, click to zoom in.
+    const zoneLayer = zones.length && zoom < 15 ? new L.ScatterplotLayer<Zone>({
+      id: 'zones', data: zones, getPosition: (z) => [z.lng, z.lat], getRadius: (z) => z.r, radiusUnits: 'meters',
+      getFillColor: [74, 85, 236, 28], getLineColor: [74, 85, 236, 150], lineWidthMinPixels: 1.5, stroked: true, filled: true,
+      pickable: true, autoHighlight: true, highlightColor: [74, 85, 236, 70],
+      onClick: ({ object: z }: { object?: Zone }) => {
+        const m = map.current; const ml = lib.current; if (!z || !m || !ml) return false;
+        stopOrbit();
+        if (z.projects.length === 1) { cb.current.onSelect?.(z.projects[0].id); return true; }
+        const b = new ml.LngLatBounds([z.projects[0].lng, z.projects[0].lat], [z.projects[0].lng, z.projects[0].lat]);
+        z.projects.forEach((p) => b.extend([p.lng, p.lat]));
+        m.fitBounds(b, { padding: 90, pitch: 55, maxZoom: 15.8, duration: 1400 });
+        return true;
+      },
+    }) : null;
+    o.setProps({ layers: [...(zoneLayer ? [zoneLayer] : []), ...(towers.length && fade > 0 ? [make('s'), make('m'), make('l')] : [])] });
+  }, [demand, zones, inited, zoom, stopOrbit]);
 
   // First view: fit all projects (and demand) in a tilted view.
   const fitted = useRef(false);

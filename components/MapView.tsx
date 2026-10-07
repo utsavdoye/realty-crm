@@ -48,7 +48,7 @@ export function MapView({ projects, demand, missing }: { projects: MapProjectFul
       </div>
 
       <div className="map-grid">
-        <Map3D projects={shown.map((p) => ({ id: p.id, name: p.name, lat: p.lat, lng: p.lng, status: p.status, photo: p.photo, sub: [p.configs, p.price_from ? fmtL(p.price_from) + '+' : ''].filter(Boolean).join(' · ') }))}
+        <Map3D areas projects={shown.map((p) => ({ id: p.id, name: p.name, lat: p.lat, lng: p.lng, status: p.status, photo: p.photo, sub: [p.configs, p.price_from ? fmtL(p.price_from) + '+' : ''].filter(Boolean).join(' · ') }))}
           demand={showDemand ? demand : []} kinds={kinds} selected={sel} onSelect={setSel} height="min(74vh, 700px)" />
 
         <aside className="panel map-side">
@@ -84,6 +84,7 @@ export function MapView({ projects, demand, missing }: { projects: MapProjectFul
                 ))}
               </div>
               {missing.length > 0 && <p className="hint">Not on the map yet (no location): {missing.join(', ')}. Add it in Projects → Edit.</p>}
+              <p className="hint">Hover over a blue circle to see the projects in that area. Click it to zoom in.</p>
               <p className="hint">The blue 3D buildings show the areas your open leads asked for. More and taller buildings = more leads. Tap one to see the number.</p>
             </div>
           )}

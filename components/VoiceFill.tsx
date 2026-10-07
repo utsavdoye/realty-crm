@@ -26,8 +26,15 @@ async function toWav(blob: Blob): Promise<Blob> {
 }
 
 
-/** 🎤 button that fills the lead form it sits in. Speak Hindi, English or Hinglish; check, then Save. */
-export function VoiceFill({ enabled }: { enabled: boolean }) {
+/**
+ * 🎤 button that fills the form it sits in. Speak Hindi, English or Hinglish; check, then Save.
+ * endpoint: which voice service to use (new lead or after-call). extra: sent along (e.g. the lead id).
+ * onFields: lets the form handle some fields itself (returns the keys it handled).
+ */
+export function VoiceFill({ enabled, endpoint = '/api/voice/lead', extra, onFields, label = 'Fill by voice', tip = 'Speak in Hindi, English or both', doneHint = 'check the mobile number, then Save' }: {
+  enabled: boolean; endpoint?: string; extra?: Record<string, string>; onFields?: (f: Record<string, string>) => string[];
+  label?: string; tip?: string; doneHint?: string;
+}) {
   const box = useRef<HTMLDivElement>(null);
   const rec = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
@@ -40,10 +47,10 @@ export function VoiceFill({ enabled }: { enabled: boolean }) {
 
   useEffect(() => () => { clearInterval(timer.current); rec.current?.stream.getTracks().forEach((t) => t.stop()); }, []);
 
-  function fill(fields: Record<string, string>) {
+  function fill(fields: Record<string, string>, already: string[] = []) {
     const form = box.current?.closest('form');
     if (!form) return;
-    const done: string[] = [];
+    const done: string[] = [...already];
     for (const [k, v] of Object.entries(fields)) {
       if (!v) continue;
       if (k === 'project') {
@@ -93,11 +100,15 @@ export function VoiceFill({ enabled }: { enabled: boolean }) {
     try {
       const wav = await toWav(raw);
       const fd = new FormData(); fd.append('audio', wav, 'note.wav');
-      const res = await fetch('/api/voice/lead', { method: 'POST', body: fd });
+      Object.entries(extra ?? {}).forEach(([k, v]) => fd.append(k, v));
+      const res = await fetch(endpoint, { method: 'POST', body: fd });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Something went wrong.');
       setHeard(data.transcript || '');
-      fill(data.fields || {});
+      const fields: Record<string, string> = { ...(data.fields || {}) };
+      const handled = onFields ? onFields(fields) : [];
+      handled.forEach((k) => delete fields[k]);
+      fill(fields, handled);
       setState('done');
     } catch (e) {
       setState('error'); setMsg(e instanceof Error ? e.message : 'Something went wrong. Please type it.');
@@ -113,13 +124,13 @@ export function VoiceFill({ enabled }: { enabled: boolean }) {
         {state === 'recording' ? (
           <button type="button" className="vbtn rec" onClick={stop} aria-label="Stop recording"><span className="vdot" />{secs}s · Stop</button>
         ) : (
-          <button type="button" className="vbtn" onClick={start} disabled={busy} aria-label="Fill the form by voice" title="Speak in Hindi, English or Hinglish">
+          <button type="button" className="vbtn" onClick={start} disabled={busy} aria-label={label} title={tip}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
-            {state === 'working' ? 'Filling…' : 'Fill by voice'}
+            {state === 'working' ? 'Filling…' : label}
           </button>
         )}
-        {state === 'recording' && <span className="hint">Speak in Hindi, English or both</span>}
-        {state === 'done' && <span className="hint ok-text">{filled.length ? `Filled ${filled.length} fields — check the mobile number, then Save` : 'Could not catch that. Try again, a bit slower.'}</span>}
+        {state === 'recording' && <span className="hint">{tip}</span>}
+        {state === 'done' && <span className="hint ok-text">{filled.length ? `Filled ${filled.length} fields — ${doneHint}` : 'Could not catch that. Try again, a bit slower.'}</span>}
         {state === 'error' && <span className="hint err-text">{msg}</span>}
         {heard && <details className="vheard"><summary className="hint">Heard</summary><p className="hint">{heard}</p></details>}
       </div>

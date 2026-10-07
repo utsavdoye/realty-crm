@@ -83,6 +83,9 @@ export function ImportLeads({ people, projects }: { people: Person[]; projects: 
   const [grid, setGrid] = useState<string[][]>([]);
   const [map, setMap] = useState<Record<FieldKey, number> | null>(null);
   const [source, setSource] = useState('');
+  const [bought, setBought] = useState(false);
+  const [listName, setListName] = useState('');
+  const boughtTag = `Bought: ${listName.trim()}`.slice(0, 60);
   const [assign, setAssign] = useState('auto');
   const [project, setProject] = useState('');
   const [busy, setBusy] = useState(false);
@@ -137,10 +140,10 @@ export function ImportLeads({ people, projects }: { people: Person[]; projects: 
   async function run() {
     setBusy(true); setError(''); setResult(null);
     const total = { added: 0, updated: 0, skipped: rows.length - good.length };
-    const send = good.map(({ ok: _ok, ...r }) => r); // eslint-disable-line @typescript-eslint/no-unused-vars
+    const send = good.map(({ ok: _ok, ...r }) => (bought ? { ...r, source: boughtTag } : r)); // eslint-disable-line @typescript-eslint/no-unused-vars
     for (let i = 0; i < send.length; i += CHUNK) {
       setProgress(`Saving ${Math.min(i + CHUNK, send.length)} of ${send.length}…`);
-      const res = await importLeads(send.slice(i, i + CHUNK), source, assign, project);
+      const res = await importLeads(send.slice(i, i + CHUNK), bought ? boughtTag : source, assign, project);
       if (res.error) { setError(`${res.error} (${total.added} added before this stopped)`); break; }
       total.added += res.added ?? 0; total.updated += res.updated ?? 0; total.skipped += res.skipped ?? 0;
     }
@@ -218,10 +221,19 @@ export function ImportLeads({ people, projects }: { people: Person[]; projects: 
           <section className="panel">
             <div className="panel-h"><h2>4. Import</h2></div>
             <div className="panel-b stack">
-              <div className="map-grid">
-                <label className="field"><span className="label">Source (if the file has none)</span>
-                  <select value={source} onChange={(e) => setSource(e.target.value)}><option value="">Other</option>{SOURCES.map((s) => <option key={s}>{s}</option>)}</select>
+              <label className="check"><input type="checkbox" checked={bought} onChange={(e) => setBought(e.target.checked)} /> These are bought leads (a list we paid for)</label>
+              {bought && (
+                <label className="field"><span className="label">List name (who sold it, which month)</span>
+                  <input value={listName} maxLength={50} onChange={(e) => setListName(e.target.value)} placeholder="e.g. Ravi data, Oct 2026" />
+                  <span className="hint">Every lead gets the source “{listName.trim() ? boughtTag : 'Bought: …'}”. Reports → “Which source works” then shows how many from this list got visits and bookings.</span>
                 </label>
+              )}
+              <div className="map-grid">
+                {!bought && (
+                  <label className="field"><span className="label">Source (if the file has none)</span>
+                    <select value={source} onChange={(e) => setSource(e.target.value)}><option value="">Other</option>{SOURCES.map((s) => <option key={s}>{s}</option>)}</select>
+                  </label>
+                )}
                 <label className="field"><span className="label">Give the leads to</span>
                   <select value={assign} onChange={(e) => setAssign(e.target.value)}>
                     <option value="auto">Share evenly among agents</option>
@@ -237,7 +249,7 @@ export function ImportLeads({ people, projects }: { people: Person[]; projects: 
               </div>
               <p className="hint">Numbers already in your CRM are not copied. The old lead gets a note that it came again.</p>
               <div className="row-btns">
-                <button className="btn primary" disabled={busy || !good.length || map.name < 0 || map.phone < 0} onClick={run}>
+                <button className="btn primary" disabled={busy || !good.length || map.name < 0 || map.phone < 0 || (bought && !listName.trim())} onClick={run}>
                   {busy ? progress : `Import ${good.length} lead${good.length === 1 ? '' : 's'}`}
                 </button>
               </div>

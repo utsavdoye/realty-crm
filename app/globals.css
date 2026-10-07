@@ -930,3 +930,7 @@ input[type=checkbox], input[type=radio] { width: auto; padding: 0; box-shadow: n
   .ask-fab.on { width: 44px; }
   .ask-panel { right: 8px; left: 8px; width: auto; bottom: 136px; height: min(520px, calc(100vh - 200px)); }
 }
+
+/* Log call: extra details (visit, new budget) */
+.call-more > summary { list-style: none; cursor: pointer; display: inline-block; font-size: 13px; }
+.call-more > summary::-webkit-details-marker { display: none; }
