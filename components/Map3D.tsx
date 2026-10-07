@@ -191,23 +191,40 @@ export function Map3D({
     });
   }, [kinds, inited]);
 
-  // 3D bars: where leads want to buy. They fade out when you zoom in close to a project, so they never hide it.
+  // Mini 3D buildings: where leads want to buy. More leads = more and taller towers.
+  // They fade out when you zoom in close to a project, so they never hide it.
   useEffect(() => {
     const L = layersMod.current; const o = deck.current; if (!L || !o) return;
     const max = Math.max(1, ...demand.map((d) => d.n));
     const fade = zoom <= 13 ? 1 : zoom >= 15 ? 0 : 1 - (zoom - 13) / 2;
-    const ramp = (t: number): [number, number, number, number] => {
+    type Tower = Demand3D & { poly: [number, number][]; h: number; t: number };
+    const towers: Tower[] = [];
+    const SPOTS: [number, number][] = [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, -1]];
+    demand.forEach((d, di) => {
+      const t = d.n / max;
+      const count = Math.min(SPOTS.length, 1 + Math.round(t * 6));
+      const mLat = 1 / 111320, mLng = 1 / (111320 * Math.cos((d.lat * Math.PI) / 180));
+      SPOTS.slice(0, count).forEach(([sx, sy], i) => {
+        const w = 170 + ((di * 7 + i * 13) % 3) * 30;          // footprint 170–230 m
+        const cx = d.lng + sx * 270 * mLng, cy = d.lat + sy * 270 * mLat;
+        const hw = (w / 2) * mLng, hh = (w / 2) * mLat;
+        const vary = 0.55 + (((di * 31 + i * 17) % 10) / 10) * 0.45; // towers of different heights
+        towers.push({ ...d, t, h: (140 + t * 760) * (i === 0 ? 1 : vary),
+          poly: [[cx - hw, cy - hh], [cx + hw, cy - hh], [cx + hw, cy + hh], [cx - hw, cy + hh]] });
+      });
+    });
+    const tone = (t: number): [number, number, number, number] => {
       const lerp = (a: number[], b: number[], k: number) => a.map((x, i) => Math.round(x + (b[i] - x) * k));
-      const c = t < 0.65 ? lerp([165, 172, 255], [74, 85, 236], t / 0.65) : lerp([74, 85, 236], [245, 158, 11], (t - 0.65) / 0.35);
-      return [c[0], c[1], c[2], 225];
+      const c = lerp([214, 219, 255], [74, 85, 236], Math.min(1, t * 1.2));
+      return [c[0], c[1], c[2], 235];
     };
     o.setProps({
-      layers: demand.length && fade > 0 ? [new L.ColumnLayer<Demand3D>({
-        id: 'demand', data: demand, diskResolution: 24, radius: 240, extruded: true, pickable: true, autoHighlight: true, opacity: fade,
-        highlightColor: [255, 255, 255, 90],
-        getPosition: (d) => [d.lng, d.lat], getElevation: (d) => 120 + (d.n / max) * 2400,
-        getFillColor: (d) => ramp(d.n / max),
-        material: { ambient: 0.6, diffuse: 0.55, shininess: 32, specularColor: [255, 255, 255] },
+      layers: towers.length && fade > 0 ? [new L.PolygonLayer<Tower>({
+        id: 'demand', data: towers, extruded: true, wireframe: true, pickable: true, autoHighlight: true, opacity: fade,
+        highlightColor: [245, 158, 11, 200],
+        getPolygon: (d) => d.poly, getElevation: (d) => d.h,
+        getFillColor: (d) => tone(d.t), getLineColor: [255, 255, 255, 140], lineWidthMinPixels: 1,
+        material: { ambient: 0.55, diffuse: 0.65, shininess: 24, specularColor: [255, 255, 255] },
         transitions: { getElevation: { duration: 900 } },
       })] : [],
     });

@@ -42,7 +42,7 @@ export function MapView({ projects, demand, missing }: { projects: MapProjectFul
             </button>
           ))}
           <button type="button" className={`mchip ${showDemand ? 'on' : ''}`} onClick={() => setShowDemand((v) => !v)} aria-pressed={showDemand}>
-            <span className="dot-demand" />3D bars: where leads want to buy
+            <span className="dot-demand" />3D buildings: where leads want to buy
           </button>
         </span>
       </div>
@@ -84,7 +84,7 @@ export function MapView({ projects, demand, missing }: { projects: MapProjectFul
                 ))}
               </div>
               {missing.length > 0 && <p className="hint">Not on the map yet (no location): {missing.join(', ')}. Add it in Projects → Edit.</p>}
-              <p className="hint">The 3D bars show the areas your open leads asked for. Taller bar = more leads. Tap a bar to see the number.</p>
+              <p className="hint">The blue 3D buildings show the areas your open leads asked for. More and taller buildings = more leads. Tap one to see the number.</p>
             </div>
           )}
         </aside>
