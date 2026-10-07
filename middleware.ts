@@ -1,3 +1,4 @@
+import { safeNext } from '@/lib/roles';
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
@@ -32,7 +33,7 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = '/auth/set-password';
     url.search = '';
-    url.searchParams.set('next', path === '/login' ? '/dashboard' : path + request.nextUrl.search);
+    url.searchParams.set('next', path === '/login' ? safeNext(request.nextUrl.searchParams.get('next')) : path + request.nextUrl.search);
     return NextResponse.redirect(url);
   }
   if (!user && !isPublic) {

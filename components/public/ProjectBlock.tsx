@@ -8,6 +8,8 @@ export type PubProject = {
   photos: string[] | null; lat: number | null; lng: number | null;
   floor_plans?: { url: string; label: string }[] | null; size_from?: number | null; size_to?: number | null; towers?: string | null; units?: number | null;
   amenities?: string | null; banks?: string | null;
+  // counts sent instead of the locked details
+  photo_count?: number; has_range?: boolean; has_brochure?: boolean; plan_count?: number;
 };
 
 export function ProjectBlock({ p, children }: { p: PubProject; children?: React.ReactNode }) {

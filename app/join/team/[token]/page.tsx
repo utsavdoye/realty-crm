@@ -16,7 +16,7 @@ export default async function JoinTeam({ params }: { params: { token: string } }
     supabase.rpc('get_join_link', { p_token: token }),
     supabase.auth.getUser(),
   ]);
-  const co = (rows as { org_name: string; city: string | null }[] | null)?.[0];
+  const co = (rows as { org_id: string; org_name: string; city: string | null }[] | null)?.[0];
 
   if (!co) {
     return (
@@ -31,8 +31,9 @@ export default async function JoinTeam({ params }: { params: { token: string } }
   }
 
   if (user) {
-    const { data: mine } = await supabase.from('members').select('active').eq('user_id', user.id);
-    if ((mine ?? []).some((m) => m.active)) redirect('/dashboard');
+    // Already in THIS company → straight in. (Being in another company is fine: they can still ask to join this one.)
+    const { data: mine } = await supabase.from('members').select('active').eq('user_id', user.id).eq('org_id', co.org_id).maybeSingle();
+    if (mine?.active) redirect('/dashboard');
   }
   const meta = (user?.user_metadata ?? {}) as { full_name?: string; phone?: string };
 

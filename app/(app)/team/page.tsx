@@ -1,5 +1,5 @@
 import { requireOrg } from '@/lib/context';
-import { changeRole, deactivateMember, decideJoin, reactivateMember, renameMember, revokeInvite, setJoinLink, updateCompany } from '@/app/actions';
+import { changeRole, clearJoinRequest, deactivateMember, decideJoin, reactivateMember, renameMember, revokeInvite, setJoinLink, updateCompany } from '@/app/actions';
 import { SharePop } from '@/components/SharePop';
 import { ActionForm, Submit } from '@/components/forms';
 import { InviteForm } from '@/components/InviteForm';
@@ -13,9 +13,11 @@ export default async function Team() {
   const [{ data: members }, { data: invites }, { data: reqs }, { data: o }] = await Promise.all([
     supabase.from('members').select('*').eq('org_id', org.id).order('joined_at'),
     supabase.from('invites').select('*').eq('org_id', org.id).is('accepted_at', null).order('created_at', { ascending: false }),
-    supabase.from('join_requests').select('*').eq('org_id', org.id).eq('status', 'pending').order('created_at'),
+    supabase.from('join_requests').select('*').eq('org_id', org.id).in('status', ['pending', 'rejected']).order('created_at'),
     supabase.from('organizations').select('join_token, join_open').eq('id', org.id).maybeSingle(),
   ]);
+  const pending = (reqs ?? []).filter((q) => q.status === 'pending');
+  const turnedDown = (reqs ?? []).filter((q) => q.status === 'rejected' && Date.now() - new Date(q.decided_at ?? q.created_at).getTime() < 60 * 86400000);
   const joinLink = o?.join_token ? `${siteUrl()}/join/team/${o.join_token}` : '';
   const WANTS: Record<string, string> = { agent: 'Employee', intern: 'Intern', manager: 'Manager' };
   const list = members ?? [];
@@ -26,11 +28,11 @@ export default async function Team() {
       <div className="top"><h1>Team</h1></div>
       <div className="grid-main">
         <div className="stack">
-          {reqs && reqs.length > 0 && (
+          {pending.length > 0 && (
             <section className="panel" id="requests">
-              <div className="panel-h"><h2>Asking to join</h2><span className="chip tape">{reqs.length} waiting</span></div>
+              <div className="panel-h"><h2>Asking to join</h2><span className="chip tape">{pending.length} waiting</span></div>
               <div className="people">
-                {reqs.map((q) => {
+                {pending.map((q) => {
                   const mine = isOwner || q.wants !== 'manager';
                   return (
                     <div key={q.id} className="person">
@@ -59,6 +61,20 @@ export default async function Team() {
               </div>
               <p className="hint" style={{ padding: '0 16px 14px' }}>Call or check the person before approving. Only approve people you know.</p>
             </section>
+          )}
+          {isOwner && turnedDown.length > 0 && (
+            <details className="panel">
+              <summary className="panel-h" style={{ cursor: 'pointer' }}><h2>Turned down ({turnedDown.length})</h2><span className="hint">last 60 days</span></summary>
+              <div className="people">
+                {turnedDown.map((q) => (
+                  <div key={q.id} className="person">
+                    <div className="person-main"><span className="avatar faint-bg">{q.full_name.slice(0, 1).toUpperCase()}</span>
+                      <div><div className="pname">{q.full_name}</div><div className="hint">{q.phone ? fmtPhone(q.phone) : ''}{q.email ? ' · ' + q.email : ''}</div></div></div>
+                    <form action={clearJoinRequest}><input type="hidden" name="id" value={q.id} /><button className="btn sm ghost">Let them ask again</button></form>
+                  </div>
+                ))}
+              </div>
+            </details>
           )}
           <section className="panel">
             <div className="panel-h"><h2>People</h2><span className="hint">{list.filter((m) => m.active).length} active</span></div>
@@ -110,7 +126,7 @@ export default async function Team() {
                           </ActionForm>
                         </details>
                       )}
-                      {!m.active && (
+                      {!m.active && canRemove && (
                         <form action={reactivateMember}><input type="hidden" name="user_id" value={m.user_id} /><button className="btn sm">Give access back</button></form>
                       )}
                     </div>

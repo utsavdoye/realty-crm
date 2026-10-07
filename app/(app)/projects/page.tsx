@@ -1,3 +1,4 @@
+import { fetchAll } from '@/lib/fetchAll';
 import { requireOrg } from '@/lib/context';
 import { isManager } from '@/lib/roles';
 import { deleteProject, saveProject } from '@/app/crm-actions';
@@ -19,10 +20,10 @@ type P = ProjectRow;
 export default async function Projects() {
   const { supabase, org, role } = await requireOrg();
   const mgr = isManager(role);
-  const [{ data: projects }, { data: leads }, { data: matches }] = await Promise.all([
+  const [{ data: projects }, leads, matches] = await Promise.all([
     supabase.from('projects').select('*').eq('org_id', org.id).order('name'),
-    supabase.from('leads').select('project_id, stage').eq('org_id', org.id).not('project_id', 'is', null).limit(5000),
-    supabase.from('project_matches').select('project_id').eq('org_id', org.id).is('dismissed_at', null).limit(20000),
+    fetchAll<{ project_id: string; stage: string }>(() => supabase.from('leads').select('id, project_id, stage').eq('org_id', org.id).not('project_id', 'is', null).order('id')),
+    fetchAll<{ project_id: string }>(() => supabase.from('project_matches').select('project_id, lead_id').eq('org_id', org.id).is('dismissed_at', null).order('lead_id').order('project_id')),
   ]);
   const matchCount = new Map<string, number>();
   (matches ?? []).forEach((m) => matchCount.set(m.project_id, (matchCount.get(m.project_id) ?? 0) + 1));

@@ -409,6 +409,7 @@ export async function importLeads(rows: ImportRow[], source: string, assign: str
   const { supabase, org } = await requireOrg(['owner', 'manager']);
   if (!Array.isArray(rows) || rows.length === 0) return { error: 'No rows to import.' };
   if (rows.length > 1000) return { error: 'Send at most 1000 rows at a time.' };
+  if (rows.some((r) => !r || typeof r !== 'object')) return { error: 'Some rows could not be read.' };
   const clean = rows.map((r) => ({
     name: String(r.name ?? '').slice(0, 120), phone: String(r.phone ?? ''), email: String(r.email ?? '').slice(0, 200),
     location: String(r.location ?? '').slice(0, 200), budget_min: r.budget_min ?? '', budget_max: r.budget_max ?? '',
@@ -438,7 +439,7 @@ async function projectPhotos(id: string) {
 export async function addProjectPhotos(id: string, urls: string[]): Promise<{ error?: string }> {
   const p = await projectPhotos(id);
   if (!p) return { error: 'Only an admin or a manager can add photos.' };
-  const good = urls.filter((u) => photoOk(u, p.org.id));
+  const good = (Array.isArray(urls) ? urls : []).filter((u) => typeof u === 'string' && photoOk(u, p.org.id));
   const photos = [...p.photos, ...good].slice(0, MAX_PHOTOS);
   const { error } = await p.supabase.from('projects').update({ photos }).eq('id', id).eq('org_id', p.org.id);
   revalidatePath('/projects');
@@ -472,7 +473,7 @@ export async function addFloorPlans(id: string, plans: FloorPlan[]): Promise<{ e
   if (!isManager(c.role)) return { error: 'Only an admin or a manager can add floor plans.' };
   const { data } = await c.supabase.from('projects').select('floor_plans').eq('id', id).eq('org_id', c.org.id).maybeSingle();
   if (!data) return { error: 'Project not found.' };
-  const good = (plans ?? []).filter((p) => p && typeof p.url === 'string' && photoOk(p.url, c.org.id))
+  const good = (Array.isArray(plans) ? plans : []).filter((p) => p && typeof p.url === 'string' && photoOk(p.url, c.org.id))
     .map((p) => ({ url: p.url, label: String(p.label ?? '').trim().slice(0, 60) }));
   const floor_plans = [...((data.floor_plans ?? []) as FloorPlan[]), ...good].slice(0, MAX_PLANS);
   const { error } = await c.supabase.from('projects').update({ floor_plans }).eq('id', id).eq('org_id', c.org.id);
@@ -509,11 +510,11 @@ export async function createShortlist(leadId: string, projectIds: string[], note
   const { supabase, org, user, activity, getLead } = await ctx();
   const lead = await getLead(leadId);
   if (!lead) return { error: 'Lead not found' };
-  const ids = [...new Set(projectIds)].slice(0, 8);
+  const ids = [...new Set(Array.isArray(projectIds) ? projectIds.filter((x) => typeof x === 'string' && /^[0-9a-f-]{36}$/.test(x)) : [])].slice(0, 8);
   if (!ids.length) return { error: 'Pick at least one project.' };
   const { data: ok } = await supabase.from('projects').select('id, name').eq('org_id', org.id).in('id', ids);
   if (!ok || ok.length !== ids.length) return { error: 'Some projects were not found. Refresh and try again.' };
-  const { data, error } = await supabase.from('shortlists').insert({ org_id: org.id, lead_id: leadId, project_ids: ids, note: note.trim().slice(0, 400) || null, created_by: user.id }).select('token').single();
+  const { data, error } = await supabase.from('shortlists').insert({ org_id: org.id, lead_id: leadId, project_ids: ids, note: String(note ?? '').trim().slice(0, 400) || null, created_by: user.id }).select('token').single();
   if (error) return { error: friendly(error.message) };
   await activity(leadId, 'whatsapp', `Shortlist link made: ${ok.map((p) => p.name).join(', ')}`);
   refresh(leadId);

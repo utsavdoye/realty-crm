@@ -1,3 +1,4 @@
+import { fetchAll } from '@/lib/fetchAll';
 import Link from 'next/link';
 import { requireOrg } from '@/lib/context';
 import { PICK_HELP, PICK_LABEL, fmtPhone, isManager, memberRole, telHref } from '@/lib/roles';
@@ -19,7 +20,10 @@ export default async function Today({ searchParams }: { searchParams: { welcome?
   const scoped = <T,>(q: T) => (mine && role !== 'partner' ? (q as unknown as { eq: (c: string, v: string) => T }).eq('assigned_to', user.id) : q);
 
   const [due, fresh, noNext, booked, visits, people, team, sources, recycle, matches] = await Promise.all([
-    scoped(supabase.from('leads').select(COLS).eq('org_id', org.id).lt('next_follow_up', endToday).not('stage', 'in', '(booked,lost)').order('next_follow_up').limit(40)),
+    Promise.all([
+      scoped(supabase.from('leads').select(COLS).eq('org_id', org.id).lt('next_follow_up', now).not('stage', 'in', '(booked,lost)').order('next_follow_up').limit(40)),
+      scoped(supabase.from('leads').select(COLS).eq('org_id', org.id).gte('next_follow_up', now).lt('next_follow_up', endToday).not('stage', 'in', '(booked,lost)').order('next_follow_up').limit(40)),
+    ]).then(([a, b]) => ({ data: [...(a.data ?? []), ...(b.data ?? [])] })),
     scoped(supabase.from('leads').select(COLS).eq('org_id', org.id).eq('stage', 'new').eq('call_attempts', 0).order('created_at', { ascending: false }).limit(20)),
     scoped(supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).is('next_follow_up', null).not('stage', 'in', '(new,booked,lost)')),
     scoped(supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).gte('booked_at', monthStart)),
@@ -33,13 +37,17 @@ export default async function Today({ searchParams }: { searchParams: { welcome?
   // Chart + comparison data
   const chartFrom = new Date(`${istDay(new Date(Date.now() - 13 * 86400000))}T00:00:00+05:30`).toISOString();
   const lastMonthStart = (() => { const d = new Date(`${istDay(new Date()).slice(0, 8)}01T00:00:00Z`); d.setUTCMonth(d.getUTCMonth() - 1); return new Date(`${d.toISOString().slice(0, 10)}T00:00:00+05:30`).toISOString(); })();
-  const [recent, bookedPrev] = await Promise.all([
-    scoped(supabase.from('leads').select('created_at, max_stage').eq('org_id', org.id).gte('created_at', chartFrom).limit(5000)),
+  // Real totals (the lists above only show the first few rows).
+  const [recent, bookedPrev, nOver, nToday, nFresh] = await Promise.all([
+    fetchAll<{ created_at: string; max_stage: number }>(() => scoped(supabase.from('leads').select('id, created_at, max_stage').eq('org_id', org.id).gte('created_at', chartFrom).order('id'))),
     scoped(supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).gte('booked_at', lastMonthStart).lt('booked_at', monthStart)),
+    scoped(supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).lt('next_follow_up', now).not('stage', 'in', '(booked,lost)')),
+    scoped(supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).gte('next_follow_up', now).lt('next_follow_up', endToday).not('stage', 'in', '(booked,lost)')),
+    scoped(supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).eq('stage', 'new').eq('call_attempts', 0)),
   ]);
   const days = Array.from({ length: 14 }, (_, i) => istDay(new Date(Date.now() - (13 - i) * 86400000)));
   const perDay = new Map(days.map((d) => [d, { n: 0, reached: 0 }]));
-  ((recent.data ?? []) as { created_at: string; max_stage: number }[]).forEach((l) => { const r = perDay.get(istDay(l.created_at)); if (r) { r.n++; if (l.max_stage >= 1) r.reached++; } });
+  recent.forEach((l) => { const r = perDay.get(istDay(l.created_at)); if (r) { r.n++; if (l.max_stage >= 1) r.reached++; } });
   const series = days.map((d) => ({ d, ...perDay.get(d)! }));
   const total14 = series.reduce((a, b) => a + b.n, 0);
   const reached14 = series.reduce((a, b) => a + b.reached, 0);
@@ -97,17 +105,17 @@ export default async function Today({ searchParams }: { searchParams: { welcome?
       <div className="kpis">
         <Link className="kpi hero" href="/leads?fu=over">
           <div className="kpi-top"><i className="kpi-ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></i>{overdue.length > 0 && <span className="trend bad">Call now</span>}</div>
-          <span className="label">Overdue calls</span><span className="n">{overdue.length}</span>
+          <span className="label">Overdue calls</span><span className="n">{nOver.count ?? overdue.length}</span>
           <span className="kpi-sub">Follow-up time has passed</span>
         </Link>
         <Link className="kpi" href="/leads?fu=today">
           <div className="kpi-top"><i className="kpi-ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg></i></div>
-          <span className="label">Calls due today</span><span className="n">{today.length}</span>
+          <span className="label">Calls due today</span><span className="n">{nToday.count ?? today.length}</span>
           <span className="kpi-sub">Planned for later today</span>
         </Link>
         <Link className="kpi" href="/leads?stage=new">
           <div className="kpi-top"><i className="kpi-ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M19 8v6M16 11h6"/></svg></i>{freshList.length > 0 && <span className="trend warn">Waiting</span>}</div>
-          <span className="label">New, not called</span><span className="n">{freshList.length}</span>
+          <span className="label">New, not called</span><span className="n">{nFresh.count ?? freshList.length}</span>
           <span className="kpi-sub">Call within 5 minutes</span>
         </Link>
         <Link className="kpi" href="/visits">

@@ -18,7 +18,7 @@ async function load(token: string) {
 
 export async function generateMetadata({ params }: { params: { token: string } }): Promise<Metadata> {
   const d = await load(params.token);
-  return { title: d ? `Homes picked for ${d.client}` : 'Link not active', robots: { index: false }, description: d ? `${d.projects.length} homes from ${d.company}` : undefined };
+  return { title: d ? `Homes picked for you · ${d.company}` : 'Link not active', robots: { index: false }, description: d ? `${d.projects.length} homes from ${d.company}` : undefined };
 }
 
 export default async function Shortlist({ params }: { params: { token: string } }) {

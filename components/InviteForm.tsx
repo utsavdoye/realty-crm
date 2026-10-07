@@ -29,8 +29,8 @@ export function InviteForm({ canInviteManager, companyName }: { canInviteManager
           <input name="phone" inputMode="numeric" placeholder="98765 43210" />
         </label>
         <label className="field">
-          <span className="label">Email (optional)</span>
-          <input name="email" type="email" placeholder="If they will log in with email" />
+          <span className="label">Email *</span>
+          <input name="email" type="email" required placeholder="They log in with this email" />
         </label>
         <label className="field">
           <span className="label">Role</span>
@@ -39,7 +39,7 @@ export function InviteForm({ canInviteManager, companyName }: { canInviteManager
           </select>
         </label>
       </div>
-      <p className="hint">{PICK_HELP[role]} The link works only for the mobile number or email you enter, and expires in 7 days.</p>
+      <p className="hint">{PICK_HELP[role]} The link works only for the email you enter, and expires in 7 days. Easier: share the Team join link above.</p>
       <div><Submit>Create invite link</Submit></div>
       {state?.error && <p className="msg err" role="alert">{state.error}</p>}
       {state?.link && (

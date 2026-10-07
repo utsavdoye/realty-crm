@@ -54,6 +54,10 @@ export async function createInvite(_: FormState, fd: FormData): Promise<FormStat
   const { supabase, org } = await requireOrg(['owner', 'manager']);
   const name = str(fd, 'full_name');
   const phone = normPhone(str(fd, 'phone'));
+  // People sign up with email (mobile sign-up needs paid SMS), so the invite must name their email.
+  if (process.env.NEXT_PUBLIC_WHATSAPP_LOGIN !== 'true' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str(fd, 'email'))) {
+    return { error: 'Add their email. They will log in with it.' };
+  }
   const { data, error } = await supabase.rpc('create_invite', {
     p_org: org.id,
     p_role: str(fd, 'role'),
@@ -143,6 +147,12 @@ export async function decideJoin(_: FormState, fd: FormData): Promise<FormState>
   if (error) return { error: friendly(error.message) };
   revalidatePath('/team');
   return { ok: approve ? 'Approved. They can log in now.' : 'Request turned down.' };
+}
+
+export async function clearJoinRequest(fd: FormData) {
+  const { supabase } = await requireOrg(['owner']);
+  await supabase.rpc('clear_join_request', { p_id: str(fd, 'id') });
+  revalidatePath('/team');
 }
 
 export async function setJoinLink(fd: FormData) {

@@ -15,12 +15,17 @@ const MAX_BYTES = 3_500_000; // about 90 seconds of voice
 export async function POST(req: Request) {
   const key = process.env.GEMINI_API_KEY;
   if (!key) return NextResponse.json({ error: 'Voice filling is not set up yet. An admin needs to add GEMINI_API_KEY.' }, { status: 503 });
-  const { supabase, org } = await requireOrg();
+  const { supabase, org, role } = await requireOrg();
 
   const form = await req.formData().catch(() => null);
   const audio = form?.get('audio');
   if (!(audio instanceof Blob) || audio.size < 2000) return NextResponse.json({ error: 'Could not hear anything. Try again and speak a little longer.' }, { status: 400 });
   if (audio.size > MAX_BYTES) return NextResponse.json({ error: 'Too long. Keep it under 90 seconds.' }, { status: 413 });
+  if (audio.type && !/^audio\//.test(audio.type)) return NextResponse.json({ error: 'That is not a voice recording.' }, { status: 415 });
+  if (role === 'partner') return NextResponse.json({ error: 'Voice filling is for the team only.' }, { status: 403 });
+  // Daily limit per person (keeps the free AI quota for everyone). If the limit check itself is not set up yet, carry on.
+  const { data: allowed, error: limitErr } = await supabase.rpc('ai_ok', { p_kind: 'voice' });
+  if (!limitErr && allowed === false) return NextResponse.json({ error: 'Daily voice limit reached. Please type it for now; it resets tomorrow.' }, { status: 429 });
 
   const { data: projects } = await supabase.from('projects').select('name').eq('org_id', org.id).limit(100);
   const projectNames = (projects ?? []).map((p) => p.name);

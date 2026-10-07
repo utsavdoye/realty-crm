@@ -24,8 +24,13 @@ export const isManager = (r: Role | null | undefined) => r === 'owner' || r === 
 export const isAdmin = (r: Role | null | undefined) => r === 'owner';
 
 export function safeNext(next: string | undefined | null, fallback = '/dashboard') {
-  if (!next || !next.startsWith('/') || next.startsWith('//') || next.startsWith('/\\')) return fallback;
-  return next;
+  // Only pages on this site. Hidden characters (tab, new line) and backslashes could trick the browser into leaving the site.
+  if (!next || !next.startsWith('/') || /[\x00-\x1f\x7f\\]/.test(next)) return fallback;
+  try {
+    const u = new URL(next, 'http://x.invalid');
+    if (u.origin !== 'http://x.invalid') return fallback;
+    return u.pathname + u.search + u.hash;
+  } catch { return fallback; }
 }
 
 /** Same rule as the database: India → 10 digits (9845012345); other countries → +countrycode… (+971501234567). */

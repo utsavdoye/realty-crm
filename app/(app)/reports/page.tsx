@@ -1,3 +1,4 @@
+import { fetchAll, realDay } from '@/lib/fetchAll';
 import Link from 'next/link';
 import { requireOrg } from '@/lib/context';
 import { STAGES, istDay } from '@/lib/crm';
@@ -7,7 +8,6 @@ export const metadata = { title: 'Reports' };
 
 type L = { created_at: string; stage: string; max_stage: number; source: string | null; assigned_to: string | null; lost_reason: string | null; next_follow_up: string | null; call_attempts: number };
 
-const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const addDays = (d: string, n: number) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
 const istStart = (d: string) => new Date(d + 'T00:00:00+05:30').toISOString();
 const fmtD = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
@@ -15,8 +15,8 @@ const fmtD = (d: string) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-IN
 /** Works out the period from the link: a preset (?p=today|7|30|month|lastmonth|90|all) or a custom ?from=&to= (IST days). */
 function period(sp: { p?: string; days?: string; from?: string; to?: string }) {
   const today = istDay(new Date());
-  if (sp.from && DAY.test(sp.from)) {
-    let to = sp.to && DAY.test(sp.to) ? sp.to : today;
+  if (realDay(sp.from)) {
+    let to = realDay(sp.to) ? sp.to : today;
     let from = sp.from;
     if (from > to) [from, to] = [to, from];
     return { key: 'custom', from, to, label: from === to ? fmtD(from) : `${fmtD(from)} – ${fmtD(to)}` };
@@ -37,21 +37,19 @@ function period(sp: { p?: string; days?: string; from?: string; to?: string }) {
 export default async function Reports({ searchParams }: { searchParams: { p?: string; days?: string; from?: string; to?: string } }) {
   const { supabase, org } = await requireOrg(['owner', 'manager']);
   const per = period(searchParams);
-  let lq = supabase.from('leads').select('created_at, stage, max_stage, source, assigned_to, lost_reason, next_follow_up, call_attempts').eq('org_id', org.id).limit(10000);
-  let vq = supabase.from('visits').select('status, agent_id, at').eq('org_id', org.id).limit(10000);
-  if (per.from && per.to) {
-    const a = istStart(per.from), b = istStart(addDays(per.to, 1));
-    lq = lq.gte('created_at', a).lt('created_at', b); vq = vq.gte('at', a).lt('at', b);
-  }
+  // Read every row (page by page), so big companies get the real numbers.
+  const range = per.from && per.to ? [istStart(per.from), istStart(addDays(per.to, 1))] as const : null;
+  const lq = () => { const q = supabase.from('leads').select('id, created_at, stage, max_stage, source, assigned_to, lost_reason, next_follow_up, call_attempts').eq('org_id', org.id).order('id'); return range ? q.gte('created_at', range[0]).lt('created_at', range[1]) : q; };
+  const vq = () => { const q = supabase.from('visits').select('id, status, agent_id, at').eq('org_id', org.id).order('id'); return range ? q.gte('at', range[0]).lt('at', range[1]) : q; };
   // Calendar: the months of the chosen period (at most the last 3), with leads and visits per day.
   const calEnd = per.to ?? istDay(new Date());
   let calStart = (per.from ?? addDays(calEnd, -60)).slice(0, 8) + '01';
   const minStart = addDays(calEnd.slice(0, 8) + '01', -62).slice(0, 8) + '01';
   if (calStart < minStart) calStart = minStart;
   const calLast = (() => { const t = new Date(calEnd.slice(0, 8) + '01T00:00:00Z'); t.setUTCMonth(t.getUTCMonth() + 1); t.setUTCDate(0); return t.toISOString().slice(0, 10); })();
-  const [{ data: calLeads }, { data: calVisits }] = await Promise.all([
-    supabase.from('leads').select('created_at').eq('org_id', org.id).gte('created_at', istStart(calStart)).lt('created_at', istStart(addDays(calLast, 1))).limit(10000),
-    supabase.from('visits').select('at, status').eq('org_id', org.id).gte('at', istStart(calStart)).lt('at', istStart(addDays(calLast, 1))).limit(10000),
+  const [calLeads, calVisits] = await Promise.all([
+    fetchAll<{ created_at: string }>(() => supabase.from('leads').select('id, created_at').eq('org_id', org.id).gte('created_at', istStart(calStart)).lt('created_at', istStart(addDays(calLast, 1))).order('id')),
+    fetchAll<{ at: string; status: string }>(() => supabase.from('visits').select('id, at, status').eq('org_id', org.id).gte('at', istStart(calStart)).lt('at', istStart(addDays(calLast, 1))).order('id')),
   ]);
   const perDay = new Map<string, number>();
   (calLeads ?? []).forEach((l) => { const d = istDay(l.created_at); perDay.set(d, (perDay.get(d) ?? 0) + 1); });
@@ -62,8 +60,8 @@ export default async function Reports({ searchParams }: { searchParams: { p?: st
   for (let m = calStart; m <= calLast; ) { months.push(m); const t = new Date(m + 'T00:00:00Z'); t.setUTCMonth(t.getUTCMonth() + 1); m = t.toISOString().slice(0, 10); }
   const todayIst = istDay(new Date());
   const open = '(booked,lost)';
-  const [{ data: leadsRaw }, { data: visitsRaw }, { data: people }, { count: openOverdue }, { count: noNext }, { count: unassigned }, { count: stale }] = await Promise.all([
-    lq, vq,
+  const [leadsRaw, visitsRaw, { data: people }, { count: openOverdue }, { count: noNext }, { count: unassigned }, { count: stale }] = await Promise.all([
+    fetchAll(lq), fetchAll<{ status: string; agent_id: string | null; at: string }>(vq),
     supabase.from('members').select('user_id, full_name, role, active').eq('org_id', org.id),
     supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).lt('next_follow_up', new Date().toISOString()).not('stage', 'in', open),
     supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).is('next_follow_up', null).not('stage', 'in', '(new,booked,lost)'),
@@ -76,8 +74,8 @@ export default async function Reports({ searchParams }: { searchParams: { p?: st
     { n: unassigned ?? 0, label: 'Not given to anyone', href: '/leads?agent=none' },
     { n: stale ?? 0, label: 'Nobody touched them in 14+ days', href: '/leads?fu=stale' },
   ];
-  const leads = (leadsRaw ?? []) as L[];
-  const visits = visitsRaw ?? [];
+  const leads = leadsRaw as L[];
+  const visits = visitsRaw;
   const total = leads.length;
   const reached = (i: number) => leads.filter((l) => (l.stage === 'lost' ? l.max_stage : Math.max(l.max_stage, STAGES.findIndex((s) => s.k === l.stage))) >= i).length;
   const funnel = STAGES.map((s, i) => ({ ...s, n: reached(i) }));

@@ -94,7 +94,7 @@ export default async function Sources() {
                 <div className="panel-b stack">
                   <div className="hint">
                     {s.lead_count} lead{s.lead_count === 1 ? '' : 's'} received
-                    {s.last_lead_at ? ` · last ${new Date(s.last_lead_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })}` : ' · nothing yet'}
+                    {s.last_lead_at ? ` · last ${new Date(s.last_lead_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit', timeZone: 'Asia/Kolkata' })}` : ' · nothing yet'}
                     {project ? ` · goes to project ${project}` : ''}
                   </div>
                   <div className="invite-box">

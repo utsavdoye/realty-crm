@@ -17,13 +17,14 @@ const MAX = 8;
 const price = (p: P) => (p.price_from ? `${fmtL(p.price_from)}${p.price_to ? ' – ' + fmtL(p.price_to).replace('₹', '') : '+'}` : 'Price on request');
 
 export function ShortlistPanel({ leadId, firstName, phone, projects, past, base }: { leadId: string; firstName: string; phone: string; projects: P[]; past: S[]; base: string }) {
-  const [sel, setSel] = useState<string[]>(projects.filter((p) => p.match).slice(0, 3).map((p) => p.id));
+  // Sold-out projects are never picked (they are not even shown in the list).
+  const [sel, setSel] = useState<string[]>(projects.filter((p) => p.match && p.status !== 'Sold out').slice(0, 3).map((p) => p.id));
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
   const [made, setMade] = useState<string | null>(null);
   const nameOf = new Map(projects.map((p) => [p.id, p.name]));
-  const matches = projects.filter((p) => p.match).map((p) => p.id);
+  const matches = projects.filter((p) => p.match && p.status !== 'Sold out').map((p) => p.id);
   const live = projects.filter((p) => p.status !== 'Sold out');
 
   const toggle = (id: string) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : s.length >= MAX ? s : [...s, id]));

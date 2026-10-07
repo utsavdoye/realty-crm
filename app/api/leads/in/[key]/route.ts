@@ -11,6 +11,7 @@ const MESSAGES: Record<string, [number, string]> = {
   plan_ended: [402, 'This CRM account is not active.'],
   bad_phone: [422, 'A valid mobile number is required (India: 10 digits, other countries: + and country code).'],
   server_error: [500, 'Could not save the lead. Please try again.'],
+  too_many: [429, 'Too many leads from this link right now. Please try again later.'],
 };
 
 async function readBody(req: Request): Promise<Record<string, unknown>> {
@@ -37,15 +38,20 @@ async function handle(req: Request, key: string) {
   const r = await ingest(key, mapPayload(payload), payload);
 
   // Plain HTML forms: send the visitor to a thank-you page if one is given.
+  // Only back to the same website the form was on (so this link cannot be used to send people to a fake site).
   const thanks = String(payload._redirect || payload.redirect || '');
-  if (thanks && /^https?:\/\//.test(thanks) && (req.headers.get('accept') || '').includes('text/html')) {
-    return Response.redirect(thanks, 303);
+  if (r.ok && thanks && (req.headers.get('accept') || '').includes('text/html')) {
+    try {
+      const to = new URL(thanks);
+      const from = new URL(req.headers.get('referer') || '');
+      if (/^https?:$/.test(to.protocol) && to.host === from.host) return Response.redirect(to.toString(), 303);
+    } catch { /* bad link: fall through to the normal reply */ }
   }
   if (!r.ok) {
     const [status, msg] = MESSAGES[r.error ?? 'server_error'] ?? MESSAGES.server_error;
     return Response.json({ ok: false, error: msg }, { status, headers: CORS });
   }
-  return Response.json({ ok: true, duplicate: !r.is_new }, { headers: CORS });
+  return Response.json({ ok: true }, { headers: CORS });
 }
 
 export function OPTIONS() { return new Response(null, { status: 204, headers: CORS }); }

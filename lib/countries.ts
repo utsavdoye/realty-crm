@@ -7,6 +7,12 @@ export const COUNTRIES: [string, string][] = [
 
 /** Joins country code + typed number into one value: India → 10 digits, others → +code digits. */
 export function joinPhone(cc: string, typed: string) {
+  // Typed their own "+code …": trust that over the picked country.
+  if (typed.trim().startsWith('+')) {
+    const all = typed.replace(/\D/g, '');
+    if (all.startsWith('91') && all.length === 12) return all.slice(2);
+    return all ? '+' + all : '';
+  }
   let d = typed.replace(/\D/g, '');
   if (cc === '+91') { d = d.replace(/^91(?=\d{10}$)/, '').replace(/^0(?=\d{10}$)/, ''); return d; }
   d = d.replace(/^0+/, '');

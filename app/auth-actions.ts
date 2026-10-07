@@ -93,5 +93,5 @@ export async function forgotAction(_: AuthState, fd: FormData): Promise<AuthStat
     redirectTo: `${siteUrl()}/auth/callback?next=${encodeURIComponent('/auth/set-password?mode=reset')}`,
   });
   if (error && /rate|seconds/i.test(error.message)) return { error: 'Too many tries. Wait a minute and try again.' };
-  return { ok: via === 'phone' ? 'We have sent a reset link to the email linked to this number. Open it on this device.' : 'If this email has an account, a reset link is on its way. Open it on this device.' };
+  return { ok: via === 'phone' ? 'If this number has an account, we have sent a reset link to its email. Open it on this device.' : 'If this email has an account, a reset link is on its way. Open it on this device.' };
 }

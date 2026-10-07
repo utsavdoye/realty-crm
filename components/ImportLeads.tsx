@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { importLeads, type ImportRow } from '@/app/crm-actions';
-import { BHKS, SOURCES, parseBudget } from '@/lib/crm';
+import { BHKS, SOURCES, fmtBudget, parseBudget } from '@/lib/crm';
 import { normPhone, validPhone } from '@/lib/roles';
 
 type Person = { user_id: string; full_name: string };
@@ -21,7 +21,7 @@ const FIELDS = [
 ] as const;
 type FieldKey = (typeof FIELDS)[number]['k'];
 
-const CHUNK = 500;
+const CHUNK = 200; // small batches stay under the 1 MB request limit even with long notes
 
 /** Simple CSV reader that handles quotes, commas inside quotes and new lines inside quotes. */
 function parseCSV(text: string): string[][] {
@@ -119,7 +119,7 @@ export function ImportLeads({ people, projects }: { people: Person[]; projects: 
   }
 
   const headers = grid[0] ?? [];
-  const body = grid.slice(1);
+  const body = useMemo(() => grid.slice(1), [grid]);
   const rows: (ImportRow & { ok: boolean })[] = useMemo(() => {
     if (!map) return [];
     const get = (r: string[], k: FieldKey) => (map[k] >= 0 ? String(r[map[k]] ?? '').trim() : '');
@@ -141,13 +141,20 @@ export function ImportLeads({ people, projects }: { people: Person[]; projects: 
     setBusy(true); setError(''); setResult(null);
     const total = { added: 0, updated: 0, skipped: rows.length - good.length };
     const send = good.map(({ ok: _ok, ...r }) => (bought ? { ...r, source: boughtTag } : r)); // eslint-disable-line @typescript-eslint/no-unused-vars
-    for (let i = 0; i < send.length; i += CHUNK) {
-      setProgress(`Saving ${Math.min(i + CHUNK, send.length)} of ${send.length}…`);
-      const res = await importLeads(send.slice(i, i + CHUNK), bought ? boughtTag : source, assign, project);
-      if (res.error) { setError(`${res.error} (${total.added} added before this stopped)`); break; }
-      total.added += res.added ?? 0; total.updated += res.updated ?? 0; total.skipped += res.skipped ?? 0;
+    try {
+      for (let i = 0; i < send.length; i += CHUNK) {
+        setProgress(`Saving ${Math.min(i + CHUNK, send.length)} of ${send.length}…`);
+        const res = await importLeads(send.slice(i, i + CHUNK), bought ? boughtTag : source, assign, project);
+        if (res.error) { setError(`${res.error} (${total.added} added before this stopped)`); break; }
+        total.added += res.added ?? 0; total.updated += res.updated ?? 0; total.skipped += res.skipped ?? 0;
+      }
+      setResult(total);
+    } catch {
+      // network drop or server timeout: say how far it got (running the same file again will not add doubles)
+      setError(`The connection broke. ${total.added} leads were added. Run the same file again to add the rest; numbers already added are not added twice.`);
+    } finally {
+      setProgress(''); setBusy(false);
     }
-    setResult(total); setProgress(''); setBusy(false);
   }
 
   if (result) {
@@ -210,7 +217,7 @@ export function ImportLeads({ people, projects }: { people: Person[]; projects: 
               <tbody>{rows.slice(0, 8).map((r, i) => (
                 <tr key={i} style={r.ok ? undefined : { opacity: 0.5 }}>
                   <td>{r.ok ? '✓' : '✗'}</td><td>{r.name || '—'}</td><td className="mono">{r.phone || '—'}</td><td>{r.location}</td>
-                  <td>{r.budget_min || r.budget_max ? [r.budget_min, r.budget_max].filter(Boolean).map((n) => `₹${(Number(n) / 100000).toFixed(1)}L`).join(' – ') : ''}</td>
+                  <td>{fmtBudget(r.budget_min, r.budget_max)}</td>
                   <td>{r.bhk}</td><td>{r.source}</td>
                 </tr>
               ))}</tbody>

@@ -165,7 +165,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
             <div className="panel-h"><h2>Notes and history</h2></div>
             <div className="panel-b stack">
               {canEdit && (
-                <ActionForm action={addNote} className="stack">
+                <ActionForm action={addNote} className="stack" resetOnOk>
                   <input type="hidden" name="id" value={lead.id} />
                   <textarea name="body" rows={2} placeholder="Example: Wants east facing, loan pre-approved, wife will come on Sunday." />
                   <div><Submit className="btn sm">Save note</Submit></div>
@@ -278,7 +278,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
                 </div>
               ))}
               {canEdit && (
-                <ActionForm action={scheduleVisit} className="stack">
+                <ActionForm action={scheduleVisit} className="stack" resetOnOk>
                   <input type="hidden" name="lead_id" value={lead.id} />
                   <span className="label">Book a site visit</span>
                   <select name="project_id" defaultValue={lead.project_id ?? ''} aria-label="Project"><option value="">Choose project</option>{(projects ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>

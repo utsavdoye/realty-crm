@@ -15,11 +15,17 @@ const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const clean = (v: string) => v.replace(/[%_,()."']/g, '').slice(0, 60);
 const PAGE = 50;
 
-export default async function Leads({ searchParams: sp }: { searchParams: SP }) {
+const UUIDRE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+export default async function Leads({ searchParams }: { searchParams: Record<string, string | string[] | undefined> }) {
+  // A link like ?q=a&q=b gives a list; keep only the first value so the page never breaks.
+  const sp = Object.fromEntries(Object.entries(searchParams).map(([k, v]) => [k, (Array.isArray(v) ? v[0] : v)?.slice(0, 200)])) as SP;
+  if (sp.project && !UUIDRE.test(sp.project)) delete sp.project;
+  if (sp.agent && sp.agent !== 'none' && !UUIDRE.test(sp.agent)) delete sp.agent;
   const { supabase, org, role } = await requireOrg();
   const mgr = isManager(role);
   const board = sp.view === 'board';
-  const page = Math.max(1, Number(sp.page) || 1);
+  const page = Math.min(5000, Math.max(1, Math.floor(Number(sp.page)) || 1));
 
   let q = supabase.from('leads')
     .select('id, name, phone, source, stage, score, assigned_to, bhk, budget_min, budget_max, location, next_follow_up, created_at, project_id', { count: 'exact' })
@@ -43,7 +49,9 @@ export default async function Leads({ searchParams: sp }: { searchParams: SP }) 
   }
   const term = (sp.q ?? '').trim();
   if (term) {
-    const digits = term.replace(/\D/g, '');
+    let digits = term.replace(/\D/g, '');
+    if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);   // +91 98450 12345
+    else if (digits.length === 11 && digits.startsWith('0')) digits = digits.slice(1); // 098450 12345
     if (digits.length >= 3) q = q.ilike('phone', `%${digits}%`); else ors.push(`name.ilike.%${clean(term)}%,location.ilike.%${clean(term)}%`);
   }
   // date the lead came in (India time)
@@ -72,7 +80,7 @@ export default async function Leads({ searchParams: sp }: { searchParams: SP }) 
   else if (ors.length > 1) q = q.or(`and(${ors.map((o) => `or(${o})`).join(',')})`);
   q = board ? q.order('created_at', { ascending: false }).limit(600) : q.order('created_at', { ascending: false }).range((page - 1) * PAGE, page * PAGE - 1);
 
-  const [{ data: leads, count }, { data: people }, { data: projects }] = await Promise.all([
+  const [{ data: leads, count, error: listErr }, { data: people }, { data: projects }] = await Promise.all([
     q,
     supabase.from('members').select('user_id, full_name, role, active').eq('org_id', org.id),
     supabase.from('projects').select('id, name').eq('org_id', org.id).order('name'),
@@ -116,7 +124,7 @@ export default async function Leads({ searchParams: sp }: { searchParams: SP }) 
       )}
       {!mgr && <div className="banner">{role === 'partner' ? 'You see only the leads you brought in.' : 'You see only the leads assigned to you.'}</div>}
 
-      <AutoFilterForm className="filters" action="/leads">
+      <AutoFilterForm key={JSON.stringify(sp)} className="filters" action="/leads">
         {sp.match && <input type="hidden" name="match" value={sp.match} />}
         {sp.view && <input type="hidden" name="view" value={sp.view} />}
         {term && <input type="hidden" name="q" value={term} />}
@@ -151,7 +159,7 @@ export default async function Leads({ searchParams: sp }: { searchParams: SP }) 
       </AutoFilterForm>
 
       {board ? (
-        <LeadBoard leads={list.map((l) => ({ ...l, agent: mgr && l.assigned_to ? nameOf.get(l.assigned_to) : undefined }))} />
+        <LeadBoard key={JSON.stringify(sp)} leads={list.map((l) => ({ ...l, agent: mgr && l.assigned_to ? nameOf.get(l.assigned_to) : undefined }))} />
       ) : (
         <section className="panel">
           {list.length ? (
@@ -172,7 +180,7 @@ export default async function Leads({ searchParams: sp }: { searchParams: SP }) 
               })}
             </div>
           ) : (
-            <div className="empty">{anyFilter ? 'No leads match these filters.' : <>No leads yet. <Link href="/leads/new">Add your first lead</Link>{mgr ? <> or <Link href="/sources">connect a lead source</Link></> : null}.</>}</div>
+            <div className="empty">{listErr && page > 1 ? <>This page is past the end. <Link href="/leads">Go to page 1</Link>.</> : listErr ? 'Could not load leads. Please refresh the page.' : anyFilter ? 'No leads match these filters.' : <>No leads yet. <Link href="/leads/new">Add your first lead</Link>{mgr ? <> or <Link href="/sources">connect a lead source</Link></> : null}.</>}</div>
           )}
           {(count ?? 0) > PAGE && (
             <div className="pager">

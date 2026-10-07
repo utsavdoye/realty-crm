@@ -9,6 +9,14 @@ import { uploadProjectFile } from '@/lib/upload';
 import type { FormState } from '@/app/actions';
 
 type Plan = { file: File; label: string; url: string };
+/** Works on old phones too (crypto.randomUUID is missing on older iPhones). */
+function newUuid() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  const b = new Uint8Array(16); crypto.getRandomValues(b);
+  b[6] = (b[6] & 0x0f) | 0x40; b[8] = (b[8] & 0x3f) | 0x80;
+  const h = Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
 const nameToLabel = (n: string) => n.replace(/\.[a-z0-9]+$/i, '').replace(/[_-]+/g, ' ').trim().slice(0, 60);
 
 function Save({ busy }: { busy: string }) {
@@ -28,7 +36,7 @@ export function AddProjectForm({ orgId }: { orgId: string }) {
   const [busy, setBusy] = useState('');
   const [warn, setWarn] = useState('');
 
-  useEffect(() => { setNewId(crypto.randomUUID()); }, [round]);
+  useEffect(() => { setNewId(newUuid()); }, [round]);
   // The save step runs later, so it reads the picked files from here (always the latest).
   const picked = useRef({ photos, plans, pdf });
   picked.current = { photos, plans, pdf };
@@ -38,6 +46,10 @@ export function AddProjectForm({ orgId }: { orgId: string }) {
     const r = await saveProject(prev, fd);
     if (!r?.ok) return r;
     const id = String(fd.get('new_id'));
+    if (!/^[0-9a-f-]{36}$/i.test(id)) {
+      router.refresh();
+      return { ok: 'Project added. Add its photos and floor plans from the project card.' };
+    }
     const { photos, plans, pdf } = picked.current;
     const failed: string[] = [];
     const up = async (kind: 'photo' | 'plan' | 'brochure', f: File, n: string) => {

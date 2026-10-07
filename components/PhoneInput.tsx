@@ -11,6 +11,7 @@ export function PhoneInput({ name = 'phone', defaultCc = '+91', required, autoFo
     if (!v) return { cc: defaultCc, num: '' };
     const full = v.startsWith('+') ? v : '+91' + v;
     const code = COUNTRIES.map(([c]) => c).filter((c) => full.startsWith(c)).sort((a, b) => b.length - a.length)[0];
+    // country not in the list: keep the whole number with its + so it is saved unchanged
     return code ? { cc: code, num: full.slice(code.length) } : { cc: defaultCc, num: full };
   })();
   const [cc, setCc] = useState(start.cc);

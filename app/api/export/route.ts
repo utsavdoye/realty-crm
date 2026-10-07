@@ -18,7 +18,12 @@ export async function GET() {
   const { data: people } = await supabase.from('members').select('user_id, full_name').eq('org_id', org.id);
   const names = new Map((people ?? []).map((p) => [p.user_id, p.full_name]));
   const cols = ['name', 'phone', 'email', 'stage', 'score', 'source', 'budget_min', 'budget_max', 'bhk', 'location', 'purpose', 'dob', 'assigned_to', 'next_follow_up', 'created_at'];
-  const cell = (v: unknown) => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  // A name like =HYPERLINK(...) must not run as a formula when the file is opened in Excel.
+  const cell = (v: unknown) => {
+    let s = v == null ? '' : String(v);
+    if (/^[=+\-@\t\r]/.test(s) && !/^\+\d[\d ]*$/.test(s)) s = "'" + s;
+    return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
   const csv = '﻿' + [cols.join(','), ...rows.map((r) => cols.map((c) => cell(c === 'assigned_to' ? names.get(r[c] as string) ?? '' : r[c])).join(','))].join('\n');
   return new NextResponse(csv, {
     headers: {

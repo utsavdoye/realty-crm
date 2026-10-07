@@ -58,7 +58,10 @@ export function parseBudget(input?: string | null): { min: number | null; max: n
   const lastU = unit(vals[vals.length - 1][1]);
   const toL = ([n, u]: [number, string]) => { const x = unit(u) || lastU; if (x === 'cr') return n * 100; if (x === 'l') return n; if (x === 'k') return n / 100; if (n >= 100000) return n / 100000; if (n < 10) return n * 100; return n; };
   const nums = vals.map(toL).map((x) => Math.round(x * 100) / 100);
-  return nums.length === 1 ? { min: null, max: nums[0] } : { min: Math.min(...nums), max: Math.max(...nums) };
+  if (nums.some((n) => !Number.isFinite(n) || n <= 0)) return null;
+  // one number: "1.2 Cr+", "above 80 L", "from 60 L" = at least; otherwise "up to"
+  if (nums.length === 1) return /\+|above|over|more than|min|from|plus|onwards|se (zyada|jyada)/.test(s) ? { min: nums[0], max: null } : { min: null, max: nums[0] };
+  return { min: Math.min(...nums), max: Math.max(...nums) };
 }
 
 const TZ = 'Asia/Kolkata';
@@ -122,8 +125,9 @@ export function fillTemplate(body: string, c: TemplateContext) {
   const map: Record<string, string> = {
     name: (c.name || '').split(' ')[0] || 'there',
     agent: c.agent || '', agent_phone: c.agent_phone || '', company: c.company || '',
-    project: c.project || 'our projects', visit_time: c.visit_time || '', budget: c.budget || '',
-    location: c.location || '', bhk: c.bhk || '',
+    // When the lead has no value, use words that still read well in a sentence.
+    project: c.project || 'our projects', visit_time: c.visit_time || 'the planned time', budget: c.budget || 'your budget',
+    location: c.location || 'your area', bhk: c.bhk || 'home',
   };
   return body.replace(/\{\{\s*(\w+)\s*\}\}/g, (m, k) => (map[k] != null ? map[k] : m));
 }

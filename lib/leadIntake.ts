@@ -1,5 +1,5 @@
 import 'server-only';
-import { createAnonClient } from '@/lib/supabase/admin';
+import { createAdminClient, createAnonClient } from '@/lib/supabase/admin';
 import { notifyLeadAssigned } from '@/lib/whatsapp';
 import { parseBudget } from '@/lib/crm';
 
@@ -60,7 +60,8 @@ export type IngestResult = { ok: boolean; error?: string; is_new?: boolean; lead
 
 /** Saves the lead (or adds the enquiry to an existing one) and alerts the assigned agent on WhatsApp. */
 export async function ingest(key: string, lead: IncomingLead, raw: unknown): Promise<IngestResult> {
-  const supabase = createAnonClient();
+  // With the server key we get the agent's details back (for the WhatsApp alert); without it the lead is still saved.
+  const supabase = createAdminClient() ?? createAnonClient();
   const { data, error } = await supabase.rpc('ingest_lead', {
     p_key: key, p_name: lead.name ?? null, p_phone: lead.phone ?? null, p_email: lead.email ?? null,
     p_city: lead.city ?? null, p_location: lead.location ?? null, p_budget_min: lead.budgetMin ?? null, p_budget_max: lead.budgetMax ?? null,
@@ -68,7 +69,7 @@ export async function ingest(key: string, lead: IncomingLead, raw: unknown): Pro
     p_raw: (raw && typeof raw === 'object' ? raw : {}) as object,
   });
   if (error) { console.error('ingest_lead failed:', error.message); return { ok: false, error: 'server_error' }; }
-  const r = data as { ok: boolean; error?: string; is_new?: boolean; lead_id?: string; name?: string; phone?: string; source?: string; agent_name?: string | null; agent_phone?: string | null };
+  const r = (data ?? { ok: false, error: 'server_error' }) as { ok: boolean; error?: string; is_new?: boolean; lead_id?: string; name?: string; phone?: string; source?: string; agent_name?: string | null; agent_phone?: string | null };
   if (r.ok && r.is_new && r.agent_phone) {
     await notifyLeadAssigned({ agentPhone: r.agent_phone, agentName: r.agent_name ?? '', leadName: r.name ?? '', leadPhone: r.phone ?? '', source: r.source });
   }

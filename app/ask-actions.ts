@@ -16,6 +16,7 @@ const tooMany = (uid: string) => {
   const now = Date.now();
   const list = (hits.get(uid) ?? []).filter((t) => now - t < 60_000);
   list.push(now); hits.set(uid, list);
+  if (hits.size > 500) hits.clear(); // keep memory small
   return list.length > 12; // more than 12 AI questions a minute from one person
 };
 
@@ -109,7 +110,8 @@ export async function askHelper(question: string): Promise<AskAnswer> {
   let intent = parseLocal(qText);
   let via: AskAnswer['via'] = 'quick';
   if (intent.kind === 'unknown' && !tooMany(user.id)) {
-    const ai = await aiIntent(qText);
+    const { data: allowed, error: limitErr } = await supabase.rpc('ai_ok', { p_kind: 'ask' });
+    const ai = limitErr || allowed !== false ? await aiIntent(qText) : null;
     if (ai && ai.kind !== 'unknown') { intent = ai; via = 'ai'; }
   }
   // Never get stuck: if nothing understood it, search lead names and areas with the words typed.
@@ -176,7 +178,7 @@ export async function askHelper(question: string): Promise<AskAnswer> {
   }
 
   if (intent.kind === 'projects') {
-    let q = supabase.from('projects').select('id, name, location, configs, price_from, price_to, status').eq('org_id', org.id).neq('status', 'Sold out').order('price_from').limit(6);
+    let q = supabase.from('projects').select('id, name, location, configs, price_from, price_to, status').eq('org_id', org.id).or('status.is.null,status.neq.Sold out').order('price_from').limit(6);
     if (intent.area) q = q.ilike('location', `%${clean(intent.area)}%`);
     if (intent.bmax) q = q.lte('price_from', intent.bmax);
     if (intent.bhk) q = q.ilike('configs', `%${clean(intent.bhk.replace(/\s*BHK/i, ''))}%`);
@@ -207,6 +209,11 @@ export async function askHelper(question: string): Promise<AskAnswer> {
   if (f.fu === 'over') q = q.lt('next_follow_up', now).not('stage', 'in', '(booked,lost)');
   if (f.fu === 'today') q = q.gte('next_follow_up', now).lt('next_follow_up', `${today}T23:59:59+05:30`).not('stage', 'in', '(booked,lost)');
   if (f.fu === 'none') q = q.is('next_follow_up', null).not('stage', 'in', '(new,booked,lost)');
+  if (f.fu === 'stale') {
+    const t = new Date(Date.now() - 14 * 86400000).toISOString();
+    ors.push(`last_activity_at.lt.${t},and(last_activity_at.is.null,created_at.lt.${t})`);
+    q = q.not('stage', 'in', '(booked,lost)');
+  }
   if (f.q) ors.push(`name.ilike.%${clean(f.q)}%,location.ilike.%${clean(f.q)}%`);
   if (ors.length === 1) q = q.or(ors[0]); else if (ors.length > 1) q = q.or(`and(${ors.map((o) => `or(${o})`).join(',')})`);
   const { data, count } = await q.order('next_follow_up', { ascending: true, nullsFirst: false }).limit(5);

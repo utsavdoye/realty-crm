@@ -52,7 +52,8 @@ export async function sendRequirement(_: ReqState, fd: FormData): Promise<ReqSta
     p_location: s(fd, 'location', 200), p_purpose: s(fd, 'purpose', 40), p_timeline: s(fd, 'timeline', 40),
     p_loan: s(fd, 'loan', 20), p_slot: s(fd, 'slot', 20), p_note: s(fd, 'note', 500),
   });
-  const r = data as { ok: boolean; fits?: number; advisor?: string | null } | null;
+  const r = data as { ok: boolean; fits?: number; advisor?: string | null; busy?: boolean } | null;
+  if (r?.busy) return { error: 'Too many forms right now. Please try again in a few minutes, or call us.' };
   if (error || !r?.ok) return { error: 'Could not send. Please check your number and try again.' };
   return { ok: true, fits: r.fits ?? 0, advisor: r.advisor ?? null, name: name.split(' ')[0] };
 }
@@ -67,13 +68,10 @@ export async function unlockProject(_: { ok?: boolean; error?: string; data?: Un
   if (!TOKEN.test(token)) return { error: 'This link is not valid.' };
   if (name.length < 2) return { error: 'Please enter your name.' };
   if (!validPhone(phone)) return { error: 'Please enter a valid mobile number.' };
-  const db = createAnonClient();
-  const { data: sent } = await db.rpc('public_enquiry', {
-    p_token: token, p_name: name, p_phone: phone, p_message: 'Asked for the price list, floor plans and all photos', p_when: null,
-  });
-  if (!sent) return { error: 'Could not send. Please call us instead.' };
-  const { data } = await db.rpc('get_public_project', { p_token: token });
+  // One step in the database: saves the enquiry, then (only then) gives the full details.
+  const { data } = await createAnonClient().rpc('unlock_public_project', { p_token: token, p_name: name, p_phone: phone });
   const p = data as { photos: string[] | null; price_to: number | null; link: string | null; floor_plans?: { url: string; label: string }[] | null } | null;
+  if (!p) return { error: 'Could not open right now. Please try again in a minute, or call us.' };
   return { ok: true, data: { photos: p?.photos ?? [], price_to: p?.price_to ?? null, link: p?.link ?? null, floor_plans: p?.floor_plans ?? [] } };
 }
 

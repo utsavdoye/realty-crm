@@ -1,3 +1,4 @@
+import { fetchAll } from '@/lib/fetchAll';
 import Link from 'next/link';
 import { requireOrg } from '@/lib/context';
 import { addEntry, deleteEntry } from '@/app/money-actions';
@@ -20,18 +21,17 @@ export default async function Money({ searchParams: sp }: { searchParams: { tab?
   const from = periodStart(period);
   const today = todayIST();
 
-  let eq = supabase.from('money_entries').select('id, entry_date, direction, category, amount, deal_id, person_id, lead_source, mode, note').eq('org_id', org.id).order('entry_date', { ascending: false }).limit(5000);
-  if (from) eq = eq.gte('entry_date', from);
-  let lq = supabase.from('leads').select('source, stage').eq('org_id', org.id).limit(20000);
-  if (from) lq = lq.gte('created_at', from);
-  const [{ data: dealsRaw }, { data: instRaw }, { data: entriesRaw }, { data: allCom }, { data: people }, { data: projects }, { data: leadsRaw }, { data: bookedLeads }] = await Promise.all([
-    supabase.from('deals').select('id, lead_id, project_id, buyer_name, unit_no, booked_on, agreement_value, commission_amount, agent_id, incentive_amount, status').eq('org_id', org.id).order('booked_on', { ascending: false }),
-    supabase.from('deal_installments').select('id, deal_id, label, amount, due_on, paid_amount').eq('org_id', org.id),
-    eq,
-    supabase.from('money_entries').select('deal_id, category, amount, person_id').eq('org_id', org.id).in('category', ['Commission', 'Incentive']).not('deal_id', 'is', null),
+  // Every row is read (page by page), so totals stay right as the company grows.
+  const eq = () => { const q = supabase.from('money_entries').select('id, entry_date, direction, category, amount, deal_id, person_id, lead_source, mode, note').eq('org_id', org.id).order('entry_date', { ascending: false }).order('id'); return from ? q.gte('entry_date', from) : q; };
+  const lq = () => { const q = supabase.from('leads').select('id, source, stage').eq('org_id', org.id).order('id'); return from ? q.gte('created_at', from) : q; };
+  const [dealsRaw, instRaw, entriesRaw, allCom, { data: people }, { data: projects }, leadsRaw, { data: bookedLeads }] = await Promise.all([
+    fetchAll(() => supabase.from('deals').select('id, lead_id, project_id, buyer_name, unit_no, booked_on, agreement_value, commission_amount, agent_id, incentive_amount, status').eq('org_id', org.id).order('booked_on', { ascending: false }).order('id')),
+    fetchAll(() => supabase.from('deal_installments').select('id, deal_id, label, amount, due_on, paid_amount').eq('org_id', org.id).order('id')),
+    fetchAll(eq),
+    fetchAll<{ deal_id: string; category: string; amount: number; person_id: string | null }>(() => supabase.from('money_entries').select('id, deal_id, category, amount, person_id').eq('org_id', org.id).in('category', ['Commission', 'Incentive']).not('deal_id', 'is', null).order('id')),
     supabase.from('members').select('user_id, full_name, role, active').eq('org_id', org.id),
     supabase.from('projects').select('id, name').eq('org_id', org.id),
-    lq,
+    fetchAll<{ source: string | null; stage: string }>(lq),
     supabase.from('leads').select('id, name, booked_at').eq('org_id', org.id).eq('stage', 'booked').order('booked_at', { ascending: false }).limit(500),
   ]);
   const deals = (dealsRaw ?? []) as Deal[];
@@ -62,11 +62,12 @@ export default async function Money({ searchParams: sp }: { searchParams: { tab?
   // monthly in vs out (last 6 months, always)
   const months: { key: string; label: string; in: number; out: number }[] = [];
   for (let i = 5; i >= 0; i--) {
-    const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - i);
-    months.push({ key: d.toISOString().slice(0, 7), label: d.toLocaleDateString('en-IN', { month: 'short' }), in: 0, out: 0 });
+    // India date (the server runs on UTC; near midnight that would pick the wrong month)
+    const d = new Date(today.slice(0, 8) + '01T00:00:00Z'); d.setUTCMonth(d.getUTCMonth() - i);
+    months.push({ key: d.toISOString().slice(0, 7), label: d.toLocaleDateString('en-IN', { month: 'short', timeZone: 'UTC' }), in: 0, out: 0 });
   }
-  const { data: last6 } = await supabase.from('money_entries').select('entry_date, direction, amount').eq('org_id', org.id).gte('entry_date', months[0].key + '-01').limit(5000);
-  (last6 ?? []).forEach((e) => { const m = months.find((x) => x.key === e.entry_date.slice(0, 7)); if (m) m[e.direction as 'in' | 'out'] += Number(e.amount); });
+  const last6 = await fetchAll<{ entry_date: string; direction: string; amount: number }>(() => supabase.from('money_entries').select('id, entry_date, direction, amount').eq('org_id', org.id).gte('entry_date', months[0].key + '-01').order('id'));
+  last6.forEach((e) => { const m = months.find((x) => x.key === e.entry_date.slice(0, 7)); if (m) m[e.direction as 'in' | 'out'] += Number(e.amount); });
   const maxM = Math.max(1, ...months.flatMap((m) => [m.in, m.out]));
 
   const byCat = new Map<string, number>();

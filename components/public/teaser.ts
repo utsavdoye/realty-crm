@@ -7,5 +7,6 @@ export type Teaser = Omit<PubProject, 'photos' | 'price_to' | 'link' | 'floor_pl
 export function toTeaser(p: PubProject): Teaser {
   const rest: Record<string, unknown> = { ...p };
   delete rest.photos; delete rest.price_to; delete rest.link; delete rest.floor_plans;
-  return { ...(rest as Omit<PubProject, 'photos' | 'price_to' | 'link' | 'floor_plans'>), cover: p.photos?.[0] ?? null, more: Math.max(0, (p.photos?.length ?? 0) - 1), hasRange: p.price_to != null, hasBrochure: !!p.link, plans: p.floor_plans?.length ?? 0 };
+  return { ...(rest as Omit<PubProject, 'photos' | 'price_to' | 'link' | 'floor_plans'>), cover: p.photos?.[0] ?? null, more: Math.max(0, (p.photo_count ?? p.photos?.length ?? 0) - 1),
+    hasRange: p.has_range ?? p.price_to != null, hasBrochure: p.has_brochure ?? !!p.link, plans: p.plan_count ?? p.floor_plans?.length ?? 0 };
 }

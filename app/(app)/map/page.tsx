@@ -1,3 +1,4 @@
+import { fetchAll } from '@/lib/fetchAll';
 import { requireOrg } from '@/lib/context';
 import { MapView, type MapProjectFull } from '@/components/MapView';
 import { areaPoint } from '@/lib/places';
@@ -6,9 +7,9 @@ export const metadata = { title: 'Map' };
 
 export default async function MapPage() {
   const { supabase, org } = await requireOrg(['owner', 'manager', 'agent']);
-  const [{ data: projects }, { data: leads }] = await Promise.all([
+  const [{ data: projects }, leads] = await Promise.all([
     supabase.from('projects').select('id, name, lat, lng, status, type, location, configs, price_from, price_to, photos').eq('org_id', org.id).order('name'),
-    supabase.from('leads').select('location, project_id').eq('org_id', org.id).not('stage', 'in', '(booked,lost)').limit(10000),
+    fetchAll<{ location: string | null; project_id: string | null }>(() => supabase.from('leads').select('id, location, project_id').eq('org_id', org.id).not('stage', 'in', '(booked,lost)').order('id')),
   ]);
   const per = new Map<string, number>();
   const demandMap = new Map<string, { area: string; lat: number; lng: number; n: number }>();
