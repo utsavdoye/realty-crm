@@ -50,7 +50,7 @@ export function Map3D({
   const map = useRef<MLMap | null>(null);
   const lib = useRef<typeof import('maplibre-gl') | null>(null);
   const deck = useRef<MapboxOverlay | null>(null);
-  const layersMod = useRef<typeof import('@deck.gl/layers') | null>(null);
+  const meshMod = useRef<typeof import('@deck.gl/mesh-layers') | null>(null);
   const pins = useRef<MLMarker[]>([]);
   const marks = useRef<MLMarker[]>([]);
   const orbit = useRef<number | null>(null);
@@ -94,9 +94,9 @@ export function Map3D({
     let dead = false;
     (async () => {
       try {
-        const [ml, { MapboxOverlay: Overlay }, layers] = await Promise.all([import('maplibre-gl'), import('@deck.gl/mapbox'), import('@deck.gl/layers')]);
+        const [ml, { MapboxOverlay: Overlay }, mesh] = await Promise.all([import('maplibre-gl'), import('@deck.gl/mapbox'), import('@deck.gl/mesh-layers')]);
         if (dead || !box.current) return;
-        lib.current = ml; layersMod.current = layers;
+        lib.current = ml; meshMod.current = mesh;
         const m = new ml.Map({
           container: box.current, style: base0 === 'satellite' ? SATELLITE : STREETS,
           center: [CITY_CENTER[1], CITY_CENTER[0]], zoom: 11, pitch: 50, bearing: -12, maxPitch: 75,
@@ -191,43 +191,31 @@ export function Map3D({
     });
   }, [kinds, inited]);
 
-  // Mini 3D buildings: where leads want to buy. More leads = more and taller towers.
-  // They fade out when you zoom in close to a project, so they never hide it.
+  // Real 3D apartment towers (our own models in /public/models): where leads want to buy.
+  // More leads = more and taller towers. They fade out when you zoom in close to a project, so they never hide it.
   useEffect(() => {
-    const L = layersMod.current; const o = deck.current; if (!L || !o) return;
+    const M = meshMod.current; const o = deck.current; if (!M || !o) return;
     const max = Math.max(1, ...demand.map((d) => d.n));
-    const fade = zoom <= 13 ? 1 : zoom >= 15 ? 0 : 1 - (zoom - 13) / 2;
-    type Tower = Demand3D & { poly: [number, number][]; h: number; t: number };
+    const fade = zoom <= 14 ? 1 : zoom >= 15.5 ? 0 : 1 - (zoom - 14) / 1.5;
+    type Tower = Demand3D & { pos: [number, number]; size: 's' | 'm' | 'l'; turn: number };
     const towers: Tower[] = [];
-    const SPOTS: [number, number][] = [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, -1]];
+    const SPOTS: [number, number][] = [[0, 0], [1, 0.2], [-0.2, 1], [-1, -0.1], [0.2, -1], [1, 1], [-1, -1]];
     demand.forEach((d, di) => {
       const t = d.n / max;
       const count = Math.min(SPOTS.length, 1 + Math.round(t * 6));
       const mLat = 1 / 111320, mLng = 1 / (111320 * Math.cos((d.lat * Math.PI) / 180));
       SPOTS.slice(0, count).forEach(([sx, sy], i) => {
-        const w = 170 + ((di * 7 + i * 13) % 3) * 30;          // footprint 170–230 m
-        const cx = d.lng + sx * 270 * mLng, cy = d.lat + sy * 270 * mLat;
-        const hw = (w / 2) * mLng, hh = (w / 2) * mLat;
-        const vary = 0.55 + (((di * 31 + i * 17) % 10) / 10) * 0.45; // towers of different heights
-        towers.push({ ...d, t, h: (140 + t * 760) * (i === 0 ? 1 : vary),
-          poly: [[cx - hw, cy - hh], [cx + hw, cy - hh], [cx + hw, cy + hh], [cx - hw, cy + hh]] });
+        const k = (di * 7 + i * 3) % 10;
+        const size: Tower['size'] = i === 0 ? (t > 0.66 ? 'l' : t > 0.33 ? 'm' : 's') : k < 4 ? 's' : k < 8 ? 'm' : 'l';
+        towers.push({ ...d, size, turn: (di * 37 + i * 23) % 90, pos: [d.lng + sx * 330 * mLng, d.lat + sy * 330 * mLat] });
       });
     });
-    const tone = (t: number): [number, number, number, number] => {
-      const lerp = (a: number[], b: number[], k: number) => a.map((x, i) => Math.round(x + (b[i] - x) * k));
-      const c = lerp([214, 219, 255], [74, 85, 236], Math.min(1, t * 1.2));
-      return [c[0], c[1], c[2], 235];
-    };
-    o.setProps({
-      layers: towers.length && fade > 0 ? [new L.PolygonLayer<Tower>({
-        id: 'demand', data: towers, extruded: true, wireframe: true, pickable: true, autoHighlight: true, opacity: fade,
-        highlightColor: [245, 158, 11, 200],
-        getPolygon: (d) => d.poly, getElevation: (d) => d.h,
-        getFillColor: (d) => tone(d.t), getLineColor: [255, 255, 255, 140], lineWidthMinPixels: 1,
-        material: { ambient: 0.55, diffuse: 0.65, shininess: 24, specularColor: [255, 255, 255] },
-        transitions: { getElevation: { duration: 900 } },
-      })] : [],
+    const make = (size: Tower['size']) => new M.ScenegraphLayer<Tower>({
+      id: `towers-${size}`, data: towers.filter((x) => x.size === size), scenegraph: `/models/tower-${size}.glb`,
+      getPosition: (d) => d.pos, getOrientation: (d) => [0, d.turn, 90], sizeScale: 7, opacity: fade,
+      _lighting: 'pbr', pickable: true, autoHighlight: true, highlightColor: [245, 158, 11, 160],
     });
+    o.setProps({ layers: towers.length && fade > 0 ? [make('s'), make('m'), make('l')] : [] });
   }, [demand, inited, zoom]);
 
   // First view: fit all projects (and demand) in a tilted view.

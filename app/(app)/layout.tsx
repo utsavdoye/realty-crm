@@ -8,6 +8,7 @@ import { switchOrg } from '@/app/actions';
 import { PICK_LABEL, memberRole } from '@/lib/roles';
 import { Bell } from '@/components/Bell';
 import { SideToggle } from '@/components/SideToggle';
+import { AskHelper } from '@/components/AskHelper';
 import { cookies } from 'next/headers';
 
 export const dynamic = 'force-dynamic';
@@ -50,6 +51,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       <Bell userId={user.id} initial={unread ?? 0} floating />
       <main className="main">{children}</main>
       <NavLinks role={role} mobile />
+      {role !== 'partner' && <AskHelper />}
     </div>
   );
 }
