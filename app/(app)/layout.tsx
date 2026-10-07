@@ -1,11 +1,11 @@
-import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { requireOrg } from '@/lib/context';
 import { Logo } from '@/components/AuthShell';
 import { NavLinks } from '@/components/NavLinks';
 import { SignOutButtons } from '@/components/SignOutButtons';
 import { switchOrg } from '@/app/actions';
-import { PICK_LABEL, memberRole } from '@/lib/roles';
+import { PICK_LABEL, memberRole, siteUrl } from '@/lib/roles';
+import { SharePop } from '@/components/SharePop';
 import { Bell } from '@/components/Bell';
 import { SideToggle } from '@/components/SideToggle';
 import { AskHelper } from '@/components/AskHelper';
@@ -15,9 +15,12 @@ export const dynamic = 'force-dynamic';
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const { supabase, org, role, me, memberships, user } = await requireOrg();
-  const { count: unread } = await supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).is('read_at', null);
+  const [{ count: unread }, { data: o }] = await Promise.all([
+    supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).is('read_at', null),
+    supabase.from('organizations').select('form_token').eq('id', org.id).maybeSingle(),
+  ]);
   const mini = cookies().get('ed_side')?.value === 'mini';
-  const daysLeft = org.plan_status === 'trial' ? Math.ceil((new Date(org.trial_ends_at).getTime() - Date.now()) / 86400000) : null;
+  const formLink = o?.form_token ? `${siteUrl()}/r/${o.form_token}?by=${user.id}` : '';
   return (
     <div className={`app ${mini ? 'mini' : ''}`}>
       <aside className="side">
@@ -37,14 +40,13 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         <Bell userId={user.id} initial={unread ?? 0} />
         <NavLinks role={role} />
         <div className="side-foot">
-          {role !== 'partner' && (
-            <Link href="/profile#form" className="side-promo">
+          {role !== 'partner' && formLink && (
+            <div className="side-promo">
               <b>Get more leads</b>
               <span>Send your client form. Buyers pick budget and area in 1 minute.</span>
-              <span className="side-promo-btn">Share my form →</span>
-            </Link>
+              <SharePop url={formLink} className="side-promo-btn" title="Your client form" text="Tell me what home you are looking for. It takes 1 minute, and I will send you options that fit your budget:">Share my form →</SharePop>
+            </div>
           )}
-          {daysLeft !== null && <div className="trial">{daysLeft > 0 ? `${daysLeft} day${daysLeft === 1 ? '' : 's'} left in free trial` : 'Trial ends today'}</div>}
           <SignOutButtons compact />
         </div>
       </aside>

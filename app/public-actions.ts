@@ -57,7 +57,7 @@ export async function sendRequirement(_: ReqState, fd: FormData): Promise<ReqSta
   return { ok: true, fits: r.fits ?? 0, advisor: r.advisor ?? null, name: name.split(' ')[0] };
 }
 
-export type Unlocked = { photos: string[]; price_to: number | null; link: string | null };
+export type Unlocked = { photos: string[]; price_to: number | null; link: string | null; floor_plans: { url: string; label: string }[] };
 
 /** Project page: client leaves name + number → gets the full price range, all photos and the brochure. */
 export async function unlockProject(_: { ok?: boolean; error?: string; data?: Unlocked } | null, fd: FormData): Promise<{ ok?: boolean; error?: string; data?: Unlocked }> {
@@ -73,8 +73,8 @@ export async function unlockProject(_: { ok?: boolean; error?: string; data?: Un
   });
   if (!sent) return { error: 'Could not send. Please call us instead.' };
   const { data } = await db.rpc('get_public_project', { p_token: token });
-  const p = data as { photos: string[] | null; price_to: number | null; link: string | null } | null;
-  return { ok: true, data: { photos: p?.photos ?? [], price_to: p?.price_to ?? null, link: p?.link ?? null } };
+  const p = data as { photos: string[] | null; price_to: number | null; link: string | null; floor_plans?: { url: string; label: string }[] | null } | null;
+  return { ok: true, data: { photos: p?.photos ?? [], price_to: p?.price_to ?? null, link: p?.link ?? null, floor_plans: p?.floor_plans ?? [] } };
 }
 
 /** Shortlist page: the client is already known, so one tap unlocks it and tells their advisor. */
@@ -84,6 +84,6 @@ export async function unlockShortlist(token: string, projectId: string): Promise
   const { data: ok } = await db.rpc('shortlist_react', { p_token: token, p_project: projectId, p_reaction: 'details', p_when: null });
   if (!ok) return null;
   const { data } = await db.rpc('get_shortlist', { p_token: token });
-  const p = (data as { projects: { id: string; photos: string[] | null; price_to: number | null; link: string | null }[] } | null)?.projects.find((x) => x.id === projectId);
-  return p ? { photos: p.photos ?? [], price_to: p.price_to, link: p.link } : null;
+  const p = (data as { projects: { id: string; photos: string[] | null; price_to: number | null; link: string | null; floor_plans?: { url: string; label: string }[] | null }[] } | null)?.projects.find((x) => x.id === projectId);
+  return p ? { photos: p.photos ?? [], price_to: p.price_to, link: p.link, floor_plans: p.floor_plans ?? [] } : null;
 }

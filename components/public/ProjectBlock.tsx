@@ -6,6 +6,8 @@ export type PubProject = {
   id: string; token: string; name: string; developer: string | null; location: string | null; rera_no: string | null; type: string | null; configs: string | null;
   price_from: number | null; price_to: number | null; status: string | null; possession: string | null; highlights: string | null; link: string | null;
   photos: string[] | null; lat: number | null; lng: number | null;
+  floor_plans?: { url: string; label: string }[] | null; size_from?: number | null; size_to?: number | null; towers?: string | null; units?: number | null;
+  amenities?: string | null; banks?: string | null;
 };
 
 export function ProjectBlock({ p, children }: { p: PubProject; children?: React.ReactNode }) {

@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 import { ProjectPhotos } from '@/components/ProjectPhotos';
+import { ProjectPlans } from '@/components/ProjectPlans';
 import { PhoneInput } from '@/components/PhoneInput';
 import { unlockProject, unlockShortlist, type Unlocked } from '@/app/public-actions';
 import { KIND_ICON, directionsUrl, fmtKm, nearest } from '@/lib/places';
@@ -35,11 +36,12 @@ export function ProjectTeaser({ p, mode, token, buzz = 0, advisor, children }: {
   const price = p.price_from
     ? full?.price_to ? `${fmtL(p.price_from)} – ${fmtL(full.price_to).replace('₹', '')}` : `${fmtL(p.price_from)} onwards`
     : 'On request';
-  const facts = [['Starting price', price], ['Homes', p.configs], ['Type', p.type], ['Possession', p.possession], ['RERA', p.rera_no]]
+  const size = p.size_from ? `${p.size_from.toLocaleString('en-IN')}${p.size_to ? '–' + p.size_to.toLocaleString('en-IN') : ''} sq ft` : '';
+  const facts = [['Starting price', price], ['Homes', p.configs], ['Size', size], ['Type', p.type], ['Possession', p.possession], ['Towers', p.towers], ['Total homes', p.units ? String(p.units) : ''], ['Home loan', p.banks], ['RERA', p.rera_no]]
     .filter(([, v]) => v) as [string, string][];
   const lockedItems = [
     p.hasRange && 'Price of every unit',
-    'Floor plans' + (p.hasBrochure ? ' and brochure' : ''),
+    (p.plans > 0 ? `${p.plans} floor plan${p.plans === 1 ? '' : 's'}` : 'Floor plans') + (p.hasBrochure ? ' and brochure' : ''),
     p.more > 0 && `All ${p.more + 1} photos`,
     'Best units still available',
   ].filter(Boolean) as string[];
@@ -79,6 +81,7 @@ export function ProjectTeaser({ p, mode, token, buzz = 0, advisor, children }: {
         {p.status && statusLine[p.status] && <div className="t-why">✓ {statusLine[p.status]}</div>}
         <dl className="facts">{facts.map(([k, v]) => <div key={k}><dt>{k}</dt><dd className={k === 'RERA' ? 'mono small' : k === 'Starting price' ? 't-price' : ''}>{v}</dd></div>)}</dl>
         {p.highlights && <p>{p.highlights}</p>}
+        {p.amenities && <div className="amen">{p.amenities.split(/[,•\n]+/).map((a) => a.trim()).filter(Boolean).slice(0, 12).map((a) => <span key={a}>{a}</span>)}</div>}
 
         {!full ? (
           <div className="t-lock" id={`unlock-${p.id}`}>
@@ -107,6 +110,7 @@ export function ProjectTeaser({ p, mode, token, buzz = 0, advisor, children }: {
                 ? 'Unlocked! Our team will also WhatsApp you the price list and floor plans.'
                 : `Unlocked! ${advisor ? advisor.split(' ')[0] : 'Your advisor'} will send the price list and floor plans on WhatsApp.`}
             </p>
+            {full.floor_plans.length > 0 && <ProjectPlans projectId={p.id} orgId="" plans={full.floor_plans} canEdit={false} hasPdf={false} />}
             {full.link && <a className="btn sm" href={/^https?:\/\//.test(full.link) ? full.link : 'https://' + full.link} target="_blank" rel="noopener noreferrer">Open brochure / floor plans</a>}
           </div>
         )}

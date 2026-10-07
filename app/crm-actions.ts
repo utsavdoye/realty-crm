@@ -312,6 +312,10 @@ export async function visitResult(_: FormState, fd: FormData): Promise<FormState
 
 // ---------- Projects ----------
 
+function whole(v: string) {
+  const n = Math.round(Number(v.replace(/[, ]/g, '')));
+  return Number.isFinite(n) && n > 0 && n < 10_000_000 ? n : null;
+}
 function coord(v: string, max: number) {
   const n = Number(v);
   return v && Number.isFinite(n) && Math.abs(n) <= max ? n : null;
@@ -335,11 +339,14 @@ export async function saveProject(_: FormState, fd: FormData): Promise<FormState
     type: orNull(str(fd, 'type')), configs: orNull(str(fd, 'configs')), price_from: from || null, price_to: Number(str(fd, 'price_to')) || null,
     status: orNull(str(fd, 'status')), possession: orNull(str(fd, 'possession')), highlights: orNull(str(fd, 'highlights')), link: orNull(str(fd, 'link')),
     lat: coord(str(fd, 'lat'), 90), lng: coord(str(fd, 'lng'), 180),
+    size_from: whole(str(fd, 'size_from')), size_to: whole(str(fd, 'size_to')), units: whole(str(fd, 'units')),
+    towers: orNull(str(fd, 'towers').slice(0, 120)), amenities: orNull(str(fd, 'amenities').slice(0, 600)), banks: orNull(str(fd, 'banks').slice(0, 200)),
   };
   const id = str(fd, 'id');
+  const newId = /^[0-9a-f-]{36}$/i.test(str(fd, 'new_id')) ? str(fd, 'new_id') : undefined;
   const { error } = id
     ? await supabase.from('projects').update(row).eq('id', id).eq('org_id', org.id)
-    : await supabase.from('projects').insert(row);
+    : await supabase.from('projects').insert({ ...row, ...(newId ? { id: newId } : {}) } as Record<string, unknown>);
   if (error) return { error: friendly(error.message) };
   revalidatePath('/projects');
   return { ok: id ? 'Project saved' : 'Project added' };
@@ -452,6 +459,46 @@ export async function setCoverPhoto(id: string, url: string): Promise<{ error?: 
   const p = await projectPhotos(id);
   if (!p || !p.photos.includes(url)) return { error: 'Photo not found.' };
   const { error } = await p.supabase.from('projects').update({ photos: [url, ...p.photos.filter((u) => u !== url)] }).eq('id', id).eq('org_id', p.org.id);
+  revalidatePath('/projects');
+  return error ? { error: friendly(error.message) } : {};
+}
+
+export type FloorPlan = { url: string; label: string };
+const MAX_PLANS = 20;
+
+/** Floor plans: pictures with a short label like "2 BHK · 1,150 sq ft". */
+export async function addFloorPlans(id: string, plans: FloorPlan[]): Promise<{ error?: string }> {
+  const c = await ctx();
+  if (!isManager(c.role)) return { error: 'Only an admin or a manager can add floor plans.' };
+  const { data } = await c.supabase.from('projects').select('floor_plans').eq('id', id).eq('org_id', c.org.id).maybeSingle();
+  if (!data) return { error: 'Project not found.' };
+  const good = (plans ?? []).filter((p) => p && typeof p.url === 'string' && photoOk(p.url, c.org.id))
+    .map((p) => ({ url: p.url, label: String(p.label ?? '').trim().slice(0, 60) }));
+  const floor_plans = [...((data.floor_plans ?? []) as FloorPlan[]), ...good].slice(0, MAX_PLANS);
+  const { error } = await c.supabase.from('projects').update({ floor_plans }).eq('id', id).eq('org_id', c.org.id);
+  revalidatePath('/projects');
+  return error ? { error: friendly(error.message) } : {};
+}
+
+export async function removeFloorPlan(id: string, url: string): Promise<{ error?: string }> {
+  const c = await ctx();
+  if (!isManager(c.role)) return { error: 'Only an admin or a manager can remove floor plans.' };
+  const { data } = await c.supabase.from('projects').select('floor_plans').eq('id', id).eq('org_id', c.org.id).maybeSingle();
+  if (!data) return { error: 'Project not found.' };
+  const floor_plans = ((data.floor_plans ?? []) as FloorPlan[]).filter((p) => p.url !== url);
+  const { error } = await c.supabase.from('projects').update({ floor_plans }).eq('id', id).eq('org_id', c.org.id);
+  const marker = '/storage/v1/object/public/project-photos/';
+  if (!error && url.includes(marker)) await c.supabase.storage.from('project-photos').remove([url.split(marker)[1]]);
+  revalidatePath('/projects');
+  return error ? { error: friendly(error.message) } : {};
+}
+
+/** Brochure PDF uploaded to our storage becomes the project's brochure link (hidden until the client unlocks). */
+export async function setBrochure(id: string, url: string): Promise<{ error?: string }> {
+  const c = await ctx();
+  if (!isManager(c.role)) return { error: 'Only an admin or a manager can add a brochure.' };
+  if (!photoOk(url, c.org.id) || !/\.pdf$/i.test(url)) return { error: 'Upload a PDF file.' };
+  const { error } = await c.supabase.from('projects').update({ link: url }).eq('id', id).eq('org_id', c.org.id);
   revalidatePath('/projects');
   return error ? { error: friendly(error.message) } : {};
 }

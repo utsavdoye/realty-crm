@@ -934,3 +934,37 @@ input[type=checkbox], input[type=radio] { width: auto; padding: 0; box-shadow: n
 /* Log call: extra details (visit, new budget) */
 .call-more > summary { list-style: none; cursor: pointer; display: inline-block; font-size: 13px; }
 .call-more > summary::-webkit-details-marker { display: none; }
+
+/* One-tap share window */
+.side-promo button.side-promo-btn { border: 0; cursor: pointer; font-family: inherit; }
+.pop-back { position: fixed; inset: 0; z-index: 90; background: rgba(15,16,22,.45); display: grid; place-items: center; padding: 16px; }
+.pop { width: min(440px, 100%); background: var(--surface); color: var(--fg); border-radius: 20px; padding: 18px; display: flex; flex-direction: column; gap: 12px; box-shadow: 0 24px 60px rgba(0,0,0,.25); }
+.pop-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pop-h b { font-size: 16px; }
+.pop-link { width: 100%; font-size: 12.5px; }
+.join-link-box { display: flex; flex-direction: column; gap: 10px; }
+.req-acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.locked-name { padding: 12px 14px; border-radius: 12px; background: var(--surface-2); font-weight: 600; }
+
+/* Add project: photos, floor plans, brochure */
+.media-pick { display: flex; flex-direction: column; gap: 12px; padding: 14px; border: 1px dashed var(--line-2); border-radius: var(--r-md); background: var(--surface-2); }
+.mp-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.mp-row > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.mp-row label.btn { cursor: pointer; }
+.mp-thumbs { display: flex; flex-wrap: wrap; gap: 8px; }
+.mp-thumb { position: relative; width: 84px; height: 64px; border-radius: 10px; overflow: hidden; background: var(--line); }
+.mp-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mp-thumb i { position: absolute; left: 4px; bottom: 4px; font-style: normal; font-size: 10px; font-weight: 700; background: rgba(0,0,0,.6); color: #fff; padding: 1px 6px; border-radius: 6px; }
+.mp-thumb button { position: absolute; top: 3px; right: 3px; width: 22px; height: 22px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 11px; cursor: pointer; }
+.mp-plans { display: flex; flex-direction: column; gap: 8px; }
+.mp-plan { display: grid; grid-template-columns: 64px 1fr auto; gap: 10px; align-items: center; }
+.mp-plan img { width: 64px; height: 48px; object-fit: cover; border-radius: 8px; background: #fff; }
+/* Project card: floor plans */
+.plans { display: flex; flex-direction: column; gap: 8px; }
+.plans-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
+.plan-tile { display: flex; flex-direction: column; gap: 4px; border: 1px solid var(--line); border-radius: 12px; padding: 6px; background: var(--surface); position: relative; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.plan-tile img { width: 100%; aspect-ratio: 4 / 3; object-fit: contain; background: #fff; border-radius: 8px; }
+.plan-tile span { font-size: 12px; font-weight: 600; line-height: 1.3; }
+.plan-tile .x { position: absolute; top: 4px; right: 4px; }
+.amen { display: flex; flex-wrap: wrap; gap: 6px; }
+.amen span { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); }

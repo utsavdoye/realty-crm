@@ -99,12 +99,56 @@ export async function reactivateMember(fd: FormData) {
   revalidatePath('/team');
 }
 
-export async function updateMyName(_: FormState, fd: FormData): Promise<FormState> {
-  const { supabase, org } = await requireOrg();
-  const { error } = await supabase.rpc('update_my_name', { p_org: org.id, p_name: str(fd, 'full_name') });
+/** Your own mobile number (used on client pages, WhatsApp and for logging in with your number). */
+export async function updateMyPhone(_: FormState, fd: FormData): Promise<FormState> {
+  const { supabase } = await requireOrg();
+  const phone = normPhone(str(fd, 'phone'));
+  if (!validPhone(phone)) return { error: PHONE_HELP };
+  const { error } = await supabase.rpc('set_my_phone', { p_phone: phone });
+  if (error) return { error: friendly(error.message) };
+  await supabase.auth.updateUser({ data: { phone } });
+  revalidatePath('/', 'layout');
+  return { ok: 'Mobile number saved' };
+}
+
+/** Admin fixes someone's name (names cannot be changed by the person themselves). */
+export async function renameMember(_: FormState, fd: FormData): Promise<FormState> {
+  const { supabase, org } = await requireOrg(['owner']);
+  const { error } = await supabase.rpc('set_member_name', { p_org: org.id, p_user: str(fd, 'user_id'), p_name: str(fd, 'full_name') });
   if (error) return { error: friendly(error.message) };
   revalidatePath('/', 'layout');
-  return { ok: 'Saved' };
+  return { ok: 'Name saved' };
+}
+
+/** Someone opened the team join link: they ask to join, and wait for approval. */
+export async function requestJoin(_: FormState, fd: FormData): Promise<FormState> {
+  const supabase = createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: 'Please log in first.' };
+  const phone = normPhone(str(fd, 'phone'));
+  if (!validPhone(phone)) return { error: PHONE_HELP };
+  const { data, error } = await supabase.rpc('request_to_join', {
+    p_token: str(fd, 'token'), p_name: str(fd, 'full_name'), p_phone: phone, p_wants: str(fd, 'wants'),
+  });
+  if (error) return { error: friendly(error.message) };
+  if (!user.user_metadata?.phone) await supabase.auth.updateUser({ data: { phone } });
+  if (data === 'member') redirect('/dashboard');
+  redirect('/onboarding');
+}
+
+export async function decideJoin(_: FormState, fd: FormData): Promise<FormState> {
+  const { supabase } = await requireOrg(['owner', 'manager']);
+  const approve = str(fd, 'approve') === '1';
+  const { error } = await supabase.rpc('decide_join', { p_id: str(fd, 'id'), p_approve: approve, p_role: approve ? str(fd, 'role') : null });
+  if (error) return { error: friendly(error.message) };
+  revalidatePath('/team');
+  return { ok: approve ? 'Approved. They can log in now.' : 'Request turned down.' };
+}
+
+export async function setJoinLink(fd: FormData) {
+  const { supabase, org } = await requireOrg(['owner']);
+  await supabase.rpc('set_join_link', { p_org: org.id, p_open: str(fd, 'open') === '1', p_new: str(fd, 'new') === '1' });
+  revalidatePath('/team');
 }
 
 export async function updateCompany(_: FormState, fd: FormData): Promise<FormState> {

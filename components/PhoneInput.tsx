@@ -4,9 +4,17 @@ import { useState } from 'react';
 import { COUNTRIES, joinPhone } from '@/lib/countries';
 
 /** Country code + number. Sends one hidden field `name` with the full number. */
-export function PhoneInput({ name = 'phone', defaultCc = '+91', required, autoFocus, onValue }: { name?: string; defaultCc?: string; required?: boolean; autoFocus?: boolean; onValue?: (v: string) => void }) {
-  const [cc, setCc] = useState(defaultCc);
-  const [num, setNum] = useState('');
+export function PhoneInput({ name = 'phone', defaultCc = '+91', required, autoFocus, onValue, defaultValue }: { name?: string; defaultCc?: string; required?: boolean; autoFocus?: boolean; onValue?: (v: string) => void; defaultValue?: string | null }) {
+  // A saved number like +919876543210 is split back into code + number.
+  const start = (() => {
+    const v = (defaultValue ?? '').replace(/[^\d+]/g, '');
+    if (!v) return { cc: defaultCc, num: '' };
+    const full = v.startsWith('+') ? v : '+91' + v;
+    const code = COUNTRIES.map(([c]) => c).filter((c) => full.startsWith(c)).sort((a, b) => b.length - a.length)[0];
+    return code ? { cc: code, num: full.slice(code.length) } : { cc: defaultCc, num: full };
+  })();
+  const [cc, setCc] = useState(start.cc);
+  const [num, setNum] = useState(start.num);
   const full = joinPhone(cc, num);
   return (
     <div className="prefix-input">
