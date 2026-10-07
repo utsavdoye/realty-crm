@@ -21,7 +21,7 @@ export default async function Onboarding() {
           <label className="field"><span className="label">Your name</span><input name="full_name" required placeholder="Rajesh Doye" /></label>
           <label className="field"><span className="label">Company name</span><input name="company" required placeholder="Doye Realty" /></label>
           <div className="grid2f">
-            <label className="field"><span className="label">City</span><input name="city" placeholder="Bengaluru" /></label>
+            <label className="field"><span className="label">City</span><input name="city" placeholder="Raipur" /></label>
             <label className="field"><span className="label">RERA number (optional)</span><input name="rera" placeholder="PRM/KA/RERA/…" /></label>
           </div>
           <Submit className="btn primary block">Create company</Submit>

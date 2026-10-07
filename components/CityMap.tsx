@@ -12,7 +12,7 @@ const STATUS_COLOR: Record<string, string> = { 'Ready to move': '#2b7a4b', 'Unde
 const KIND_COLOR: Record<PlaceKind, string> = { metro: '#7b3fa0', airport: '#0b7285', rail: '#5c4033', tech: '#2f6fd6', mall: '#c2255c', hospital: '#d6336c', school: '#2b8a3e' };
 
 /**
- * Bengaluru map (free OpenStreetMap tiles). Shows projects as pins, optional landmark layers and lead demand circles.
+ * Simple 2D map (free OpenStreetMap tiles), used to pick a project location. Shows projects as pins, optional landmark layers and lead demand circles.
  * pick mode: clicking the map calls onPick(lat, lng) — used to set a project's location.
  */
 export function CityMap({
@@ -98,7 +98,7 @@ export function CityMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
 
-  return <div ref={box} className="citymap" style={{ height }} role="application" aria-label="Map of Bengaluru" />;
+  return <div ref={box} className="citymap" style={{ height }} role="application" aria-label="Map" />;
 }
 
 function escapeHtml(s: string) {

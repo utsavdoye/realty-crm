@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: { params: { token: string } }
 export default async function Shortlist({ params }: { params: { token: string } }) {
   const d = await load(params.token);
   if (!d) return <main className="pub"><div className="pub-wrap"><h1>This link is not active</h1><p className="muted">Please ask your property advisor for a new link.</p></div></main>;
-  const pins = d.projects.filter((p) => p.lat != null && p.lng != null).map((p) => ({ id: p.id, name: p.name, lat: p.lat!, lng: p.lng!, status: p.status }));
+  const pins = d.projects.filter((p) => p.lat != null && p.lng != null).map((p) => ({ id: p.id, name: p.name, lat: p.lat!, lng: p.lng!, status: p.status, photo: p.photos?.[0] ?? null }));
   return (
     <main className={`pub ${d.agent_phone ? 'has-cta' : ''}`}>
       <SeenPing token={params.token} />

@@ -4,12 +4,35 @@ import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 import { sendEnquiry, shortlistReact, shortlistSeen } from '@/app/public-actions';
-import type { MapProject } from '@/components/CityMap';
+import type { Pin3D } from '@/components/Map3D';
 
-const CityMap = dynamic(() => import('@/components/CityMap').then((m) => m.CityMap), { ssr: false, loading: () => <div className="citymap" style={{ height: 320 }} /> });
+const Map3D = dynamic(() => import('@/components/Map3D').then((m) => m.Map3D), { ssr: false, loading: () => <div className="m3 m3-skel" style={{ height: 340 }} /> });
+const Google3D = dynamic(() => import('@/components/public/Google3D').then((m) => m.Google3D), { ssr: false, loading: () => <div className="m3 m3-skel" style={{ height: 380 }} /> });
+const GOOGLE_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY ?? '';
 
-export function PublicMap({ projects, height = 340 }: { projects: MapProject[]; height?: number }) {
-  return <CityMap projects={projects} kinds={['metro', 'tech', 'airport', 'hospital', 'school']} height={height} />;
+/** Free 3D satellite map (MapLibre) for client links. With one project it slowly flies around it. */
+export function PublicMap({ projects, height = 340 }: { projects: Pin3D[]; height?: number }) {
+  return <Map3D projects={projects} kinds={['metro', 'tech', 'airport', 'hospital', 'school', 'mall', 'rail']} height={height} base="satellite" compact autoOrbit={projects.length === 1} />;
+}
+
+/**
+ * Client project page map. If a Google Maps key is set (only after checking Raipur has Google 3D),
+ * show Google's photo-real 3D fly-around first; otherwise, or if Google fails, the free 3D satellite map.
+ */
+export function ProjectLocationMap({ project }: { project: Pin3D }) {
+  const [google, setGoogle] = useState(!!GOOGLE_KEY);
+  return (
+    <div className="stack" style={{ gap: 10 }}>
+      {GOOGLE_KEY && (
+        <div className="seg" style={{ alignSelf: 'flex-start' }}>
+          <button type="button" className={google ? 'on' : ''} onClick={() => setGoogle(true)}>Photo-real 3D</button>
+          <button type="button" className={!google ? 'on' : ''} onClick={() => setGoogle(false)}>Map</button>
+        </div>
+      )}
+      {google ? <Google3D apiKey={GOOGLE_KEY} lat={project.lat} lng={project.lng} name={project.name} onFail={() => setGoogle(false)} />
+        : <PublicMap projects={[project]} height={380} />}
+    </div>
+  );
 }
 
 function Send({ children }: { children: string }) {

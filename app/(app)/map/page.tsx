@@ -28,7 +28,7 @@ export default async function MapPage() {
   }));
   return (
     <>
-      <div className="top"><h1>Map</h1><span className="hint">Bengaluru · distances are approximate (straight line)</span></div>
+      <div className="top"><div className="top-title"><h1>Map</h1><p className="hint">Your projects in 3D, and where your leads want to buy. Distances are straight-line, so they are approximate.</p></div></div>
       <MapView projects={onMap} demand={[...demandMap.values()]} missing={all.filter((p) => p.lat == null).map((p) => p.name)} />
     </>
   );

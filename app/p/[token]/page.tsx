@@ -3,7 +3,7 @@ import { createAnonClient } from '@/lib/supabase/admin';
 import type { PubProject } from '@/components/public/ProjectBlock';
 import { ProjectTeaser } from '@/components/public/ProjectTeaser';
 import { toTeaser } from '@/components/public/teaser';
-import { EnquiryForm, PublicMap } from '@/components/public/PublicBits';
+import { EnquiryForm, ProjectLocationMap } from '@/components/public/PublicBits';
 import { fmtPhone, siteUrl, telHref } from '@/lib/roles';
 import { waLink } from '@/lib/crm';
 
@@ -39,7 +39,7 @@ export default async function PublicProject({ params }: { params: { token: strin
         <div className="stack">
           <ProjectTeaser p={toTeaser(d)} mode="project" token={d.token} buzz={Number(buzz ?? 0)} />
           {d.lat != null && d.lng != null && (
-            <section className="pub-card"><div className="pub-body"><h2>Location</h2><PublicMap projects={[{ id: d.id, name: d.name, lat: d.lat, lng: d.lng, status: d.status }]} /></div></section>
+            <section className="pub-card"><div className="pub-body"><h2>Location</h2><ProjectLocationMap project={{ id: d.id, name: d.name, lat: d.lat, lng: d.lng, status: d.status, photo: d.photos?.[0] ?? null }} /></div></section>
           )}
         </div>
         <aside className="pub-card pub-side" id="visit"><div className="pub-body">

@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { CityMap, type MapDemand } from '@/components/CityMap';
+import dynamic from 'next/dynamic';
+import type { Demand3D } from '@/components/Map3D';
 import { KIND_ICON, KIND_LABEL, directionsUrl, fmtKm, nearest, type PlaceKind } from '@/lib/places';
 import { fmtL } from '@/lib/crm';
 
@@ -11,9 +12,11 @@ export type MapProjectFull = {
   configs: string | null; price_from: number | null; price_to: number | null; photo: string | null; leads: number;
 };
 
+const Map3D = dynamic(() => import('@/components/Map3D').then((m) => m.Map3D), { ssr: false, loading: () => <div className="m3 m3-skel" style={{ height: 'min(74vh, 700px)' }} /> });
+
 const ALL_KINDS: PlaceKind[] = ['metro', 'tech', 'hospital', 'school', 'mall', 'rail', 'airport'];
 
-export function MapView({ projects, demand, missing }: { projects: MapProjectFull[]; demand: MapDemand[]; missing: string[] }) {
+export function MapView({ projects, demand, missing }: { projects: MapProjectFull[]; demand: Demand3D[]; missing: string[] }) {
   const [kinds, setKinds] = useState<PlaceKind[]>(['metro', 'tech', 'airport']);
   const [showDemand, setShowDemand] = useState(true);
   const [type, setType] = useState('');
@@ -39,14 +42,14 @@ export function MapView({ projects, demand, missing }: { projects: MapProjectFul
             </button>
           ))}
           <button type="button" className={`mchip ${showDemand ? 'on' : ''}`} onClick={() => setShowDemand((v) => !v)} aria-pressed={showDemand}>
-            <span className="dot-demand" />Where leads want to buy
+            <span className="dot-demand" />3D bars: where leads want to buy
           </button>
         </span>
       </div>
 
       <div className="map-grid">
-        <CityMap projects={shown.map((p) => ({ id: p.id, name: p.name, lat: p.lat, lng: p.lng, status: p.status, sub: [p.configs, p.price_from ? fmtL(p.price_from) + '+' : ''].filter(Boolean).join(' · ') }))}
-          demand={showDemand ? demand : []} kinds={kinds} selected={sel} onSelect={setSel} height="min(72vh, 680px)" />
+        <Map3D projects={shown.map((p) => ({ id: p.id, name: p.name, lat: p.lat, lng: p.lng, status: p.status, photo: p.photo, sub: [p.configs, p.price_from ? fmtL(p.price_from) + '+' : ''].filter(Boolean).join(' · ') }))}
+          demand={showDemand ? demand : []} kinds={kinds} selected={sel} onSelect={setSel} height="min(74vh, 700px)" />
 
         <aside className="panel map-side">
           {cur ? (
@@ -72,7 +75,7 @@ export function MapView({ projects, demand, missing }: { projects: MapProjectFul
           ) : (
             <div className="panel-b stack" style={{ paddingTop: 14 }}>
               <h2>{shown.length} project{shown.length === 1 ? '' : 's'} on the map</h2>
-              <p className="hint">Tap a pin to see the nearest metro, tech park, hospital, school, mall, station and the airport.</p>
+              <p className="hint">Tap a project and the map flies to it in 3D. You will see the nearest hospital, school, mall, station and airport.</p>
               <div className="rows tight">
                 {shown.map((p) => (
                   <button key={p.id} className="callrow" onClick={() => setSel(p.id)}>
@@ -81,7 +84,7 @@ export function MapView({ projects, demand, missing }: { projects: MapProjectFul
                 ))}
               </div>
               {missing.length > 0 && <p className="hint">Not on the map yet (no location): {missing.join(', ')}. Add it in Projects → Edit.</p>}
-              <p className="hint">Orange circles show the areas your leads asked for. Bigger circle = more leads.</p>
+              <p className="hint">The 3D bars show the areas your open leads asked for. Taller bar = more leads. Tap a bar to see the number.</p>
             </div>
           )}
         </aside>

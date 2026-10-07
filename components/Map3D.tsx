@@ -1,0 +1,261 @@
+'use client';
+
+import 'maplibre-gl/dist/maplibre-gl.css';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { Map as MLMap, Marker as MLMarker, StyleSpecification } from 'maplibre-gl';
+import type { MapboxOverlay } from '@deck.gl/mapbox';
+import { CITY_CENTER, KIND_ICON, KIND_LABEL, PLACES, type PlaceKind } from '@/lib/places';
+
+/**
+ * 3D map: MapLibre (free, no key, no billing) + deck.gl for 3D demand bars.
+ * - "Map" = OpenFreeMap streets with 3D buildings; "Satellite" = Esri World Imagery with road and place labels.
+ * - Tap a project pin and the camera flies to it in 3D. "Fly around" slowly circles the selected project.
+ */
+
+export type Pin3D = { id: string; name: string; lat: number; lng: number; status?: string | null; sub?: string; photo?: string | null };
+export type Demand3D = { area: string; lat: number; lng: number; n: number };
+type Base = 'map' | 'satellite';
+
+const STATUS_COLOR: Record<string, string> = { 'Ready to move': '#16a34a', 'Under construction': '#4a55ec', 'Pre-launch': '#f59e0b', 'Sold out': '#9ca3af' };
+const KIND_COLOR: Record<PlaceKind, string> = { metro: '#7b3fa0', airport: '#0b7285', rail: '#5c4033', tech: '#2f6fd6', mall: '#c2255c', hospital: '#d6336c', school: '#2b8a3e' };
+
+const STREETS = 'https://tiles.openfreemap.org/styles/liberty';
+const ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services';
+const SATELLITE: StyleSpecification = {
+  version: 8,
+  sources: {
+    sat: { type: 'raster', tiles: [`${ESRI}/World_Imagery/MapServer/tile/{z}/{y}/{x}`], tileSize: 256, maxzoom: 19, attribution: 'Imagery © Esri, Maxar, Earthstar Geographics' },
+    roads: { type: 'raster', tiles: [`${ESRI}/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}`], tileSize: 256, maxzoom: 19 },
+    names: { type: 'raster', tiles: [`${ESRI}/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}`], tileSize: 256, maxzoom: 19 },
+  },
+  layers: [
+    { id: 'sat', type: 'raster', source: 'sat' },
+    { id: 'roads', type: 'raster', source: 'roads', paint: { 'raster-opacity': 0.75 } },
+    { id: 'names', type: 'raster', source: 'names' },
+  ],
+};
+
+/** Plain background, used only if the map tiles cannot be reached at all, so pins and bars still show. */
+const BLANK: StyleSpecification = { version: 8, sources: {}, layers: [{ id: 'bg', type: 'background', paint: { 'background-color': '#e7eaf0' } }] };
+
+const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]!));
+
+export function Map3D({
+  projects = [], demand = [], kinds = [], selected, onSelect, height = 560, base: base0 = 'map', autoOrbit = false, compact = false,
+}: {
+  projects?: Pin3D[]; demand?: Demand3D[]; kinds?: PlaceKind[]; selected?: string | null; onSelect?: (id: string) => void;
+  height?: number | string; base?: Base; autoOrbit?: boolean; compact?: boolean;
+}) {
+  const box = useRef<HTMLDivElement>(null);
+  const map = useRef<MLMap | null>(null);
+  const lib = useRef<typeof import('maplibre-gl') | null>(null);
+  const deck = useRef<MapboxOverlay | null>(null);
+  const layersMod = useRef<typeof import('@deck.gl/layers') | null>(null);
+  const pins = useRef<MLMarker[]>([]);
+  const marks = useRef<MLMarker[]>([]);
+  const orbit = useRef<number | null>(null);
+  const cb = useRef({ onSelect });
+  cb.current = { onSelect };
+  const [inited, setInited] = useState(false); // map object exists (pins, bars and camera can be used)
+  const [ready, setReady] = useState(false);   // first style finished loading
+  const [failed, setFailed] = useState(false);
+  const [base, setBase] = useState<Base>(base0);
+  const [tilt, setTilt] = useState(true);
+  const [orbiting, setOrbiting] = useState(false);
+  const [zoom, setZoom] = useState(11);
+
+  const stopOrbit = useCallback(() => {
+    if (orbit.current != null) cancelAnimationFrame(orbit.current);
+    orbit.current = null; setOrbiting(false);
+  }, []);
+
+  /** Slowly circle around a point (about 30 s per full turn). Stops when the person touches the map. */
+  const startOrbit = useCallback((center?: [number, number]) => {
+    const m = map.current; if (!m) return;
+    stopOrbit();
+    const go = () => {
+      setOrbiting(true);
+      let last = performance.now();
+      const step = (t: number) => {
+        const dt = t - last; last = t;
+        m.setBearing((m.getBearing() + dt * 0.012) % 360);
+        orbit.current = requestAnimationFrame(step);
+      };
+      orbit.current = requestAnimationFrame(step);
+    };
+    if (center) {
+      m.flyTo({ center: [center[1], center[0]], zoom: Math.max(m.getZoom(), 16), pitch: 62, duration: 1800, essential: true });
+      m.once('moveend', go);
+    } else go();
+  }, [stopOrbit]);
+
+  // Create the map once.
+  useEffect(() => {
+    let dead = false;
+    (async () => {
+      try {
+        const [ml, { MapboxOverlay: Overlay }, layers] = await Promise.all([import('maplibre-gl'), import('@deck.gl/mapbox'), import('@deck.gl/layers')]);
+        if (dead || !box.current) return;
+        lib.current = ml; layersMod.current = layers;
+        const m = new ml.Map({
+          container: box.current, style: base0 === 'satellite' ? SATELLITE : STREETS,
+          center: [CITY_CENTER[1], CITY_CENTER[0]], zoom: 11, pitch: 50, bearing: -12, maxPitch: 75,
+          attributionControl: { compact: true }, cooperativeGestures: compact,
+        });
+        m.addControl(new ml.NavigationControl({ visualizePitch: true }), 'top-right');
+        const overlay = new Overlay({
+          interleaved: true, layers: [],
+          getTooltip: ({ object }: { object?: Demand3D }) => object ? {
+            html: `<b>${esc(object.area)}</b><br>${object.n} open lead${object.n === 1 ? '' : 's'} want to buy here`,
+            style: { background: '#15161b', color: '#fff', borderRadius: '12px', padding: '8px 10px', fontSize: '12px', fontFamily: 'inherit' },
+          } : null,
+        });
+        m.addControl(overlay as unknown as import('maplibre-gl').IControl);
+        deck.current = overlay;
+        ['dragstart', 'wheel', 'touchstart', 'mousedown'].forEach((ev) => m.on(ev, () => { if (orbit.current != null) stopOrbit(); }));
+        m.on('load', () => { if (!dead) setReady(true); });
+        m.on('zoomend', () => { if (!dead) setZoom(Math.round(m.getZoom() * 2) / 2); });
+        // If the street tiles are down, fall back to satellite, then to a plain background.
+        let tries = 0;
+        m.on('error', () => {
+          if (dead || m.isStyleLoaded()) return;
+          tries++;
+          if (tries === 1 && base0 !== 'satellite') m.setStyle(SATELLITE);
+          else if (tries <= 2) m.setStyle(BLANK);
+        });
+        setTimeout(() => { if (!dead) setReady(true); }, 12000);
+        map.current = m;
+        setInited(true);
+        // keep the canvas sized to its box (sidebar fold, window resize)
+        const ro = new ResizeObserver(() => m.resize());
+        ro.observe(box.current);
+        (m as unknown as { _ro?: ResizeObserver })._ro = ro;
+      } catch {
+        if (!dead) setFailed(true);
+      }
+    })();
+    return () => {
+      dead = true;
+      if (orbit.current != null) cancelAnimationFrame(orbit.current);
+      const m = map.current as unknown as ({ _ro?: ResizeObserver } & MLMap) | null;
+      m?._ro?.disconnect();
+      m?.remove(); map.current = null; deck.current = null; pins.current = []; marks.current = [];
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Switch map / satellite (not on first load: the map starts with the right one).
+  const baseShown = useRef<Base>(base0);
+  useEffect(() => {
+    const m = map.current; if (!m || !inited || baseShown.current === base) return;
+    baseShown.current = base;
+    m.setStyle(base === 'satellite' ? SATELLITE : STREETS);
+  }, [base, inited]);
+
+  // 3D tilt on/off (only when the person presses the button).
+  const tiltShown = useRef(true);
+  useEffect(() => {
+    const m = map.current; if (!m || !inited || tiltShown.current === tilt) return;
+    tiltShown.current = tilt;
+    m.easeTo({ pitch: tilt ? 55 : 0, bearing: tilt ? m.getBearing() || -12 : 0, duration: 700 });
+  }, [tilt, inited]);
+
+  // Project pins with photos.
+  useEffect(() => {
+    const ml = lib.current; const m = map.current; if (!ml || !m) return;
+    pins.current.forEach((p) => p.remove()); pins.current = [];
+    projects.forEach((p) => {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = `m3-pin${p.id === selected ? ' on' : ''}`;
+      el.style.setProperty('--c', STATUS_COLOR[p.status ?? ''] ?? '#4a55ec');
+      el.setAttribute('aria-label', p.name);
+      el.innerHTML = `<span class="m3-ph">${p.photo ? `<img src="${esc(p.photo)}" alt="" loading="lazy">` : `<b>${esc(p.name.slice(0, 1))}</b>`}</span>`
+        + `<span class="m3-lb"><b>${esc(p.name)}</b>${p.sub ? `<i>${esc(p.sub)}</i>` : ''}</span>`;
+      el.addEventListener('click', (e) => { e.stopPropagation(); cb.current.onSelect?.(p.id); });
+      pins.current.push(new ml.Marker({ element: el, anchor: 'bottom' }).setLngLat([p.lng, p.lat]).addTo(m));
+    });
+  }, [projects, selected, inited]);
+
+  // Landmarks.
+  useEffect(() => {
+    const ml = lib.current; const m = map.current; if (!ml || !m) return;
+    marks.current.forEach((p) => p.remove()); marks.current = [];
+    PLACES.filter((p) => kinds.includes(p.k)).forEach((p) => {
+      const el = document.createElement('span');
+      el.className = 'lm m3-lm';
+      el.style.setProperty('--c', KIND_COLOR[p.k]);
+      el.textContent = KIND_ICON[p.k];
+      el.title = `${p.n} · ${KIND_LABEL[p.k]}`;
+      marks.current.push(new ml.Marker({ element: el }).setLngLat([p.lng, p.lat]).addTo(m));
+    });
+  }, [kinds, inited]);
+
+  // 3D bars: where leads want to buy. They fade out when you zoom in close to a project, so they never hide it.
+  useEffect(() => {
+    const L = layersMod.current; const o = deck.current; if (!L || !o) return;
+    const max = Math.max(1, ...demand.map((d) => d.n));
+    const fade = zoom <= 13 ? 1 : zoom >= 15 ? 0 : 1 - (zoom - 13) / 2;
+    const ramp = (t: number): [number, number, number, number] => {
+      const lerp = (a: number[], b: number[], k: number) => a.map((x, i) => Math.round(x + (b[i] - x) * k));
+      const c = t < 0.65 ? lerp([165, 172, 255], [74, 85, 236], t / 0.65) : lerp([74, 85, 236], [245, 158, 11], (t - 0.65) / 0.35);
+      return [c[0], c[1], c[2], 225];
+    };
+    o.setProps({
+      layers: demand.length && fade > 0 ? [new L.ColumnLayer<Demand3D>({
+        id: 'demand', data: demand, diskResolution: 24, radius: 240, extruded: true, pickable: true, autoHighlight: true, opacity: fade,
+        highlightColor: [255, 255, 255, 90],
+        getPosition: (d) => [d.lng, d.lat], getElevation: (d) => 120 + (d.n / max) * 2400,
+        getFillColor: (d) => ramp(d.n / max),
+        material: { ambient: 0.6, diffuse: 0.55, shininess: 32, specularColor: [255, 255, 255] },
+        transitions: { getElevation: { duration: 900 } },
+      })] : [],
+    });
+  }, [demand, inited, zoom]);
+
+  // First view: fit all projects (and demand) in a tilted view.
+  const fitted = useRef(false);
+  useEffect(() => {
+    const ml = lib.current; const m = map.current; if (!ml || !m || !inited || fitted.current) return;
+    const pts: [number, number][] = [...projects.map((p) => [p.lng, p.lat] as [number, number]), ...demand.map((d) => [d.lng, d.lat] as [number, number])];
+    if (!pts.length) return;
+    fitted.current = true;
+    if (pts.length === 1) m.jumpTo({ center: pts[0], zoom: 15.5, pitch: 60, bearing: -20 });
+    else {
+      const b = new ml.LngLatBounds(pts[0], pts[0]); pts.forEach((p) => b.extend(p));
+      m.fitBounds(b, { padding: compact ? 50 : 80, pitch: 50, bearing: -12, duration: 0, maxZoom: 15 });
+    }
+    if (autoOrbit && projects.length === 1) setTimeout(() => startOrbit(), 900);
+  }, [projects, demand, inited, compact, autoOrbit, startOrbit]);
+
+  // Fly to the selected project.
+  useEffect(() => {
+    const m = map.current; const p = projects.find((x) => x.id === selected);
+    if (!m || !p || !inited) return;
+    stopOrbit();
+    m.flyTo({ center: [p.lng, p.lat], zoom: 16, pitch: 62, bearing: (m.getBearing() || 0) - 25, speed: 0.9, curve: 1.5, essential: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, inited]);
+
+  if (failed) return <div className="citymap m3-fail" style={{ height }}><p className="hint">This device cannot show the 3D map. Try Chrome or Safari, or update the browser.</p></div>;
+
+  const sel = projects.find((x) => x.id === selected) ?? (projects.length === 1 ? projects[0] : null);
+  return (
+    <div className="m3" style={{ height }}>
+      <div ref={box} className="m3-canvas" role="application" aria-label="3D map" />
+      {!ready && <div className="m3-loading"><span className="m3-spin" />Loading map…</div>}
+      <div className="m3-tools">
+        <div className="seg m3-seg">
+          <button type="button" className={base === 'map' ? 'on' : ''} onClick={() => setBase('map')}>Map</button>
+          <button type="button" className={base === 'satellite' ? 'on' : ''} onClick={() => setBase('satellite')}>Satellite</button>
+        </div>
+        <button type="button" className={`m3-btn ${tilt ? 'on' : ''}`} onClick={() => setTilt((t) => !t)} aria-pressed={tilt}>{tilt ? '3D' : '2D'}</button>
+        {sel && (
+          <button type="button" className={`m3-btn ${orbiting ? 'on' : ''}`} onClick={() => (orbiting ? stopOrbit() : startOrbit([sel.lat, sel.lng]))}>
+            {orbiting ? '■ Stop' : '⟳ Fly around'}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}

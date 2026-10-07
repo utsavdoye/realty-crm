@@ -1,5 +1,6 @@
 /**
- * Bengaluru landmarks and area centres for the map.
+ * Landmarks and area centres for the map — Raipur (main city) and Bengaluru (demo data).
+ * The nearest-place lookup ignores anything more than 60 km away, so each project only sees its own city.
  * Positions are approximate (good to about a few hundred metres). Distances shown are straight-line,
  * so the app always says "about" and offers a Google Maps directions button for the real drive.
  */
@@ -8,7 +9,7 @@ export type PlaceKind = 'metro' | 'airport' | 'rail' | 'tech' | 'mall' | 'hospit
 export type Place = { n: string; k: PlaceKind; lat: number; lng: number };
 
 export const KIND_LABEL: Record<PlaceKind, string> = {
-  metro: 'Metro', airport: 'Airport', rail: 'Railway / bus', tech: 'Tech park', mall: 'Mall', hospital: 'Hospital', school: 'School / college',
+  metro: 'Metro', airport: 'Airport', rail: 'Railway / bus', tech: 'Offices / industry', mall: 'Mall', hospital: 'Hospital', school: 'School / college',
 };
 export const KIND_ICON: Record<PlaceKind, string> = {
   metro: 'M', airport: '✈', rail: 'R', tech: 'T', mall: 'S', hospital: '+', school: 'E',
@@ -16,9 +17,30 @@ export const KIND_ICON: Record<PlaceKind, string> = {
 
 const P = (k: PlaceKind, list: [string, number, number][]): Place[] => list.map(([n, lat, lng]) => ({ n, k, lat, lng }));
 
-export const CITY_CENTER: [number, number] = [12.9716, 77.5946];
+/** Default map centre when there are no projects yet: Raipur. */
+export const CITY_CENTER: [number, number] = [21.2444, 81.6306];
+
+/** Raipur, Chhattisgarh. Sources: Wikipedia, OpenStreetMap/GeoNames (mapcarta), latlong.net. Good to a few hundred metres. */
+const RAIPUR: Place[] = [
+  ...P('airport', [['Swami Vivekananda Airport, Raipur', 21.1814, 81.7406]]),
+  ...P('rail', [['Raipur Junction railway station', 21.2578, 81.6303], ['ISBT Raipur (Bhatagaon)', 21.2196, 81.6311]]),
+  ...P('hospital', [
+    ['AIIMS Raipur', 21.2565, 81.5786], ['Dr. B.R. Ambedkar Hospital (Mekahara)', 21.2502, 81.6399], ['Ramkrishna CARE Hospital', 21.2131, 81.6537],
+    ['Shri Narayana Hospital', 21.2636, 81.6498], ['MMI Narayana Hospital, Lalpur', 21.2133, 81.6577],
+  ]),
+  ...P('mall', [['Magneto The Mall', 21.2407, 81.6842], ['City Mall 36', 21.2364, 81.6858], ['Ambuja City Centre Mall', 21.2757, 81.6876]]),
+  ...P('school', [
+    ['NIT Raipur', 21.2494, 81.6049], ['IIM Raipur', 21.1211, 81.8246], ['Pt. Ravishankar Shukla University', 21.2469, 81.5974],
+    ['Kendriya Vidyalaya No. 1', 21.2705, 81.6409], ['IIIT Naya Raipur', 21.1285, 81.7662], ['HNLU (National Law University)', 21.107, 81.7581],
+  ]),
+  ...P('tech', [
+    ['Mantralaya, Atal Nagar (Naya Raipur)', 21.1611, 81.7915], ['Urla Industrial Area', 21.3084, 81.6192], ['Siltara Industrial Area', 21.3684, 81.6694],
+    ['Collectorate, Civil Lines', 21.2453, 81.6429],
+  ]),
+];
 
 export const PLACES: Place[] = [
+  ...RAIPUR,
   ...P('airport', [['Kempegowda International Airport', 13.1986, 77.7066]]),
   ...P('rail', [
     ['KSR Bengaluru City station', 12.9781, 77.5695], ['Yesvantpur Junction', 13.0237, 77.5503], ['Bengaluru Cantonment station', 12.9937, 77.5975],
@@ -72,6 +94,18 @@ export const PLACES: Place[] = [
 
 /** Area centres, used to place leads (by the area they asked for) and to guess a project's spot. */
 export const AREAS: Record<string, [number, number]> = {
+  // Raipur
+  'VIP Road': [21.2112, 81.6994], 'Shankar Nagar': [21.2539, 81.6618], Telibandha: [21.241, 81.6648], Amlidih: [21.2234, 81.6758], Saddu: [21.2795, 81.691],
+  Mowa: [21.2676, 81.6669], Kachna: [21.2657, 81.7094], 'Devendra Nagar': [21.2624, 81.6431], Pandri: [21.2552, 81.6524], Tatibandh: [21.2596, 81.5774],
+  Sejbahar: [21.1633, 81.6659], Dunda: [21.183, 81.6722], Boriyakhurd: [21.1951, 81.6506], Labhandi: [21.2382, 81.7015], 'Avanti Vihar': [21.2393, 81.669],
+  'Civil Lines': [21.2372, 81.6542], 'Daldal Seoni': [21.2802, 81.6689], 'Naya Raipur': [21.161, 81.787], 'Atal Nagar': [21.161, 81.787],
+  'Kamal Vihar': [21.1923, 81.6742], Lalpur: [21.2127, 81.6619], Bhatagaon: [21.2166, 81.6254], 'Mana Camp': [21.194, 81.717], 'Samta Colony': [21.2488, 81.6242],
+  'Choubey Colony': [21.2465, 81.616], 'Shailendra Nagar': [21.2302, 81.6536], Fafadih: [21.2602, 81.6378], Gudhiyari: [21.2596, 81.6265], Tikrapara: [21.2206, 81.6415],
+  'Sundar Nagar': [21.2282, 81.612], 'Purani Basti': [21.2335, 81.6306], Mathpurena: [21.2096, 81.6339], Amanaka: [21.2518, 81.5998], 'Ring Road No. 1': [21.2259, 81.6566],
+  'Ring Road No. 2': [21.287, 81.6205], 'GE Road': [21.2451, 81.6382], Raipura: [21.2317, 81.6021], 'Kota Raipur': [21.2599, 81.6007], 'Byron Bazar': [21.2353, 81.6432],
+  Moudhapara: [21.2497, 81.6358], Khamtarai: [21.2778, 81.634], Urkura: [21.3058, 81.6525], Birgaon: [21.3012, 81.6287], Abhanpur: [21.0528, 81.7456],
+  Raipur: [21.2444, 81.6306],
+  // Bengaluru
   'MG Road': [12.9756, 77.6066], Whitefield: [12.9698, 77.75], 'Sarjapur Road': [12.91, 77.687], 'Hennur Road': [13.0358, 77.64], 'Electronic City': [12.8452, 77.6602],
   'HSR Layout': [12.9116, 77.6474], Koramangala: [12.9352, 77.6245], Yelahanka: [13.1007, 77.5963], Hebbal: [13.0358, 77.597], Devanahalli: [13.2473, 77.712],
   'Kanakapura Road': [12.88, 77.56], 'Bannerghatta Road': [12.889, 77.597], 'JP Nagar': [12.9063, 77.5857], Marathahalli: [12.9569, 77.7011], Bellandur: [12.9304, 77.6784],
@@ -103,12 +137,14 @@ export function km(a: [number, number], b: [number, number]) {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-/** Closest place of each kind (metro, airport, …) to a point. */
+const NEAR_LIMIT_KM = 60;
+
+/** Closest place of each kind (metro, airport, …) to a point, within 60 km (so a Raipur project never shows a Bengaluru metro). */
 export function nearest(pt: [number, number], kinds: PlaceKind[] = ['metro', 'tech', 'hospital', 'school', 'mall', 'rail', 'airport']) {
   return kinds.map((k) => {
     let best: Place | null = null; let d = Infinity;
     for (const p of PLACES) if (p.k === k) { const x = km(pt, [p.lat, p.lng]); if (x < d) { d = x; best = p; } }
-    return best ? { ...best, km: d } : null;
+    return best && d <= NEAR_LIMIT_KM ? { ...best, km: d } : null;
   }).filter(Boolean) as (Place & { km: number })[];
 }
 
