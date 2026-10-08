@@ -4,6 +4,8 @@ import { requireOrg } from '@/lib/context';
 import { fmtPhone, isManager, siteUrl, telHref } from '@/lib/roles';
 import { ShortlistPanel } from '@/components/ShortlistPanel';
 import { inrShort } from '@/lib/money';
+import { completeStep, undoStep } from '@/app/crm-actions';
+import { STEPS, clientSummary, currentStep, peopleWhoSpoke, stepLabel, type StepRow } from '@/lib/journey';
 import { dismissMatches, recycleCall, addNote, assignLead, deleteLead, markLost, scheduleVisit, setFollowUp, setScore, setStage, updateLead, visitResult } from '@/app/crm-actions';
 import { ActionForm, Submit } from '@/components/forms';
 import { CopyButton } from '@/components/CopyButton';
@@ -28,11 +30,22 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
     supabase.from('members').select('user_id, full_name, phone, role, active').eq('org_id', org.id),
     supabase.from('templates').select('id, name, use_for, body').eq('org_id', org.id).order('use_for'),
   ]);
-  const [{ data: shortlists }, { data: deal }, { data: leadMatches }] = await Promise.all([
+  const [{ data: shortlists }, { data: deal }, { data: leadMatches }, { data: stepRows }, { data: teams }] = await Promise.all([
     supabase.from('shortlists').select('id, token, project_ids, views, last_viewed_at, reactions, created_at').eq('lead_id', lead.id).order('created_at', { ascending: false }).limit(10),
     role === 'owner' ? supabase.from('deals').select('id, agreement_value, commission_amount, status').eq('lead_id', lead.id).order('created_at', { ascending: false }).limit(1).maybeSingle() : Promise.resolve({ data: null }),
     supabase.from('project_matches').select('project_id, reasons, projects(name)').eq('lead_id', lead.id).is('dismissed_at', null).order('created_at', { ascending: false }).limit(5),
+    supabase.from('lead_steps').select('step, done_at, done_by, summary, details').eq('lead_id', lead.id),
+    supabase.from('step_teams').select('step, user_id').eq('org_id', org.id),
   ]);
+  // Money for this client (admin only): what the buyer paid and what commission came in.
+  const [{ data: inst }, { data: moneyIn }] = deal ? await Promise.all([
+    supabase.from('deal_installments').select('amount, paid_amount').eq('deal_id', deal.id),
+    supabase.from('money_entries').select('amount, category').eq('deal_id', deal.id).eq('direction', 'in'),
+  ]) : [{ data: [] }, { data: [] }];
+  const buyerDue = (inst ?? []).reduce((a, i) => a + Number(i.amount), 0);
+  const buyerPaid = (inst ?? []).reduce((a, i) => a + Number(i.paid_amount), 0);
+  const commIn = (moneyIn ?? []).filter((e) => e.category === 'Commission').reduce((a, e) => a + Number(e.amount), 0);
+  const otherIn = (moneyIn ?? []).filter((e) => e.category !== 'Commission').reduce((a, e) => a + Number(e.amount), 0);
   const bhkNum = String(lead.bhk ?? '').match(/\d/)?.[0];
   const matchOf = (p: { price_from: number | null; price_to: number | null; configs: string | null; location: string | null }) => {
     const budgetOk = !lead.budget_max || !p.price_from || (Number(p.price_from) <= Number(lead.budget_max) * 1.1 && (!lead.budget_min || !p.price_to || Number(p.price_to) >= Number(lead.budget_min)));
@@ -52,6 +65,16 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
   const closed = ['booked', 'lost'].includes(lead.stage);
   const assignable = (people ?? []).filter((p) => p.active && p.role !== 'partner');
   const tel = telHref(lead.phone);
+  const admin = role === 'owner';
+  const steps = (stepRows ?? []) as StepRow[];
+  const stepOf = new Map(steps.map((x) => [x.step, x]));
+  const cur = lead.stage === 'lost' ? null : currentStep(new Set(steps.map((x) => x.step)), admin);
+  const teamFor = (k: string) => (teams ?? []).filter((t) => t.step === k).map((t) => nameOf.get(t.user_id)).filter(Boolean) as string[];
+  const canDoStep = admin || role === 'manager' || lead.assigned_to === user.id;
+  const visibleSteps = STEPS.filter((x) => x.k !== 'payment' || admin);
+  const summary = clientSummary(lead, steps, (acts ?? []) as never, nameOf, project?.name, cur);
+  const spoke = peopleWhoSpoke((acts ?? []) as never, steps, nameOf);
+  const nextAfter = (k: string) => { const order = ['call', 'presentation', 'visit', 'followup']; const i = order.indexOf(k); return i >= 0 && i < 3 ? order[i + 1] : null; };
 
   return (
     <>
@@ -77,6 +100,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
               <a className="btn primary" href={tel}>Call</a>
               <a className="btn wa" href="#whatsapp">WhatsApp</a>
               <a className="btn" href="#visit">Book visit</a>
+              {admin && <a className="btn" href="#money">₹ Payments</a>}
             </div>
           )}
         </div>
@@ -92,6 +116,62 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
       )}
       <div className="grid-main">
         <div className="stack">
+          <section className="panel" id="journey">
+            <div className="panel-h"><h2>Client journey</h2><span className="hint">{visibleSteps.filter((x) => stepOf.has(x.k)).length} of {visibleSteps.length} done</span></div>
+            <div className="panel-b">
+              <div className="journey">
+                {visibleSteps.map((x, i) => {
+                  const row = stepOf.get(x.k);
+                  const now = !row && x.k === cur;
+                  const nxt = nextAfter(x.k);
+                  return (
+                    <div key={x.k} className={`jstep ${row ? 'done' : now ? 'now' : 'later'}`}>
+                      <span className="jdot" aria-hidden="true">{row ? '✓' : i + 1}</span>
+                      <div>
+                        <div className="jt">{x.l}{now && <span className="chip acc" style={{ marginLeft: 8 }}>Now</span>}</div>
+                        {row && <div className="hint">{row.done_by ? (nameOf.get(row.done_by) ?? 'Former team member') : 'Automatic'} · {fmtDT(row.done_at)}</div>}
+                        {row?.summary && <div className="jsum">{row.summary}</div>}
+                        {row && admin && x.k !== 'received' && (
+                          <form action={undoStep}><input type="hidden" name="id" value={lead.id} /><input type="hidden" name="step" value={x.k} /><button className="linkbtn small">Undo this tick</button></form>
+                        )}
+                        {now && x.k !== 'payment' && (
+                          <div className="hint">With {lead.assigned_to ? nameOf.get(lead.assigned_to) ?? '—' : 'nobody yet'}{nxt && teamFor(nxt).length ? ` · then goes to ${teamFor(nxt).join(' / ')} for ${stepLabel(nxt).toLowerCase()}` : ''}</div>
+                        )}
+                        {now && x.k === 'payment' && <div className="hint">Ticks by itself when you record money from this client. <a href="#money">Open payments</a></div>}
+                        {!row && (now || admin) && x.k !== 'payment' && x.k !== 'received' && canDoStep && !closed && (
+                          <details open={now} className="jdetails">
+                            <summary className="linkbtn small">{now ? `Finish ${x.l.toLowerCase()}` : `Mark ${x.l.toLowerCase()} done`}</summary>
+                            <ActionForm action={completeStep} className="jform">
+                              <input type="hidden" name="id" value={lead.id} /><input type="hidden" name="step" value={x.k} />
+                              {(x.k === 'presentation' || x.k === 'visit') && (
+                                <select name="project_id" defaultValue={lead.project_id ?? ''} required={x.k === 'presentation'} aria-label="Project">
+                                  <option value="">{x.k === 'presentation' ? 'Which project did you present?' : 'Which project did they see?'}</option>
+                                  {(projects ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                                </select>
+                              )}
+                              <textarea name="said" rows={3} required minLength={3} placeholder={
+                                x.k === 'call' ? 'What did you discuss? Budget, family, loan, timeline, doubts…'
+                                : x.k === 'presentation' ? 'What did you show and explain? Units, prices, offers…'
+                                : x.k === 'visit' ? 'How did the visit go? What did they like or not like?'
+                                : 'What was discussed in the follow-up?'} />
+                              {x.k === 'presentation' && <input name="extra" placeholder="How did the client react? (e.g. liked the view, worried about price)" />}
+                              {x.k === 'followup' && <input name="extra" placeholder="Decision so far (e.g. will book this week, needs loan approval)" />}
+                              <select name="interest" defaultValue={lead.score} aria-label="How interested">
+                                <option value="hot">Very interested (hot)</option><option value="warm">Interested (warm)</option><option value="cold">Not very (cold)</option>
+                              </select>
+                              <div><Submit className="btn sm primary">{nxt && teamFor(nxt).length ? 'Save and hand over' : 'Save'}</Submit></div>
+                            </ActionForm>
+                          </details>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              {lead.stage === 'lost' && <p className="hint">This client is marked lost, so the journey is paused.</p>}
+            </div>
+          </section>
+
           {canEdit && !closed && (
             <section className={`panel ${fs === 'over' ? 'warnline' : ''}`}>
               <div className="panel-h"><h2>Next follow-up</h2>{lead.next_follow_up ? <span className={`fu ${fs}`}>{fuText(lead.next_follow_up)}</span> : <span className="chip tape">Not planned</span>}</div>
@@ -143,7 +223,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
                   </form>
                 </div>
               )}
-              {mgr && (
+              {admin && (
                 <form action={assignLead} className="row-gap">
                   <input type="hidden" name="id" value={lead.id} />
                   <span className="label">Assigned to</span>
@@ -185,6 +265,24 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
         </div>
 
         <div className="stack">
+          <section className="panel">
+            <div className="panel-h"><h2>Client summary</h2><span className="hint">Made from what the team saved</span></div>
+            <div className="panel-b stack">
+              <p className="sumbox">{summary}</p>
+              {spoke.length > 0 && (
+                <div className="spoke">
+                  <span className="label">Who spoke to the client</span>
+                  {spoke.map((p) => (
+                    <div key={p.id} className="spoke-p">
+                      <b>{p.name}</b>
+                      <div className="hint">{[p.steps.length ? p.steps.join(', ') : null, p.calls ? `${p.calls} call${p.calls === 1 ? '' : 's'}` : null, `last ${fmtDT(p.last)}`].filter(Boolean).join(' · ')}</div>
+                      {p.notes.length > 0 && <ul>{p.notes.map((n, i) => <li key={i}>{n}</li>)}</ul>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
           <section className="panel">
             <div className="panel-h"><h2>What they want</h2></div>
             <div className="panel-b">
@@ -239,12 +337,20 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
               </div>
             </section>
           )}
-          {role === 'owner' && (['token', 'booked'].includes(lead.stage) || deal) && (
-            <section className="panel">
-              <div className="panel-h"><h2>Deal and money</h2><span className="chip tape">Admins only</span></div>
+          {admin && (
+            <section className="panel" id="money">
+              <div className="panel-h"><h2>Payments</h2><span className="chip tape">Only admins see this</span></div>
               <div className="panel-b">
                 {deal ? (
-                  <div className="stack"><p>Value {inrShort(deal.agreement_value)} · commission {inrShort(deal.commission_amount)}{deal.status === 'cancelled' ? ' · cancelled' : ''}</p><Link className="btn sm" href={`/money/deals/${deal.id}`}>Open deal and payments</Link></div>
+                  <div className="stack">
+                    <dl className="kv">
+                      <div><dt className="label">Home price</dt><dd>{inrShort(deal.agreement_value)}{deal.status === 'cancelled' ? ' (cancelled)' : ''}</dd></div>
+                      <div><dt className="label">Buyer has paid</dt><dd>{inrShort(buyerPaid)}{buyerDue ? ` of ${inrShort(buyerDue)}` : ''}</dd></div>
+                      <div><dt className="label">Our commission</dt><dd>{inrShort(commIn)} received of {inrShort(deal.commission_amount)}</dd></div>
+                      {otherIn > 0 && <div><dt className="label">Other money in</dt><dd>{inrShort(otherIn)}</dd></div>}
+                    </dl>
+                    <Link className="btn sm" href={`/money/deals/${deal.id}`}>Open full payment details</Link>
+                  </div>
                 ) : (
                   <div className="stack"><p className="hint">Add the deal value, commission and buyer payment plan.</p><Link className="btn sm primary" href={`/money/deals/new?lead=${lead.id}`}>Add deal details</Link></div>
                 )}

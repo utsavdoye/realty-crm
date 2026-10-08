@@ -968,3 +968,23 @@ input[type=checkbox], input[type=radio] { width: auto; padding: 0; box-shadow: n
 .plan-tile .x { position: absolute; top: 4px; right: 4px; }
 .amen { display: flex; flex-wrap: wrap; gap: 6px; }
 .amen span { font-size: 12px; padding: 3px 9px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); }
+
+/* Client journey */
+.step-team { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r-sm); }
+.step-people { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.journey { display: flex; flex-direction: column; gap: 0; }
+.jstep { display: grid; grid-template-columns: 28px 1fr; gap: 10px; padding: 8px 0; position: relative; }
+.jstep::before { content: ""; position: absolute; left: 13px; top: 30px; bottom: -8px; width: 2px; background: var(--line); }
+.jstep:last-child::before { display: none; }
+.jdot { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 700; background: var(--surface-2); color: var(--muted); border: 2px solid var(--line-2); position: relative; z-index: 1; }
+.jstep.done .jdot { background: var(--good); color: #fff; border-color: var(--good); }
+.jstep.now .jdot { background: var(--accent); color: #fff; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
+.jstep .jt { font-weight: 700; }
+.jstep .jsum { font-size: 13px; color: var(--fg); margin-top: 2px; white-space: pre-line; }
+.jstep.later .jt { color: var(--muted); font-weight: 600; }
+.jform { margin-top: 8px; padding: 12px; border-radius: var(--r-sm); background: var(--accent-soft); display: flex; flex-direction: column; gap: 8px; }
+.sumbox { font-size: 14.5px; line-height: 1.6; background: var(--surface-2); border-radius: var(--r-sm); padding: 12px 14px; }
+.spoke { display: flex; flex-direction: column; gap: 10px; }
+.spoke-p { border-left: 3px solid var(--accent); padding-left: 10px; }
+.spoke-p ul { margin: 4px 0 0; padding-left: 16px; font-size: 13px; }
+.paypop { min-width: min(360px, 100%); }

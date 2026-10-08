@@ -230,7 +230,7 @@ export async function setScore(fd: FormData) {
 
 export async function assignLead(fd: FormData) {
   const { supabase, org, role, user, activity, getLead } = await ctx();
-  if (!isManager(role)) return;
+  if (role !== 'owner') return; // only the admin hands leads to people
   const id = str(fd, 'id'); const to = str(fd, 'assigned_to') || null;
   const lead = await getLead(id);
   if (!lead || lead.assigned_to === to) return;
@@ -502,6 +502,48 @@ export async function setBrochure(id: string, url: string): Promise<{ error?: st
   const { error } = await c.supabase.from('projects').update({ link: url }).eq('id', id).eq('org_id', c.org.id);
   revalidatePath('/projects');
   return error ? { error: friendly(error.message) } : {};
+}
+
+// ---------- Client journey ----------
+
+const STEP_KEYS = ['call', 'presentation', 'visit', 'followup', 'payment'];
+
+/** The person handling the client finishes their step; the client moves on to the next person by itself. */
+export async function completeStep(_: FormState, fd: FormData): Promise<FormState> {
+  const { supabase, org } = await ctx();
+  const id = str(fd, 'id'); const step = str(fd, 'step');
+  if (!STEP_KEYS.includes(step)) return { error: 'Unknown step.' };
+  const said = str(fd, 'said').slice(0, 1500);
+  const extra = str(fd, 'extra').slice(0, 300);
+  const projectId = /^[0-9a-f-]{36}$/.test(str(fd, 'project_id')) ? str(fd, 'project_id') : null;
+  let projectName = '';
+  if (projectId) {
+    const { data: p } = await supabase.from('projects').select('name').eq('id', projectId).eq('org_id', org.id).maybeSingle();
+    projectName = p?.name ?? '';
+  }
+  if (step === 'presentation' && !projectId) return { error: 'Pick the project you presented.' };
+  const summary = step === 'presentation'
+    ? `Presented ${projectName}: ${said}${extra ? ` · Client said: ${extra}` : ''}`
+    : step === 'visit' ? `${projectName ? `Visited ${projectName}: ` : ''}${said}`
+    : step === 'followup' ? `${said}${extra ? ` · Decision: ${extra}` : ''}`
+    : said;
+  const interest = ['hot', 'warm', 'cold'].includes(str(fd, 'interest')) ? str(fd, 'interest') : null;
+  const { data, error } = await supabase.rpc('complete_step', {
+    p_lead: id, p_step: step, p_summary: summary, p_interest: interest, p_project: projectId,
+    p_details: { said, extra: extra || null, project: projectName || null },
+  });
+  if (error) return { error: friendly(error.message) };
+  refresh(id);
+  const to = (data as { handed_to?: string | null } | null)?.handed_to;
+  return { ok: to ? `Saved. ${to} has the client now for the next step.` : 'Saved.' };
+}
+
+export async function undoStep(fd: FormData) {
+  const { supabase, role } = await ctx();
+  if (role !== 'owner') return;
+  const id = str(fd, 'id');
+  await supabase.rpc('undo_step', { p_lead: id, p_step: str(fd, 'step') });
+  refresh(id);
 }
 
 // ---------- Client shortlists ----------

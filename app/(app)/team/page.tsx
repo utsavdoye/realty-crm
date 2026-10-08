@@ -1,4 +1,5 @@
 import { requireOrg } from '@/lib/context';
+import { setReportsTo, setStepTeam } from '@/app/actions';
 import { changeRole, clearJoinRequest, deactivateMember, decideJoin, reactivateMember, renameMember, revokeInvite, setJoinLink, updateCompany } from '@/app/actions';
 import { SharePop } from '@/components/SharePop';
 import { ActionForm, Submit } from '@/components/forms';
@@ -10,12 +11,15 @@ export const metadata = { title: 'Team' };
 
 export default async function Team() {
   const { supabase, org, role, user } = await requireOrg(['owner', 'manager']);
-  const [{ data: members }, { data: invites }, { data: reqs }, { data: o }] = await Promise.all([
+  const [{ data: members }, { data: invites }, { data: reqs }, { data: o }, { data: teams }] = await Promise.all([
     supabase.from('members').select('*').eq('org_id', org.id).order('joined_at'),
     supabase.from('invites').select('*').eq('org_id', org.id).is('accepted_at', null).order('created_at', { ascending: false }),
     supabase.from('join_requests').select('*').eq('org_id', org.id).in('status', ['pending', 'rejected']).order('created_at'),
     supabase.from('organizations').select('join_token, join_open').eq('id', org.id).maybeSingle(),
+    supabase.from('step_teams').select('step, user_id').eq('org_id', org.id),
   ]);
+  const inStep = (step: string, uid: string) => (teams ?? []).some((t) => t.step === step && t.user_id === uid);
+  const managers = (members ?? []).filter((m) => m.active && m.role === 'manager');
   const pending = (reqs ?? []).filter((q) => q.status === 'pending');
   const turnedDown = (reqs ?? []).filter((q) => q.status === 'rejected' && Date.now() - new Date(q.decided_at ?? q.created_at).getTime() < 60 * 86400000);
   const joinLink = o?.join_token ? `${siteUrl()}/join/team/${o.join_token}` : '';
@@ -93,6 +97,16 @@ export default async function Team() {
                       </div>
                     </div>
                     <div className="person-acts">
+                      {isOwner && m.active && m.role === 'agent' && managers.length > 0 && (
+                        <ActionForm action={setReportsTo} className="inline">
+                          <input type="hidden" name="user_id" value={m.user_id} />
+                          <select name="manager_id" defaultValue={m.manager_id ?? ''} aria-label={`Manager of ${m.full_name}`}>
+                            <option value="">No manager</option>
+                            {managers.map((x) => <option key={x.user_id} value={x.user_id}>Team of {x.full_name}</option>)}
+                          </select>
+                          <Submit className="btn sm">Save</Submit>
+                        </ActionForm>
+                      )}
                       {isOwner && (
                         <details className="remove">
                           <summary className="btn sm ghost">Edit name</summary>
@@ -158,6 +172,27 @@ export default async function Team() {
           )}
         </div>
         <div className="stack">
+          {isOwner && (
+            <section className="panel" id="steps">
+              <div className="panel-h"><h2>Who does each step</h2></div>
+              <div className="panel-b stack">
+                <p className="hint">When someone finishes their step on a client, the client moves to the next step&apos;s person by itself (the one with the fewest open clients). Leave a step empty and the client stays with the last person.</p>
+                {([['call', 'First call'], ['presentation', 'Project presentation'], ['visit', 'Site visit'], ['followup', 'Follow-up']] as const).map(([k, l]) => (
+                  <ActionForm key={k} action={setStepTeam} className="step-team">
+                    <input type="hidden" name="step" value={k} />
+                    <b>{l}</b>
+                    <div className="step-people">
+                      {activeAssignable.map((p) => (
+                        <label key={p.user_id} className="check"><input type="checkbox" name="user" value={p.user_id} defaultChecked={inStep(k, p.user_id)} /> {p.full_name}</label>
+                      ))}
+                    </div>
+                    <div><Submit className="btn sm">Save</Submit></div>
+                  </ActionForm>
+                ))}
+                <p className="hint">Payment is always the admin&apos;s. New leads go to the first-call people.</p>
+              </div>
+            </section>
+          )}
           <section className="panel">
             <div className="panel-h"><h2>Team join link</h2><span className={`chip ${o?.join_open ? 'good' : 'bad'}`}>{o?.join_open ? 'On' : 'Off'}</span></div>
             <div className="panel-b join-link-box">

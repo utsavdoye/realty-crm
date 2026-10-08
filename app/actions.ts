@@ -155,6 +155,27 @@ export async function clearJoinRequest(fd: FormData) {
   revalidatePath('/team');
 }
 
+/** Admin: who does each step of the client journey. */
+export async function setStepTeam(_: FormState, fd: FormData): Promise<FormState> {
+  const { supabase, org } = await requireOrg(['owner']);
+  const step = str(fd, 'step');
+  const users = fd.getAll('user').map(String).filter((u) => /^[0-9a-f-]{36}$/.test(u));
+  const { error } = await supabase.rpc('set_step_team', { p_org: org.id, p_step: step, p_users: users });
+  if (error) return { error: friendly(error.message) };
+  revalidatePath('/team');
+  return { ok: users.length ? 'Saved' : 'Saved. Nobody does this step now, so clients stay with the last person.' };
+}
+
+/** Admin: which manager a person reports to (managers see their team's clients). */
+export async function setReportsTo(_: FormState, fd: FormData): Promise<FormState> {
+  const { supabase, org } = await requireOrg(['owner']);
+  const m = str(fd, 'manager_id');
+  const { error } = await supabase.rpc('set_reports_to', { p_org: org.id, p_user: str(fd, 'user_id'), p_manager: m || null });
+  if (error) return { error: friendly(error.message) };
+  revalidatePath('/team');
+  return { ok: 'Saved' };
+}
+
 export async function setJoinLink(fd: FormData) {
   const { supabase, org } = await requireOrg(['owner']);
   await supabase.rpc('set_join_link', { p_org: org.id, p_open: str(fd, 'open') === '1', p_new: str(fd, 'new') === '1' });
