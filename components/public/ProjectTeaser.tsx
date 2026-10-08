@@ -37,7 +37,7 @@ export function ProjectTeaser({ p, mode, token, buzz = 0, advisor, children }: {
     ? full?.price_to ? `${fmtL(p.price_from)} – ${fmtL(full.price_to).replace('₹', '')}` : `${fmtL(p.price_from)} onwards`
     : 'On request';
   const size = p.size_from ? `${p.size_from.toLocaleString('en-IN')}${p.size_to ? '–' + p.size_to.toLocaleString('en-IN') : ''} sq ft` : '';
-  const facts = [['Starting price', price], ['Homes', p.configs], ['Size', size], ['Type', p.type], ['Possession', p.possession], ['Towers', p.towers], ['Total homes', p.units ? String(p.units) : ''], ['Home loan', p.banks], ['RERA', p.rera_no]]
+  const facts = [['Starting price', price], ['Homes', p.configs], ['Size', size], ['Type', p.type], ['Possession', p.possession], ['Towers', p.towers], ['Total homes', p.units ? String(p.units) : ''], ['Homes still open', p.open_units ? String(p.open_units) : ''], ['Home loan', p.banks], ['RERA', p.rera_no]]
     .filter(([, v]) => v) as [string, string][];
   const lockedItems = [
     p.hasRange && 'Price of every unit',
@@ -110,6 +110,7 @@ export function ProjectTeaser({ p, mode, token, buzz = 0, advisor, children }: {
                 ? 'Unlocked! Our team will also WhatsApp you the price list and floor plans.'
                 : `Unlocked! ${advisor ? advisor.split(' ')[0] : 'Your advisor'} will send the price list and floor plans on WhatsApp.`}
             </p>
+            {p.payment_plan && <div><b className="small-h">Payment plan</b><p style={{ whiteSpace: 'pre-line', margin: '4px 0 0' }}>{p.payment_plan}</p></div>}
             {full.floor_plans.length > 0 && <ProjectPlans projectId={p.id} orgId="" plans={full.floor_plans} canEdit={false} hasPdf={false} />}
             {full.link && <a className="btn sm" href={/^https?:\/\//.test(full.link) ? full.link : 'https://' + full.link} target="_blank" rel="noopener noreferrer">Open brochure / floor plans</a>}
           </div>

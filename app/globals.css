@@ -1015,3 +1015,5 @@ input[type=checkbox], input[type=radio] { width: auto; padding: 0; box-shadow: n
 .dup-card { display: flex; flex-direction: column; gap: 3px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; }
 .dup-acts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 @media (max-width: 640px) { .dup-pair { grid-template-columns: 1fr; } }
+.units-chip { display: block; padding: 8px 10px; border-radius: 10px; background: var(--good-soft); color: #128a3e; font-size: 13px; }
+.units-chip:hover { color: #0d6e31; }

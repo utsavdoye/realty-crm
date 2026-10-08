@@ -10,6 +10,7 @@ export type PubProject = {
   amenities?: string | null; banks?: string | null;
   // counts sent instead of the locked details
   photo_count?: number; has_range?: boolean; has_brochure?: boolean; plan_count?: number;
+  payment_plan?: string | null; open_units?: number | null;
 };
 
 export function ProjectBlock({ p, children }: { p: PubProject; children?: React.ReactNode }) {

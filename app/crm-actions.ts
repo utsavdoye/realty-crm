@@ -352,6 +352,8 @@ export async function saveProject(_: FormState, fd: FormData): Promise<FormState
     lat: coord(str(fd, 'lat'), 90), lng: coord(str(fd, 'lng'), 180),
     size_from: whole(str(fd, 'size_from')), size_to: whole(str(fd, 'size_to')), units: whole(str(fd, 'units')),
     towers: orNull(str(fd, 'towers').slice(0, 120)), amenities: orNull(str(fd, 'amenities').slice(0, 600)), banks: orNull(str(fd, 'banks').slice(0, 200)),
+    map_url: /^https:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps|(www\.)?google\.[a-z.]+\/maps)/.test(str(fd, 'map_url')) ? str(fd, 'map_url').slice(0, 300) : null,
+    payment_plan: orNull(str(fd, 'payment_plan').slice(0, 2000)), terms: orNull(str(fd, 'terms').slice(0, 4000)),
   };
   const id = str(fd, 'id');
   const newId = /^[0-9a-f-]{36}$/i.test(str(fd, 'new_id')) ? str(fd, 'new_id') : undefined;
@@ -555,6 +557,17 @@ export async function undoStep(fd: FormData) {
   const id = str(fd, 'id');
   await supabase.rpc('undo_step', { p_lead: id, p_step: str(fd, 'step') });
   refresh(id);
+}
+
+// ---------- Flats (unit inventory) ----------
+
+export async function setUnitStatus(fd: FormData) {
+  const { supabase, org, role } = await ctx();
+  if (!isManager(role)) return;
+  const status = str(fd, 'status');
+  if (!['open', 'hold', 'booked', 'mortgage'].includes(status)) return;
+  await supabase.from('project_units').update({ status, note: str(fd, 'note').slice(0, 200) || null }).eq('id', str(fd, 'id')).eq('org_id', org.id);
+  revalidatePath('/projects', 'layout');
 }
 
 // ---------- Site-visit check-in (GPS) ----------

@@ -20,11 +20,14 @@ type P = ProjectRow;
 export default async function Projects() {
   const { supabase, org, role } = await requireOrg();
   const mgr = isManager(role);
-  const [{ data: projects }, leads, matches] = await Promise.all([
+  const [{ data: projects }, leads, matches, unitRows] = await Promise.all([
     supabase.from('projects').select('*').eq('org_id', org.id).order('name'),
     fetchAll<{ project_id: string; stage: string }>(() => supabase.from('leads').select('id, project_id, stage').eq('org_id', org.id).not('project_id', 'is', null).order('id')),
     fetchAll<{ project_id: string }>(() => supabase.from('project_matches').select('project_id, lead_id').eq('org_id', org.id).is('dismissed_at', null).order('lead_id').order('project_id')),
+    fetchAll<{ project_id: string; status: string }>(() => supabase.from('project_units').select('id, project_id, status').eq('org_id', org.id).order('id')),
   ]);
+  const unitsBy = new Map<string, Record<string, number>>();
+  unitRows.forEach((u) => { const c = unitsBy.get(u.project_id) ?? {}; c[u.status] = (c[u.status] ?? 0) + 1; unitsBy.set(u.project_id, c); });
   const matchCount = new Map<string, number>();
   (matches ?? []).forEach((m) => matchCount.set(m.project_id, (matchCount.get(m.project_id) ?? 0) + 1));
   const stats = new Map<string, { n: number; booked: number; visited: number }>();
@@ -47,6 +50,11 @@ export default async function Projects() {
               {(p.size_from || p.towers || p.units) && <div className="hint">{[p.size_from ? `${p.size_from.toLocaleString('en-IN')}${p.size_to ? '–' + p.size_to.toLocaleString('en-IN') : ''} sq ft` : '', p.towers, p.units ? `${p.units} homes` : ''].filter(Boolean).join(' · ')}</div>}
               {p.amenities && <div className="amen">{p.amenities.split(/[,•\n]+/).map((a) => a.trim()).filter(Boolean).slice(0, 8).map((a) => <span key={a}>{a}</span>)}</div>}
               {p.banks && <div className="hint">Home loan: {p.banks}</div>}
+              {(p.rate_card ?? []).length > 0 && <div className="hint">Rate (₹/sq ft): {(p.rate_card ?? []).map((x) => `floor ${x.floors} ₹${Number(x.rate).toLocaleString('en-IN')}`).join(' · ')}</div>}
+              {unitsBy.has(p.id) && (() => { const c = unitsBy.get(p.id)!; const all = Object.values(c).reduce((a, b) => a + b, 0); return (
+                <Link href={`/projects/${p.id}/units`} className="units-chip"><b>{c.open ?? 0}</b> of {all} flats open{c.booked ? ` · ${c.booked} booked` : ''}{c.hold ? ` · ${c.hold} on hold` : ''}{c.mortgage ? ` · ${c.mortgage} mortgage` : ''} → see flats & prices</Link>
+              ); })()}
+              {p.map_url && <a href={p.map_url} target="_blank" rel="noopener noreferrer" className="hint">📍 Google Maps</a>}
               {p.rera_no && <div className="hint mono">RERA {p.rera_no}</div>}
               {p.highlights && <div className="hint">{p.highlights}</div>}
               {p.link && <a href={/^https?:\/\//.test(p.link) ? p.link : 'https://' + p.link} target="_blank" rel="noopener noreferrer">{/\.pdf$/i.test(p.link) ? 'Brochure (PDF)' : 'Brochure / site'}</a>}
