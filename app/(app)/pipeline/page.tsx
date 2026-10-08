@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { requireOrg } from '@/lib/context';
 import { fetchAll } from '@/lib/fetchAll';
 import { STEPS, currentStep } from '@/lib/journey';
+import { AutoFilterForm } from '@/components/AutoFilterForm';
 
 export const metadata = { title: 'Journey board' };
 
@@ -25,10 +26,14 @@ export default async function Pipeline({ searchParams }: { searchParams: Record<
   const cols = STEPS.filter((s) => s.k !== 'received' && (s.k !== 'payment' || admin));
   const byCol = new Map<string, (L & { days: number })[]>(cols.map((c) => [c.k, []]));
   const now = Date.now();
+  let everyone = 0, nobody = 0;
+  const perPerson = new Map<string, number>();
   for (const l of leads) {
-    if (who && (who === 'none' ? l.assigned_to : l.assigned_to !== who)) continue;
     const cur = currentStep(done.get(l.id) ?? new Set(['received']), admin);
     if (!cur || !byCol.has(cur)) continue;
+    everyone++;
+    if (!l.assigned_to) nobody++; else perPerson.set(l.assigned_to, (perPerson.get(l.assigned_to) ?? 0) + 1);
+    if (who && (who === 'none' ? l.assigned_to : l.assigned_to !== who)) continue;
     const since = new Date(l.assigned_at ?? l.created_at).getTime();
     byCol.get(cur)!.push({ ...l, days: Math.max(0, Math.floor((now - since) / 86400000)) });
   }
@@ -40,15 +45,15 @@ export default async function Pipeline({ searchParams }: { searchParams: Record<
     <>
       <div className="top">
         <h1>Journey board</h1>
-        <form className="row-gap" action="/pipeline">
-          <select name="who" defaultValue={who} aria-label="Whose clients">
-            <option value="">Everyone ({total})</option>
-            <option value="none">Not given to anyone</option>
-            {staff.map((p) => <option key={p.user_id} value={p.user_id}>{p.full_name}</option>)}
+        <AutoFilterForm className="row-gap" action="/pipeline">
+          <select name="who" defaultValue={who} key={who} aria-label="Whose clients">
+            <option value="">Everyone ({everyone})</option>
+            <option value="none">Not given to anyone ({nobody})</option>
+            {staff.map((p) => <option key={p.user_id} value={p.user_id}>{p.full_name} ({perPerson.get(p.user_id) ?? 0})</option>)}
           </select>
-          <button className="btn sm">Show</button>
-        </form>
+        </AutoFilterForm>
       </div>
+      {who && <p className="msg ok" style={{ marginTop: 0 }}>Showing {total} client{total === 1 ? '' : 's'} {who === 'none' ? 'not given to anyone' : `with ${nameOf.get(who) ?? 'this person'}`}. <a href="/pipeline">Show everyone</a></p>}
       <p className="hint" style={{ marginTop: -6 }}>Open clients by the step they are at. Red = waiting too long at this step ({Object.entries(LIMIT).filter(([k]) => admin || k !== 'payment').map(([k, d]) => `${STEPS.find((s) => s.k === k)?.short} ${d}d`).join(', ')}).</p>
       <div className="jboard">
         {cols.map((c) => {
