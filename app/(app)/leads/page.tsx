@@ -24,7 +24,7 @@ export default async function Leads({ searchParams }: { searchParams: Record<str
   if (sp.agent && sp.agent !== 'none' && !UUIDRE.test(sp.agent)) delete sp.agent;
   const { supabase, org, role } = await requireOrg();
   const mgr = isManager(role);
-  const board = sp.view === 'board';
+  const board = false; // the stage board is replaced by the Journey board (/pipeline)
   const page = Math.min(5000, Math.max(1, Math.floor(Number(sp.page)) || 1));
 
   let q = supabase.from('leads')
@@ -128,10 +128,8 @@ export default async function Leads({ searchParams }: { searchParams: Record<str
         {sp.match && <input type="hidden" name="match" value={sp.match} />}
         {sp.view && <input type="hidden" name="view" value={sp.view} />}
         {term && <input type="hidden" name="q" value={term} />}
-        <div className="seg">
-          <Link href={keep({ view: undefined, page: undefined })} className={!board ? 'on' : ''}>List</Link>
-          <Link href={keep({ view: 'board', page: undefined })} className={board ? 'on' : ''}>Board</Link>
-        </div>
+        {mgr && <Link href="/pipeline" className="btn sm">Journey board</Link>}
+        {role === 'owner' && <Link href="/leads/duplicates" className="btn sm ghost">Duplicates</Link>}
         <select name="stage" defaultValue={sp.stage ?? ''} aria-label="Stage"><option value="">All stages</option>{STAGES.map((s) => <option key={s.k} value={s.k}>{s.l}</option>)}<option value="lost">Lost</option></select>
         <select name="fu" defaultValue={sp.fu ?? ''} aria-label="Follow-up"><option value="">Any follow-up</option><option value="over">Overdue</option><option value="today">Due today</option><option value="due">Overdue + today</option><option value="none">No next step</option><option value="stale">Untouched 14+ days</option></select>
         <select name="score" defaultValue={sp.score ?? ''} aria-label="Interest"><option value="">Hot, warm, cold</option><option value="hot">Hot</option><option value="warm">Warm</option><option value="cold">Cold</option></select>

@@ -20,14 +20,25 @@ const ICONS = {
   map: '<path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/>',
   money: '<rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/>',
   me: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.2-6 8-6s7 2 8 6"/>',
+  add: '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
+  board: '<rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/>',
 };
 
 export function NavLinks({ role, mobile = false }: { role: Role; mobile?: boolean }) {
   const path = usePathname();
   const m = role === 'owner' || role === 'manager';
-  const all = [
+  // Employees and interns: only what they need every day.
+  const simple = role === 'agent';
+  type Item = { href: string; label: string; icon: string; show: boolean; sec?: string };
+  const all: Item[] = simple ? [
+    { href: '/dashboard', label: 'Do now', icon: ICONS.today, show: true },
+    { href: '/leads', label: 'My clients', icon: ICONS.leads, show: true },
+    { href: '/leads/new', label: 'Add lead', icon: ICONS.add, show: true },
+    { href: '/profile', label: 'Profile', icon: ICONS.me, show: true },
+  ] : [
     { href: '/dashboard', label: 'Today', icon: ICONS.today, show: true, sec: 'Work' },
     { href: '/leads', label: 'Leads', icon: ICONS.leads, show: true },
+    { href: '/pipeline', label: 'Journey board', icon: ICONS.board, show: m },
     { href: '/visits', label: 'Visits', icon: ICONS.visits, show: role !== 'partner' },
     { href: '/projects', label: 'Projects', icon: ICONS.projects, show: true },
     { href: '/map', label: 'Map', icon: ICONS.map, show: role !== 'partner' },
@@ -38,12 +49,13 @@ export function NavLinks({ role, mobile = false }: { role: Role; mobile?: boolea
     { href: '/team', label: 'Team', icon: ICONS.team, show: m, sec: 'Settings' },
     { href: '/profile', label: 'Profile', icon: ICONS.me, show: true, sec: m ? undefined : 'Settings' },
   ].filter((i) => i.show) as { href: string; label: string; icon: string; show: boolean; sec?: string }[];
-  const items = mobile ? [...all.slice(0, 4), { href: '/more', label: 'More', icon: ICONS.more, show: true }] : all;
+  const items = mobile && !simple ? [...all.slice(0, 4), { href: '/more', label: 'More', icon: ICONS.more, show: true }] : all;
+  const on = (href: string) => (href === '/leads' ? path.startsWith('/leads') && !path.startsWith('/leads/new') : path.startsWith(href));
   return (
     <nav className={mobile ? 'bottomnav' : 'nav'} aria-label="Main">
       {items.map((i) => [
         !mobile && i.sec ? <div key={'s-' + i.sec} className="nav-sec">{i.sec}</div> : null,
-        <Link key={i.href} href={i.href} data-label={i.label} className={path.startsWith(i.href) || (i.href === '/more' && all.slice(4).some((x) => path.startsWith(x.href))) ? 'on' : ''}>
+        <Link key={i.href} href={i.href} data-label={i.label} className={on(i.href) || (i.href === '/more' && all.slice(4).some((x) => path.startsWith(x.href))) ? 'on' : ''}>
           {I(i.icon)}<span>{i.label}</span>
         </Link>,
       ])}

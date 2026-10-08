@@ -206,9 +206,20 @@ export async function logCall(_: FormState, fd: FormData): Promise<FormState> {
     await activity(id, 'visit', `Site visit booked on ${fmtDT(visitAt)}`);
   }
   if (patch.stage && patch.stage !== lead.stage) await activity(id, 'stage', `Stage: ${stageLabel(lead.stage)} → ${stageLabel(String(patch.stage))}`);
+  // "This call finishes my step": tick it and hand the client to the next person.
+  const fin = str(fd, 'finish_step');
+  let handed = '';
+  if (fin && ['call', 'presentation', 'followup'].includes(fin) && ['interested', 'callback'].includes(o.k)) {
+    const { data: d, error: e2 } = await supabase.rpc('complete_step', {
+      p_lead: id, p_step: fin, p_summary: `${o.l}.${note ? ' ' + note : ''}`, p_details: { said: note, outcome: o.k }, p_interest: null, p_project: null,
+    });
+    if (e2) return { error: `Call saved, but the step was not finished: ${friendly(e2.message)}` };
+    handed = (d as { handed_to?: string | null } | null)?.handed_to ?? '';
+  }
   refresh(id);
-  if (visitAt) return { ok: `Saved. Site visit on ${fmtDT(visitAt)}; a reminder call is set for the day before.` };
-  return { ok: patch.next_follow_up ? `Saved. Next call ${fmtDT(String(patch.next_follow_up))}.` : 'Saved.' };
+  const tail = handed ? ` ${handed} has the client now.` : fin ? ' Step finished.' : '';
+  if (visitAt) return { ok: `Saved. Site visit on ${fmtDT(visitAt)}; a reminder call is set for the day before.${tail}` };
+  return { ok: (patch.next_follow_up ? `Saved. Next call ${fmtDT(String(patch.next_follow_up))}.` : 'Saved.') + tail };
 }
 
 export async function addNote(_: FormState, fd: FormData): Promise<FormState> {
@@ -544,6 +555,50 @@ export async function undoStep(fd: FormData) {
   const id = str(fd, 'id');
   await supabase.rpc('undo_step', { p_lead: id, p_step: str(fd, 'step') });
   refresh(id);
+}
+
+// ---------- Site-visit check-in (GPS) ----------
+
+/** Turns GPS into a readable address (free OpenStreetMap service). Empty if it does not answer quickly. */
+async function addressFor(lat: number, lng: number) {
+  try {
+    const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 4000);
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&lat=${lat}&lon=${lng}`, {
+      headers: { 'User-Agent': 'TrustArcEstatesCRM/1.0 (trustarcestates@gmail.com)', 'Accept-Language': 'en-IN,en' }, signal: ctl.signal, cache: 'no-store',
+    });
+    clearTimeout(t);
+    if (!res.ok) return '';
+    const j = (await res.json()) as { display_name?: string };
+    return (j.display_name ?? '').split(',').slice(0, 5).join(',').trim().slice(0, 300);
+  } catch { return ''; }
+}
+
+export async function visitCheckin(visitId: string, lat: number, lng: number, accuracy: number): Promise<{ ok?: string; error?: string }> {
+  const { supabase } = await ctx();
+  if (!/^[0-9a-f-]{36}$/.test(String(visitId))) return { error: 'Visit not found.' };
+  if (![lat, lng, accuracy].every((n) => typeof n === 'number' && Number.isFinite(n))) return { error: 'Location not found. Turn on location and try again.' };
+  const address = await addressFor(lat, lng);
+  const { data, error } = await supabase.rpc('visit_checkin', { p_visit: visitId, p_lat: lat, p_lng: lng, p_accuracy: Math.round(accuracy), p_address: address });
+  if (error) return { error: friendly(error.message) };
+  revalidatePath('/', 'layout');
+  const d = data as number | null;
+  return { ok: `Checked in${d != null ? ` · ${d < 1000 ? d + ' m' : (d / 1000).toFixed(1) + ' km'} from the project` : ''}${address ? ` · ${address}` : ''}` };
+}
+
+// ---------- Duplicate clients ----------
+
+export async function mergeLeads(fd: FormData) {
+  const { supabase, role } = await ctx();
+  if (role !== 'owner') return;
+  await supabase.rpc('merge_leads', { p_keep: str(fd, 'keep'), p_drop: str(fd, 'drop') });
+  revalidatePath('/leads', 'layout');
+}
+
+export async function ignoreDuplicate(fd: FormData) {
+  const { supabase, role } = await ctx();
+  if (role !== 'owner') return;
+  await supabase.rpc('ignore_duplicate', { p_a: str(fd, 'a'), p_b: str(fd, 'b') });
+  revalidatePath('/leads/duplicates');
 }
 
 // ---------- Client shortlists ----------

@@ -6,6 +6,7 @@ import { SignOutButtons } from '@/components/SignOutButtons';
 import { switchOrg } from '@/app/actions';
 import { PICK_LABEL, memberRole, siteUrl } from '@/lib/roles';
 import { SharePop } from '@/components/SharePop';
+import { CallReturn } from '@/components/CallButton';
 import { Bell } from '@/components/Bell';
 import { SideToggle } from '@/components/SideToggle';
 import { AskHelper } from '@/components/AskHelper';
@@ -54,6 +55,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       <main className="main">{children}</main>
       <NavLinks role={role} mobile />
       {role !== 'partner' && <AskHelper />}
+      {role !== 'partner' && <CallReturn voice={Boolean(process.env.GEMINI_API_KEY)} />}
     </div>
   );
 }

@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 import { requireOrg } from '@/lib/context';
 import { fmtPhone, isManager, siteUrl, telHref } from '@/lib/roles';
 import { ShortlistPanel } from '@/components/ShortlistPanel';
+import { CallButton } from '@/components/CallButton';
+import { CheckInButton } from '@/components/CheckInButton';
 import { inrShort } from '@/lib/money';
 import { completeStep, undoStep } from '@/app/crm-actions';
 import { STEPS, clientSummary, currentStep, peopleWhoSpoke, stepLabel, type StepRow } from '@/lib/journey';
@@ -12,7 +14,7 @@ import { CopyButton } from '@/components/CopyButton';
 import { LeadFields } from '@/components/LeadFields';
 import { LogCallForm } from '@/components/LogCallForm';
 import { WhatsAppComposer } from '@/components/WhatsAppComposer';
-import { LOST_REASONS, STAGES, STAGE_IDX, fmtBudget, fmtDT, fmtDate, fuState, fuText, istAt, stageChip, stageLabel, toLocalInput } from '@/lib/crm';
+import { LOST_REASONS, fmtBudget, fmtDT, fmtDate, fuState, fuText, istAt, stageChip, stageLabel, toLocalInput } from '@/lib/crm';
 
 export const metadata = { title: 'Lead' };
 
@@ -25,7 +27,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
 
   const [{ data: acts }, { data: visits }, { data: projects }, { data: people }, { data: templates }] = await Promise.all([
     supabase.from('activities').select('id, type, body, by_user, created_at').eq('lead_id', lead.id).order('created_at', { ascending: false }).limit(150),
-    supabase.from('visits').select('id, at, status, feedback, interest, agent_id, project_id').eq('lead_id', lead.id).order('at', { ascending: false }),
+    supabase.from('visits').select('id, at, status, feedback, interest, agent_id, project_id, checkin_at, checkin_address, checkin_distance_m, checkin_lat, checkin_lng, checkin_accuracy').eq('lead_id', lead.id).order('at', { ascending: false }),
     supabase.from('projects').select('id, name, location, price_from, price_to, configs, type, status, photos').eq('org_id', org.id).order('name'),
     supabase.from('members').select('user_id, full_name, phone, role, active').eq('org_id', org.id),
     supabase.from('templates').select('id, name, use_for, body').eq('org_id', org.id).order('use_for'),
@@ -60,7 +62,6 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
   const agent = (people ?? []).find((p) => p.user_id === (lead.assigned_to ?? user.id));
   const project = lead.project_id ? projectOf.get(lead.project_id) : undefined;
   const nextVisit = (visits ?? []).filter((v) => v.status === 'scheduled').sort((a, b) => a.at.localeCompare(b.at))[0];
-  const idx = lead.stage === 'lost' ? -1 : STAGE_IDX[lead.stage] ?? 0;
   const fs = fuState(lead.next_follow_up);
   const closed = ['booked', 'lost'].includes(lead.stage);
   const assignable = (people ?? []).filter((p) => p.active && p.role !== 'partner');
@@ -74,6 +75,10 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
   const visibleSteps = STEPS.filter((x) => x.k !== 'payment' || admin);
   const summary = clientSummary(lead, steps, (acts ?? []) as never, nameOf, project?.name, cur);
   const spoke = peopleWhoSpoke((acts ?? []) as never, steps, nameOf);
+  // A call can finish these steps (from the "How did the call go?" form).
+  const callStep = cur && ['call', 'presentation', 'followup'].includes(cur) && (admin || role === 'manager' || lead.assigned_to === user.id)
+    ? { k: cur, label: stepLabel(cur), next: (() => { const n = ({ call: 'presentation', presentation: 'visit', followup: null } as Record<string, string | null>)[cur]; return n ? (teamFor(n).join(' / ') || null) : null; })() }
+    : null;
   const nextAfter = (k: string) => { const order = ['call', 'presentation', 'visit', 'followup']; const i = order.indexOf(k); return i >= 0 && i < 3 ? order[i + 1] : null; };
 
   return (
@@ -86,10 +91,11 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
             <div className="row-gap">
               <span className="mono big">{fmtPhone(lead.phone)}</span>
               <CopyButton text={lead.phone} label="Copy number" />
+              {(lead.other_phones ?? []).length > 0 && <span className="hint">Also: {(lead.other_phones as string[]).map((x) => fmtPhone(x)).join(', ')}</span>}
               {lead.email && <span className="hint">{lead.email}</span>}
             </div>
             <div className="row-gap" style={{ marginTop: 6 }}>
-              <span className={`chip ${stageChip(lead.stage)}`}>{stageLabel(lead.stage)}</span>
+              <span className={`chip ${stageChip(lead.stage)}`}>{lead.stage === 'lost' ? 'Lost' : lead.stage === 'booked' ? 'Booked' : cur ? `Now: ${stepLabel(cur)}` : stageLabel(lead.stage)}</span>
               <span className={`chip ${lead.score}`}>{lead.score[0].toUpperCase() + lead.score.slice(1)}</span>
               {lead.source && <span className="chip">{lead.source}</span>}
               <span className="hint">{lead.assigned_to ? `Assigned to ${nameOf.get(lead.assigned_to) ?? '—'}` : 'Not assigned'} · came in {fmtDT(lead.created_at)}</span>
@@ -97,7 +103,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
           </div>
           {canEdit && (
             <div className="row-gap">
-              <a className="btn primary" href={tel}>Call</a>
+              <CallButton leadId={lead.id} name={lead.name} tel={tel} step={callStep}>📞 Call</CallButton>
               <a className="btn wa" href="#whatsapp">WhatsApp</a>
               <a className="btn" href="#visit">Book visit</a>
               {admin && <a className="btn" href="#money">₹ Payments</a>}
@@ -191,19 +197,16 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
           )}
 
           <section className="panel">
-            <div className="panel-h"><h2>Stage</h2>{lead.stage === 'lost' && lead.lost_reason && <span className="chip bad">{lead.lost_reason}</span>}</div>
+            <div className="panel-h"><h2>Status</h2>{lead.stage === 'lost' && lead.lost_reason && <span className="chip bad">{lead.lost_reason}</span>}</div>
             <div className="panel-b stack">
-              <div className="stages">
-                {STAGES.map((s, i) => {
-                  const cls = lead.stage === s.k ? 'cur' : i <= (lead.max_stage ?? idx) && lead.stage !== 'lost' ? 'done' : '';
-                  if (!canEdit) return <span key={s.k} className={`stg ${cls}`}>{s.l}</span>;
-                  if (s.k === 'visit') return <a key={s.k} href="#visit" className={`stg ${cls}`}>{s.l}</a>;
-                  return (
-                    <form key={s.k} action={setStage}><input type="hidden" name="id" value={lead.id} /><input type="hidden" name="stage" value={s.k} />
-                      <button className={`stg ${cls}`} disabled={lead.stage === s.k}>{s.l}</button></form>
-                  );
-                })}
-              </div>
+              <p className="hint">The status follows the client journey above by itself. {lead.stage === 'booked' ? 'This client has booked.' : ''}</p>
+              {admin && !['booked', 'lost'].includes(lead.stage) && (
+                <form action={setStage}><input type="hidden" name="id" value={lead.id} /><input type="hidden" name="stage" value="booked" />
+                  <button className="btn sm">🎉 Mark as booked</button></form>
+              )}
+              {lead.stage === 'lost' && canEdit && (
+                <form action={recycleCall}><input type="hidden" name="id" value={lead.id} /><button className="btn sm">Reopen this client</button></form>
+              )}
               {canEdit && lead.stage !== 'lost' && (
                 <details>
                   <summary className="btn sm ghost danger">Mark as lost</summary>
@@ -368,6 +371,12 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
                   </div>
                   <div className="hint">{(v.project_id && projectOf.get(v.project_id)?.name) || 'Project not set'}{v.agent_id ? ' · ' + (nameOf.get(v.agent_id) ?? '') : ''}</div>
                   {v.feedback && <div className="hint">“{v.feedback}”</div>}
+                  {v.checkin_at ? (
+                    <div className="hint">📍 Checked in {fmtDT(v.checkin_at)}{v.checkin_distance_m != null ? ` · ${v.checkin_distance_m < 1000 ? v.checkin_distance_m + ' m' : (v.checkin_distance_m / 1000).toFixed(1) + ' km'} from the project` : ''}{v.checkin_address ? ` · ${v.checkin_address}` : ''}
+                      {(admin || role === 'manager') && v.checkin_lat != null && <> · <a href={`https://www.google.com/maps?q=${v.checkin_lat},${v.checkin_lng}`} target="_blank" rel="noopener noreferrer">see on map</a></>}
+                      {v.checkin_distance_m != null && v.checkin_distance_m > 1500 && <span className="chip bad" style={{ marginLeft: 6 }}>Far from the project</span>}
+                    </div>
+                  ) : v.status === 'scheduled' && canEdit && (Math.abs(new Date(v.at).getTime() - Date.now()) < 12 * 3600000) ? <CheckInButton visitId={v.id} /> : null}
                   {v.status === 'scheduled' && canEdit && (
                     <details>
                       <summary className="btn sm">How did it go?</summary>

@@ -13,8 +13,17 @@ const defaultNext = (k: string) => {
   return o?.hours ? toLocalInput(new Date(Date.now() + o.hours * 3600000).toISOString()) : '';
 };
 
-export function LogCallForm({ leadId, voice = false }: { leadId: string; voice?: boolean }) {
-  const [state, action] = useFormState<FormState, FormData>(logCall, null);
+export function LogCallForm({ leadId, voice = false, step, onSaved }: {
+  leadId: string; voice?: boolean;
+  /** The client's current step, if this person can finish it with this call (first call, presentation, follow-up). */
+  step?: { k: string; label: string; next?: string | null } | null;
+  onSaved?: (msg: string) => void;
+}) {
+  const [state, action] = useFormState<FormState, FormData>(async (prev: FormState, fd: FormData) => {
+    const r = await logCall(prev, fd);
+    if (r?.ok) onSaved?.(r.ok);
+    return r;
+  }, null);
   const [out, setOut] = useState<string>('interested');
   const [next, setNext] = useState(() => defaultNext('interested'));
   const [more, setMore] = useState(false);
@@ -58,6 +67,10 @@ export function LogCallForm({ leadId, voice = false }: { leadId: string; voice?:
           <label className="field"><span className="label">Area</span><input name="upd_location" placeholder="e.g. VIP Road, Amlidih" /></label>
         </div>
       </details>
+      {step && (out === 'interested' || out === 'callback') && (
+        <label className="check finish-step"><input type="checkbox" name="finish_step" value={step.k} defaultChecked={step.k === 'call' && out === 'interested'} />
+          <span>This call finishes the <b>{step.label.toLowerCase()}</b>{step.next ? <> — hand the client to {step.next}</> : ''}</span></label>
+      )}
       <div><Submit>Save call</Submit></div>
       {state?.error && <p className="msg err">{state.error}</p>}
       {state?.ok && <p className="msg ok">{state.ok}</p>}

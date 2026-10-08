@@ -1,5 +1,6 @@
 import { fetchAll } from '@/lib/fetchAll';
 import Link from 'next/link';
+import { DoNow } from '@/components/DoNow';
 import { requireOrg } from '@/lib/context';
 import { PICK_HELP, PICK_LABEL, fmtPhone, isManager, memberRole, telHref } from '@/lib/roles';
 import { recycleCall, recycleSnooze } from '@/app/crm-actions';
@@ -10,6 +11,8 @@ const COLS = 'id, name, phone, stage, score, bhk, budget_min, budget_max, locati
 
 export default async function Today({ searchParams }: { searchParams: { welcome?: string; joined?: string; denied?: string; scope?: string } }) {
   const { supabase, org, role, me, user } = await requireOrg();
+  // Employees and interns get one simple list: what to do now.
+  if (role === 'agent') return <DoNow supabase={supabase} orgId={org.id} userId={user.id} firstName={me.full_name.split(' ')[0]} />;
   const mgr = isManager(role);
   const mine = !mgr || searchParams.scope === 'mine';
   const now = new Date().toISOString();
