@@ -5,6 +5,8 @@ import { isManager } from '@/lib/roles';
 import { fmtL } from '@/lib/crm';
 import { setUnitStatus } from '@/app/crm-actions';
 import { AutoFilterForm } from '@/components/AutoFilterForm';
+import { UnitImport } from '@/components/UnitImport';
+import { showRateCard } from '@/lib/units';
 
 export const metadata = { title: 'Flats and prices' };
 
@@ -36,6 +38,12 @@ export default async function Units({ params, searchParams }: { params: { id: st
         <div><h1>{p.name}</h1><p className="hint">{p.location}{p.map_url ? <> · <a href={p.map_url} target="_blank" rel="noopener noreferrer">Google Maps</a></> : null}</p></div>
         <Link href="/projects" className="btn sm ghost">← Projects</Link>
       </div>
+      {mgr && (
+        <details className="panel" open={!all.length} style={{ marginBottom: 12 }}>
+          <summary className="panel-h" style={{ cursor: 'pointer' }}><h2>{all.length ? 'Update flats from Excel' : 'Add flats from Excel'}</h2><span className="hint">Admins and managers</span></summary>
+          <div className="panel-b"><UnitImport projectId={p.id} hasUnits={all.length > 0} rateCard={showRateCard((p.rate_card ?? []) as { floors: string; rate: number }[])} /></div>
+        </details>
+      )}
       <div className="kpis" style={{ marginBottom: 12 }}>
         {(['open', 'hold', 'booked', 'mortgage'] as const).map((st) => <div key={st} className="kpi"><span className="label">{LABEL[st]}</span><span className="n">{count(st)}</span></div>)}
       </div>

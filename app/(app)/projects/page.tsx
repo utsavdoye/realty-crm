@@ -54,6 +54,7 @@ export default async function Projects() {
               {unitsBy.has(p.id) && (() => { const c = unitsBy.get(p.id)!; const all = Object.values(c).reduce((a, b) => a + b, 0); return (
                 <Link href={`/projects/${p.id}/units`} className="units-chip"><b>{c.open ?? 0}</b> of {all} flats open{c.booked ? ` · ${c.booked} booked` : ''}{c.hold ? ` · ${c.hold} on hold` : ''}{c.mortgage ? ` · ${c.mortgage} mortgage` : ''} → see flats & prices</Link>
               ); })()}
+              {!unitsBy.has(p.id) && mgr && <Link href={`/projects/${p.id}/units`} className="hint">+ Add flats &amp; prices from Excel</Link>}
               {p.map_url && <a href={p.map_url} target="_blank" rel="noopener noreferrer" className="hint">📍 Google Maps</a>}
               {p.rera_no && <div className="hint mono">RERA {p.rera_no}</div>}
               {p.highlights && <div className="hint">{p.highlights}</div>}

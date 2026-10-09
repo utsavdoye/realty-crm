@@ -570,6 +570,40 @@ export async function setUnitStatus(fd: FormData) {
   revalidatePath('/projects', 'layout');
 }
 
+export type UnitIn = { tower: string; floor: number | null; unit_no: string; bhk: string | null; sba: number | null; carpet: number | null; rate: number | null; status: string };
+
+/** Flats from an Excel sheet. "replace" removes the old list first; otherwise flats are added or updated by flat number. */
+export async function importUnits(projectId: string, units: UnitIn[], replace: boolean, rateCard: { floors: string; rate: number }[]): Promise<{ ok?: string; error?: string }> {
+  const { supabase, org, role } = await ctx();
+  if (!isManager(role)) return { error: 'Only an admin or a manager can change flats.' };
+  if (!/^[0-9a-f-]{36}$/.test(String(projectId))) return { error: 'Project not found.' };
+  const { data: p } = await supabase.from('projects').select('id').eq('id', projectId).eq('org_id', org.id).maybeSingle();
+  if (!p) return { error: 'Project not found.' };
+  if (!Array.isArray(units) || !units.length) return { error: 'No flats to save.' };
+  if (units.length > 5000) return { error: 'At most 5,000 flats at a time.' };
+  const n = (v: unknown, max: number) => (typeof v === 'number' && Number.isFinite(v) && v > 0 && v < max ? v : null);
+  const clean = units.filter((u) => u && typeof u.unit_no === 'string' && u.unit_no.trim()).map((u) => ({
+    org_id: org.id, project_id: projectId,
+    tower: String(u.tower ?? '').slice(0, 20) || 'A', floor: typeof u.floor === 'number' && Number.isFinite(u.floor) ? Math.round(u.floor) : null,
+    unit_no: String(u.unit_no).trim().slice(0, 30), bhk: u.bhk ? String(u.bhk).slice(0, 30) : null,
+    sba: n(u.sba, 100000), carpet: n(u.carpet, 100000), rate: n(u.rate, 1000000),
+    status: ['open', 'hold', 'booked', 'mortgage'].includes(u.status) ? u.status : 'open',
+  }));
+  if (replace) {
+    const { error } = await supabase.from('project_units').delete().eq('project_id', projectId).eq('org_id', org.id);
+    if (error) return { error: friendly(error.message) };
+  }
+  for (let i = 0; i < clean.length; i += 500) {
+    const { error } = await supabase.from('project_units').upsert(clean.slice(i, i + 500), { onConflict: 'project_id,unit_no' });
+    if (error) return { error: `${friendly(error.message)} (${i} saved before this stopped)` };
+  }
+  const card = (Array.isArray(rateCard) ? rateCard : []).filter((b) => b && typeof b.rate === 'number' && b.rate > 0).slice(0, 30)
+    .map((b) => ({ floors: String(b.floors).slice(0, 12), rate: Math.round(b.rate) }));
+  if (card.length) await supabase.from('projects').update({ rate_card: card }).eq('id', projectId).eq('org_id', org.id);
+  revalidatePath('/projects', 'layout');
+  return { ok: `${clean.length} flat${clean.length === 1 ? '' : 's'} saved.` };
+}
+
 // ---------- Site-visit check-in (GPS) ----------
 
 /** Turns GPS into a readable address (free OpenStreetMap service). Empty if it does not answer quickly. */
