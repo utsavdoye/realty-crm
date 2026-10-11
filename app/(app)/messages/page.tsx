@@ -37,7 +37,7 @@ export default async function Messages() {
           <div key={t.id} className="pcard">
             <span className="chip acc" style={{ alignSelf: 'flex-start' }}>{t.use_for}</span>
             <h2>{t.name}</h2>
-            <div className="bubble">{fillTemplate(t.body, sample)}</div>
+            <div className="bubble" translate="no">{fillTemplate(t.body, sample)}</div>
             {mgr && (
               <details>
                 <summary className="btn sm ghost">Edit</summary>

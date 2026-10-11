@@ -7,7 +7,7 @@ import { CallButton } from '@/components/CallButton';
 import { CheckInButton } from '@/components/CheckInButton';
 import { inrShort } from '@/lib/money';
 import { completeStep, undoStep } from '@/app/crm-actions';
-import { STEPS, clientSummary, currentStep, peopleWhoSpoke, stepLabel, type StepRow } from '@/lib/journey';
+import { STEPS, clientSummary, clientSummaryHi, currentStep, peopleWhoSpoke, stepLabel, type StepRow } from '@/lib/journey';
 import { dismissMatches, recycleCall, addNote, assignLead, deleteLead, markLost, scheduleVisit, setFollowUp, setScore, setStage, updateLead, visitResult } from '@/app/crm-actions';
 import { ActionForm, Submit } from '@/components/forms';
 import { CopyButton } from '@/components/CopyButton';
@@ -74,6 +74,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
   const canDoStep = admin || role === 'manager' || lead.assigned_to === user.id;
   const visibleSteps = STEPS.filter((x) => x.k !== 'payment' || admin);
   const summary = clientSummary(lead, steps, (acts ?? []) as never, nameOf, project?.name, cur);
+  const summaryHi = clientSummaryHi(lead, steps, (acts ?? []) as never, nameOf, project?.name, cur);
   const spoke = peopleWhoSpoke((acts ?? []) as never, steps, nameOf);
   // A call can finish these steps (from the "How did the call go?" form).
   const callStep = cur && ['call', 'presentation', 'followup'].includes(cur) && (admin || role === 'manager' || lead.assigned_to === user.id)
@@ -271,7 +272,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
           <section className="panel">
             <div className="panel-h"><h2>Client summary</h2><span className="hint">Made from what the team saved</span></div>
             <div className="panel-b stack">
-              <p className="sumbox">{summary}</p>
+              <p className="sumbox" data-hi={summaryHi}>{summary}</p>
               {spoke.length > 0 && (
                 <div className="spoke">
                   <span className="label">Who spoke to the client</span>

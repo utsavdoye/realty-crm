@@ -78,3 +78,33 @@ export function clientSummary(lead: LeadLike, steps: StepRow[], acts: Act[], nam
 }
 
 export const whenDone = (iso: string) => fmtDT(iso);
+
+/* Hindi version of the client summary, shown when the app is switched to हिंदी. */
+const STEP_HI: Record<string, string> = { received: 'लीड मिली', call: 'पहली कॉल', presentation: 'प्रोजेक्ट प्रेज़ेंटेशन', visit: 'साइट विज़िट', followup: 'फ़ॉलो-अप', payment: 'पेमेंट' };
+const STAGE_HI: Record<string, string> = { new: 'नया', contacted: 'संपर्क हुआ', qualified: 'इच्छुक', visit: 'विज़िट तय', visited: 'विज़िट हो गई', negotiation: 'मोलभाव', token: 'टोकन दिया', booked: 'बुक हो गया', lost: 'लॉस्ट' };
+const SCORE_HI: Record<string, string> = { hot: 'हॉट', warm: 'वार्म', cold: 'कोल्ड' };
+const PURPOSE_HI: Record<string, string> = { 'Self use': 'खुद रहने के लिए', Investment: 'इन्वेस्टमेंट' };
+const PTYPE_HI: Record<string, string> = { Apartment: 'अपार्टमेंट', Villa: 'विला', Plot: 'प्लॉट', Commercial: 'कमर्शियल', 'Shop / Office': 'दुकान / ऑफ़िस', 'Independent house': 'इंडिपेंडेंट घर' };
+const dayHi = (iso: string) => new Date(iso).toLocaleDateString('hi-IN', { day: 'numeric', month: 'short', timeZone: 'Asia/Kolkata' });
+
+export function clientSummaryHi(lead: LeadLike, steps: StepRow[], acts: Act[], nameOf: Map<string, string>, projectName?: string | null, nextStep?: string | null) {
+  const first = lead.name.split(' ')[0];
+  const want = [lead.bhk, lead.property_type ? PTYPE_HI[lead.property_type] ?? lead.property_type : ''].filter(Boolean).join(' ') || 'घर';
+  const budget = fmtBudget(lead.budget_min ?? null, lead.budget_max ?? null).replace(/^Up to (.*)$/, '$1 तक');
+  const parts: string[] = [];
+  parts.push(`${first} को ${lead.location ? `${lead.location} में ` : ''}${want} चाहिए${budget ? `, बजट ${budget}` : ''}${lead.purpose ? ` (${PURPOSE_HI[lead.purpose] ?? lead.purpose})` : ''}।`);
+  parts.push(`रुचि: ${SCORE_HI[lead.score] ?? lead.score}। ${dayHi(lead.created_at)} को आई${lead.source ? `, ${lead.source} से` : ''}।`);
+  const doneSteps = steps.filter((s) => s.step !== 'received').sort((a, b) => a.done_at.localeCompare(b.done_at));
+  if (doneSteps.length) {
+    parts.push('अब तक: ' + doneSteps.map((s) => `${STEP_HI[s.step] ?? s.step}${s.done_by && nameOf.get(s.done_by) ? ` (${nameOf.get(s.done_by)!.split(' ')[0]})` : ''} ${dayHi(s.done_at)}`).join(', ') + '।');
+  } else {
+    const calls = acts.filter((a) => a.type === 'call').length;
+    parts.push(calls ? `${calls} कॉल हुईं, अभी कोई स्टेप पूरा नहीं।` : 'अभी तक किसी ने बात नहीं की।');
+  }
+  if (projectName) parts.push(`प्रोजेक्ट जिस पर बात हुई: ${projectName}।`);
+  const latest = [...doneSteps].reverse().find((s) => s.summary)?.summary
+    ?? acts.find((a) => ['call', 'note', 'visit'].includes(a.type) && a.by_user)?.body;
+  if (latest) parts.push(`आख़िरी नोट: “${clip(latest.replace(/\s+/g, ' '), 200)}”`);
+  parts.push(`अभी: ${STAGE_HI[lead.stage] ?? lead.stage}${nextStep ? `, अगला: ${STEP_HI[nextStep] ?? nextStep}` : ''}${lead.assigned_to && nameOf.get(lead.assigned_to) ? ` — ${nameOf.get(lead.assigned_to)} के पास` : ''}।`);
+  return parts.join(' ');
+}
