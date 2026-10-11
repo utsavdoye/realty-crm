@@ -31,16 +31,46 @@ Takes about 30–40 minutes the first time.
 ### Turn on email OTP (works today, free)
 
 5. **Authentication → Sign In / Providers → Email**: make sure Email is ON.
-6. **Authentication → Emails (Templates)**. Open **Magic Link** and **Confirm signup**. In both, replace the body with:
+6. **Send login emails from trustarcestates@gmail.com (free, about 500 emails a day).**
+   a. Sign in to Gmail as trustarcestates@gmail.com → **myaccount.google.com → Security** → turn on **2-Step Verification**.
+   b. Same page → search **App passwords** → name it `Supabase` → **Create**. Copy the 16-letter password (no spaces). Never share it or paste it in chat.
+   c. Supabase → **Authentication → Emails → SMTP Settings** → turn on **Enable Custom SMTP** and fill in:
+      - Sender email: `trustarcestates@gmail.com`
+      - Sender name: `TrustArc Estates`
+      - Host: `smtp.gmail.com`
+      - Port: `465`
+      - Username: `trustarcestates@gmail.com`
+      - Password: the 16-letter app password
+      - Minimum interval: `30` seconds → **Save**.
+   d. **Authentication → Rate Limits** → emails per hour → `100` → Save.
+7. **Authentication → Emails → Templates.** Paste these:
 
+   **Magic Link** and **Confirm signup** (same for both)
+   - Subject: `Your TrustArc Estates login code: {{ .Token }}`
+   - Body:
    ```
-   <h2>Your EstateDesk login code</h2>
-   <p>Enter this code: <b style="font-size:24px">{{ .Token }}</b></p>
-   <p>It expires in 1 hour. If you did not ask for it, ignore this email.</p>
+   <div style="font-family:Arial,sans-serif;max-width:420px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:12px">
+     <h2 style="margin:0 0 4px;color:#111827">TrustArc Estates</h2>
+     <p style="margin:0 0 20px;color:#6b7280">Your login code</p>
+     <p style="font-size:32px;letter-spacing:6px;font-weight:bold;margin:0 0 20px;color:#111827">{{ .Token }}</p>
+     <p style="color:#374151">Type this code on the login page. It works for 1 hour.</p>
+     <p style="color:#9ca3af;font-size:12px">Did not ask for this? Ignore this email. Nobody can log in without the code.</p>
+   </div>
    ```
-7. **Authentication → URL Configuration**: set **Site URL** to your Vercel address (after Part C), e.g. `https://estatedesk.vercel.app`.
 
-> Supabase's built-in email sender only allows a few emails per hour. Fine for testing. Before your father's whole team uses it, connect a free SMTP sender (Resend or Brevo) in **Authentication → Emails → SMTP settings**.
+   **Reset Password**
+   - Subject: `Reset your TrustArc Estates password`
+   - Body:
+   ```
+   <div style="font-family:Arial,sans-serif;max-width:420px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:12px">
+     <h2 style="margin:0 0 4px;color:#111827">TrustArc Estates</h2>
+     <p style="color:#374151">Tap the button to set a new password.</p>
+     <p><a href="{{ .ConfirmationURL }}" style="display:inline-block;background:#111827;color:#fff;padding:12px 20px;border-radius:8px;text-decoration:none">Set new password</a></p>
+     <p style="color:#9ca3af;font-size:12px">Did not ask for this? Ignore this email. Your password stays the same.</p>
+   </div>
+   ```
+8. **Authentication → URL Configuration**: set **Site URL** to your Vercel address, e.g. `https://realty-crm-navy.vercel.app`, and add `https://realty-crm-navy.vercel.app/**` under **Redirect URLs**.
+9. **Test:** open the site in a private window → log in with an email → the code should arrive from "TrustArc Estates" within a minute. Check Spam the first time and mark it "Not spam". If nothing arrives: Supabase → **Logs → Auth** shows the error (wrong app password is the usual cause).
 
 ### Turn on mobile OTP (later, costs money per SMS)
 
@@ -74,7 +104,7 @@ Until SMS is on, the login page tells people to use email. Nothing breaks.
    | `NEXT_PUBLIC_SITE_URL` | `https://<your-project>.vercel.app` |
 
 3. Press **Deploy**. In 1–2 minutes you get your link.
-4. Go back to Supabase step 7 and put this link as the Site URL.
+4. Go back to Supabase step 8 and put this link as the Site URL.
 
 ---
 

@@ -410,6 +410,10 @@ form.inline { display: inline; }
 .vbtn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 16px; border: 1px solid var(--line-2); background: var(--surface); color: var(--fg); font-size: 13px; font-weight: 500; cursor: pointer; }
 .vbtn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
 .vbtn:disabled { opacity: .6; cursor: wait; }
+.vlang { display: inline-flex; border: 1px solid var(--line-2); border-radius: 16px; overflow: hidden; }
+.vlang button { border: 0; background: var(--surface); color: var(--muted, #6b7280); font-size: 12px; padding: 5px 10px; cursor: pointer; }
+.vlang button.on { background: var(--accent); color: #fff; }
+.vlang button:disabled { opacity: .6; }
 .vbtn.rec { border-color: var(--hot); color: var(--hot); }
 .vdot { width: 8px; height: 8px; border-radius: 50%; background: var(--hot); animation: micpulse 1s infinite; }
 @keyframes micpulse { 50% { opacity: .25; } }

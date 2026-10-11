@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 type State = 'idle' | 'asking' | 'recording' | 'working' | 'done' | 'error';
 const MAX_SECONDS = 90;
+const LANG_KEY = 'ed_voice_lang';
 
 /** Turns any recording the browser makes into a small 16 kHz mono WAV file (works the same on Chrome, Safari, Android). */
 async function toWav(blob: Blob): Promise<Blob> {
@@ -44,6 +45,10 @@ export function VoiceFill({ enabled, endpoint = '/api/voice/lead', extra, onFiel
   const [msg, setMsg] = useState('');
   const [heard, setHeard] = useState('');
   const [filled, setFilled] = useState<string[]>([]);
+  const [lang, setLang] = useState<'en' | 'hi'>('en');
+
+  useEffect(() => { try { if (localStorage.getItem(LANG_KEY) === 'hi') setLang('hi'); } catch { /* ignore */ } }, []);
+  function pickLang(l: 'en' | 'hi') { setLang(l); try { localStorage.setItem(LANG_KEY, l); } catch { /* ignore */ } }
 
   useEffect(() => () => { clearInterval(timer.current); rec.current?.stream.getTracks().forEach((t) => t.stop()); }, []);
 
@@ -99,7 +104,7 @@ export function VoiceFill({ enabled, endpoint = '/api/voice/lead', extra, onFiel
     setState('working');
     try {
       const wav = await toWav(raw);
-      const fd = new FormData(); fd.append('audio', wav, 'note.wav');
+      const fd = new FormData(); fd.append('audio', wav, 'note.wav'); fd.append('lang', lang);
       Object.entries(extra ?? {}).forEach(([k, v]) => fd.append(k, v));
       const res = await fetch(endpoint, { method: 'POST', body: fd });
       const data = await res.json().catch(() => ({}));
@@ -128,6 +133,12 @@ export function VoiceFill({ enabled, endpoint = '/api/voice/lead', extra, onFiel
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3" /></svg>
             {state === 'working' ? 'Filling…' : label}
           </button>
+        )}
+        {state !== 'recording' && (
+          <span className="vlang" role="group" aria-label="Write the note in">
+            <button type="button" className={lang === 'en' ? 'on' : ''} aria-pressed={lang === 'en'} onClick={() => pickLang('en')} disabled={busy} title="Write the note in English">English</button>
+            <button type="button" className={lang === 'hi' ? 'on' : ''} aria-pressed={lang === 'hi'} onClick={() => pickLang('hi')} disabled={busy} title="नोट हिंदी में लिखें">हिंदी</button>
+          </span>
         )}
         {state === 'recording' && <span className="hint">{tip}</span>}
         {state === 'done' && <span className="hint ok-text">{filled.length ? `Filled ${filled.length} fields — ${doneHint}` : 'Could not catch that. Try again, a bit slower.'}</span>}

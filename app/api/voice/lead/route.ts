@@ -23,6 +23,8 @@ export async function POST(req: Request) {
   if (audio.size > MAX_BYTES) return NextResponse.json({ error: 'Too long. Keep it under 90 seconds.' }, { status: 413 });
   if (audio.type && !/^audio\//.test(audio.type)) return NextResponse.json({ error: 'That is not a voice recording.' }, { status: 415 });
   if (role === 'partner') return NextResponse.json({ error: 'Voice filling is for the team only.' }, { status: 403 });
+  const hindi = form?.get('lang') === 'hi';
+  const noteLang = hindi ? 'simple Hindi in Devanagari script (हिंदी)' : 'simple English';
   // Daily limit per person (keeps the free AI quota for everyone). If the limit check itself is not set up yet, carry on.
   const { data: allowed, error: limitErr } = await supabase.rpc('ai_ok', { p_kind: 'voice' });
   if (!limitErr && allowed === false) return NextResponse.json({ error: 'Daily voice limit reached. Please type it for now; it resets tomorrow.' }, { status: 429 });
@@ -30,8 +32,8 @@ export async function POST(req: Request) {
   const { data: projects } = await supabase.from('projects').select('name').eq('org_id', org.id).limit(100);
   const projectNames = (projects ?? []).map((p) => p.name);
 
-  const prompt = `You help a real-estate sales team in Bengaluru, India fill a new client (lead) form.
-Listen to the voice note. The person may speak Hindi, English, Kannada words, or a mix (Hinglish).
+  const prompt = `You help a real-estate sales team in India fill a new client (lead) form.
+Listen to the voice note. The person may speak Hindi, English, other Indian-language words, or a mix (Hinglish).
 Return ONLY what was actually said. Use "" for anything not mentioned. Never invent details.
 
 Rules:
@@ -41,15 +43,16 @@ Rules:
 - budget: short form like "80 L to 1 Cr", "1.2 Cr", "up to 60 L". "lakh/lac/lakhs" → L, "crore/cr" → Cr.
 - bhk: one of ${BHKS.map((x) => `"${x}"`).join(', ')}.
 - property_type: one of ${PTYPES.map((x) => `"${x}"`).join(', ')}. (flat = Apartment, plot/site/land = Plot, office/shop = Commercial)
-- location: the area(s) in Bengaluru they want, comma separated, proper spelling (e.g. "Whitefield, Sarjapur Road").
+- location: the area(s) they want, comma separated, proper spelling (e.g. "Whitefield, Sarjapur Road").
 - purpose: one of ${PURPOSES.map((x) => `"${x}"`).join(', ')}. (rehne ke liye / own use = Self use; investment / rent = Investment)
 - preferred_slot: when to call or meet, short English (e.g. "Saturday morning", "Weekdays after 7 PM").
 - source: where the client came from, one of ${SOURCES.map((x) => `"${x}"`).join(', ')}.
 - project: if they named one of these projects, return its exact name: ${projectNames.length ? projectNames.map((x) => `"${x}"`).join(', ') : '(none)'}.
 - score: "hot" if ready to buy soon or wants a visit, "cold" if just looking, else "warm". "" if unclear.
 - dob: client's date of birth as YYYY-MM-DD only if fully said.
-- note: everything else useful, in short simple English (family, loan status, timeline, must-haves).
-- transcript: what was said, word for word, in the language spoken (Roman letters for Hindi are fine).`;
+- note: everything else useful, in short ${noteLang} (family, loan status, timeline, must-haves).
+- transcript: what was said, written in ${noteLang}. If they spoke another language, translate it faithfully.
+- name, phone, email, location, preferred_slot and the fixed choices stay in English letters, whatever language is used for note and transcript.`;
 
   const bytes = Buffer.from(await audio.arrayBuffer()).toString('base64');
   const model = process.env.GEMINI_MODEL || 'gemini-flash-latest';

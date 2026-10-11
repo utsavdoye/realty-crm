@@ -23,6 +23,8 @@ export async function POST(req: Request) {
   if (audio.size > MAX_BYTES) return NextResponse.json({ error: 'Too long. Keep it under 90 seconds.' }, { status: 413 });
   if (audio.type && !/^audio\//.test(audio.type)) return NextResponse.json({ error: 'That is not a voice recording.' }, { status: 415 });
   if (role === 'partner') return NextResponse.json({ error: 'Voice filling is for the team only.' }, { status: 403 });
+  const hindi = form?.get('lang') === 'hi';
+  const noteLang = hindi ? 'simple Hindi in Devanagari script (हिंदी)' : 'simple English';
   // Daily limit per person (keeps the free AI quota for everyone). If the limit check itself is not set up yet, carry on.
   const { data: allowed, error: limitErr } = await supabase.rpc('ai_ok', { p_kind: 'voice' });
   if (!limitErr && allowed === false) return NextResponse.json({ error: 'Daily voice limit reached. Please type it for now; it resets tomorrow.' }, { status: 429 });
@@ -47,8 +49,9 @@ Fields:
 - bhk: if they said what home they want: one of ${BHKS.map((b) => `"${b}"`).join(', ')}.
 - budget: if a budget was said, short like "60 L to 80 L", "up to 1.2 Cr".
 - location: areas they want, comma separated, proper spelling.
-- note: a short clean summary of the call in simple English (family, loan, objections, what to send them). Keep it under 60 words.
-- transcript: what was said, word for word (Roman letters for Hindi are fine).`;
+- note: a short clean summary of the call in ${noteLang} (family, loan, objections, what to send them). Keep it under 60 words.
+- transcript: what was said, written in ${noteLang}. If they spoke another language, translate it faithfully.
+- Keep names, places, numbers and the fixed choices above in English letters, whatever language is used for note and transcript.`;
 
   const bytes = Buffer.from(await audio.arrayBuffer()).toString('base64');
   const str = { type: 'STRING' };
