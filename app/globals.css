@@ -12,8 +12,8 @@
   --shadow: 0 2px 6px rgba(20,21,27,.03), 0 12px 32px -12px rgba(20,21,27,.10);
   --shadow-lg: 0 4px 10px rgba(20,21,27,.04), 0 28px 60px -20px rgba(20,21,27,.20);
   --glow: 0 10px 24px -8px rgba(74,85,236,.55);
-  --f-display: "Plus Jakarta Sans", "Inter", "Segoe UI", system-ui, sans-serif;
-  --f-body: "Plus Jakarta Sans", "Inter", "Segoe UI", system-ui, sans-serif;
+  --f-display: "Plus Jakarta Sans", "Noto Sans Devanagari", "Inter", "Segoe UI", system-ui, sans-serif;
+  --f-body: "Plus Jakarta Sans", "Noto Sans Devanagari", "Inter", "Segoe UI", system-ui, sans-serif;
   --f-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
   --r: 24px; --r-md: 16px; --r-sm: 12px;
   --ease: cubic-bezier(.2,.7,.2,1);
@@ -1021,3 +1021,13 @@ input[type=checkbox], input[type=radio] { width: auto; padding: 0; box-shadow: n
 @media (max-width: 640px) { .dup-pair { grid-template-columns: 1fr; } }
 .units-chip { display: block; padding: 8px 10px; border-radius: 10px; background: var(--good-soft); color: #128a3e; font-size: 13px; }
 .units-chip:hover { color: #0d6e31; }
+
+/* Language switch (English | हिंदी) */
+html.xl8 body { visibility: hidden; }
+.langsw { display: inline-flex; border: 1px solid var(--line-2); border-radius: 16px; overflow: hidden; background: var(--surface); flex: none; }
+.langsw button { border: 0; background: transparent; color: var(--muted); font: inherit; font-size: 12px; font-weight: 600; padding: 5px 11px; cursor: pointer; }
+.langsw button.on { background: var(--accent); color: #fff; }
+.langbar { display: flex; justify-content: flex-end; margin: -14px 0 10px; }
+.langsw-fixed { position: absolute; top: 16px; right: 16px; z-index: 5; }
+.auth-main { position: relative; }
+@media (max-width: 900px) { .langbar { margin: -6px 52px 10px 0; } }

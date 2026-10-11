@@ -47,7 +47,7 @@ export function VoiceFill({ enabled, endpoint = '/api/voice/lead', extra, onFiel
   const [filled, setFilled] = useState<string[]>([]);
   const [lang, setLang] = useState<'en' | 'hi'>('en');
 
-  useEffect(() => { try { if (localStorage.getItem(LANG_KEY) === 'hi') setLang('hi'); } catch { /* ignore */ } }, []);
+  useEffect(() => { try { const v = localStorage.getItem(LANG_KEY) ?? localStorage.getItem('ed_lang'); if (v === 'hi') setLang('hi'); } catch { /* ignore */ } }, []);
   function pickLang(l: 'en' | 'hi') { setLang(l); try { localStorage.setItem(LANG_KEY, l); } catch { /* ignore */ } }
 
   useEffect(() => () => { clearInterval(timer.current); rec.current?.stream.getTracks().forEach((t) => t.stop()); }, []);

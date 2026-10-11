@@ -1,5 +1,6 @@
 import { APP_NAME } from '@/lib/brand';
 import type { ReactNode } from 'react';
+import { LangSwitch } from '@/components/Translator';
 
 export function Logo() {
   return (
@@ -33,6 +34,7 @@ export function AuthShell({ children }: { children: ReactNode }) {
         <p className="faint">Your company data stays private to your team.</p>
       </div>
       <div className="auth-main">
+        <LangSwitch className="langsw-fixed" />
         <div className="auth-mobile-logo"><Logo /></div>
         {children}
       </div>

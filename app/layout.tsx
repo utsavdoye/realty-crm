@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import './globals.css';
 import { APP_NAME } from '@/lib/brand';
+import { LANG_BOOT, Translator } from '@/components/Translator';
 
 export const metadata = {
   title: { default: APP_NAME, template: `%s · ${APP_NAME}` },
@@ -11,13 +12,14 @@ export const viewport = { width: 'device-width', initialScale: 1, viewportFit: '
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en-IN">
+    <html lang="en-IN" suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: LANG_BOOT }} />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" />
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" />
       </head>
-      <body>{children}</body>
+      <body>{children}<Translator /></body>
     </html>
   );
 }

@@ -11,6 +11,7 @@ import { Bell } from '@/components/Bell';
 import { SideToggle } from '@/components/SideToggle';
 import { AskHelper } from '@/components/AskHelper';
 import { cookies } from 'next/headers';
+import { LangSwitch } from '@/components/Translator';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,7 +53,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </aside>
       <Bell userId={user.id} initial={unread ?? 0} floating />
-      <main className="main">{children}</main>
+      <main className="main"><div className="langbar"><LangSwitch /></div>{children}</main>
       <NavLinks role={role} mobile />
       {role !== 'partner' && <AskHelper />}
       {role !== 'partner' && <CallReturn voice={Boolean(process.env.GEMINI_API_KEY)} />}
