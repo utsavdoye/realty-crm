@@ -3,6 +3,7 @@ import { requireOrg } from '@/lib/context';
 import { fetchAll } from '@/lib/fetchAll';
 import { STEPS, currentStep } from '@/lib/journey';
 import { AutoFilterForm } from '@/components/AutoFilterForm';
+import { scoreLabel } from '@/lib/crm';
 
 export const metadata = { title: 'Journey board' };
 
@@ -67,7 +68,7 @@ export default async function Pipeline({ searchParams }: { searchParams: Record<
                   <Link key={l.id} href={`/leads/${l.id}`} className={`jcard ${l.days > LIMIT[c.k] ? 'late' : ''}`}>
                     <b>{l.name}</b>
                     <span className="hint">{l.assigned_to ? nameOf.get(l.assigned_to) ?? '—' : 'Not given to anyone'}</span>
-                    <span className="jmeta"><span className={`chip ${l.score}`}>{l.score}</span><span>{l.days === 0 ? 'today' : `${l.days} day${l.days === 1 ? '' : 's'}`} with them</span></span>
+                    <span className="jmeta"><span className={`chip ${l.score}`}>{scoreLabel(l.score)}</span><span>{l.days === 0 ? 'today' : `${l.days} day${l.days === 1 ? '' : 's'}`} with them</span></span>
                   </Link>
                 ))}
                 {list.length > 80 && <p className="hint">+{list.length - 80} more</p>}

@@ -28,7 +28,7 @@ async function aiIntent(question: string): Promise<Intent | null> {
   const str = { type: 'STRING' }, num = { type: 'NUMBER' };
   const prompt = `You turn a question from a real-estate sales team in India (English, Hindi or Hinglish) into a search.
 Kinds:
-- "leads": find clients by filters. Fields: q (name or free text), stage (${STAGES.map((s) => s.k).join('/')}/lost), score (hot/warm/cold),
+- "leads": find clients by filters. Fields: q (name or free text), stage (${STAGES.map((s) => s.k).join('/')}/lost), score (hot/warm/cold/junk/later),
   source (${SOURCES.join('/')}), area (place name), bhk (${BHKS.join('/')}), purpose (Self use/Investment/Both),
   bmin and bmax (budget in LAKH; 1 crore = 100), fu (over = follow-up missed, today = due today, none = no next call, stale = untouched 14+ days),
   range (today/week/month/last_month) for when the lead came in.
@@ -75,7 +75,7 @@ function toIntent(o: Record<string, unknown>): Intent {
     case 'leads': {
       const f: LeadFilters = {};
       const stage = s(o.stage); if (stage && (STAGES.some((x) => x.k === stage) || stage === 'lost')) f.stage = stage;
-      const score = s(o.score); if (score && ['hot', 'warm', 'cold'].includes(score)) f.score = score;
+      const score = s(o.score); if (score && ['hot', 'warm', 'cold', 'junk', 'later'].includes(score)) f.score = score;
       const source = s(o.source); if (source && SOURCES.includes(source)) f.source = source;
       const bhk = s(o.bhk); if (bhk && (BHKS as readonly string[]).includes(bhk)) f.bhk = bhk;
       const purpose = s(o.purpose); if (purpose && ['Self use', 'Investment', 'Both'].includes(purpose)) f.purpose = purpose;

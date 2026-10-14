@@ -5,7 +5,7 @@ import { useFormState } from 'react-dom';
 import { logCall } from '@/app/crm-actions';
 import { Submit } from '@/components/forms';
 import { VoiceFill } from '@/components/VoiceFill';
-import { BHKS, LOST_REASONS, OUTCOMES, toLocalInput } from '@/lib/crm';
+import { BHKS, BUDGETS, LOST_REASONS, OUTCOMES, RAIPUR_AREAS, toLocalInput } from '@/lib/crm';
 import type { FormState } from '@/app/actions';
 
 const defaultNext = (k: string) => {
@@ -59,12 +59,13 @@ export function LogCallForm({ leadId, voice = false, step, onSaved }: {
       )}
       {closes && <p className="hint">This lead will be marked as lost.</p>}
       <details className="call-more" open={more} onToggle={(e) => setMore((e.target as HTMLDetailsElement).open)}>
-        <summary className="linkbtn">{more ? 'Hide' : '+ Site visit fixed, or new budget / home type / area?'}</summary>
+        <summary className="linkbtn">{more ? 'Hide' : '+ Site visit fixed, or new budget / configuration / area?'}</summary>
         <div className="grid2f" style={{ marginTop: 10 }}>
           <label className="field"><span className="label">Site visit on</span><input type="datetime-local" name="visit_at" /></label>
-          <label className="field"><span className="label">Home type</span><select name="upd_bhk" defaultValue=""><option value="">No change</option>{BHKS.map((b) => <option key={b}>{b}</option>)}</select></label>
-          <label className="field"><span className="label">Budget</span><input name="upd_budget" placeholder="e.g. 60 L to 80 L" /></label>
-          <label className="field"><span className="label">Area</span><input name="upd_location" placeholder="e.g. VIP Road, Amlidih" /></label>
+          <label className="field"><span className="label">Configuration</span><select name="upd_bhk" defaultValue=""><option value="">No change</option>{BHKS.map((b) => <option key={b}>{b}</option>)}</select></label>
+          <label className="field"><span className="label">Budget</span><select name="upd_budget" defaultValue=""><option value="">No change</option>{BUDGETS.map((b) => <option key={b.k} value={b.k}>{b.l}</option>)}</select></label>
+          <label className="field"><span className="label">Area</span><input name="upd_location" list="raipur-areas-call" placeholder="e.g. VIP Road, Amlidih" /></label>
+          <datalist id="raipur-areas-call">{RAIPUR_AREAS.map((a) => <option key={a} value={a} />)}</datalist>
         </div>
       </details>
       {step && (out === 'interested' || out === 'callback') && (

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireOrg } from '@/lib/context';
-import { BHKS, PTYPES, PURPOSES, SOURCES } from '@/lib/crm';
+import { BHKS, CATEGORIES, FUNDING, OCCUPATIONS, PTYPES, PURPOSES, SCORE_KEYS, SOURCES, budgetKey, parseBudget } from '@/lib/crm';
 import { normPhone, validPhone } from '@/lib/roles';
 
 export const runtime = 'nodejs';
@@ -41,14 +41,19 @@ Rules:
 - phone: digits only; for a number outside India start with + and the country code (e.g. +971501234567). Numbers may be spoken in Hindi ("nau aath chaar…") or English or in groups ("double five"). If you are not sure of every digit, return "".
 - email: lower case, "at" → "@", "dot" → ".".
 - budget: short form like "80 L to 1 Cr", "1.2 Cr", "up to 60 L". "lakh/lac/lakhs" → L, "crore/cr" → Cr.
-- bhk: one of ${BHKS.map((x) => `"${x}"`).join(', ')}.
-- property_type: one of ${PTYPES.map((x) => `"${x}"`).join(', ')}. (flat = Apartment, plot/site/land = Plot, office/shop = Commercial)
-- location: the area(s) they want, comma separated, proper spelling (e.g. "Whitefield, Sarjapur Road").
+- category: one of ${CATEGORIES.map((x) => `"${x}"`).join(', ')}. (flat/villa/house = Residential, shop/office = Commercial, khet/farm = Farm land)
+- bhk (configuration): one of ${BHKS.map((x) => `"${x}"`).join(', ')}. "" for shops, offices and plots.
+- property_type: one of ${PTYPES.map((x) => `"${x}"`).join(', ')}. (flat = Apartment, plot/site = Plot, shop/showroom = Retail, office = Office, khet = Farm land)
+- city: the city where the client lives now, if said (e.g. "Raipur", "Bilaspur").
+- pincode: 6-digit pincode of where they live, only if said.
+- occupation: one of ${OCCUPATIONS.map((x) => `"${x}"`).join(', ')}, only if said.
+- funding: one of ${FUNDING.map((x) => `"${x}"`).join(', ')}. (loan / bank / finance = "Home loan / finance"; own money = "Self-funded")
+- location: the area(s) they want, comma separated, proper spelling. For Naya Raipur use "Naya Raipur – Sector N" or "Naya Raipur (sector not sure)" (e.g. "Whitefield, Sarjapur Road").
 - purpose: one of ${PURPOSES.map((x) => `"${x}"`).join(', ')}. (rehne ke liye / own use = Self use; investment / rent = Investment)
 - preferred_slot: when to call or meet, short English (e.g. "Saturday morning", "Weekdays after 7 PM").
 - source: where the client came from, one of ${SOURCES.map((x) => `"${x}"`).join(', ')}.
 - project: if they named one of these projects, return its exact name: ${projectNames.length ? projectNames.map((x) => `"${x}"`).join(', ') : '(none)'}.
-- score: "hot" if ready to buy soon or wants a visit, "cold" if just looking, else "warm". "" if unclear.
+- score: "hot" if ready to buy soon or wants a visit, "cold" if just looking, "later" if they will buy after some months, else "warm". "" if unclear.
 - dob: client's date of birth as YYYY-MM-DD only if fully said.
 - note: everything else useful, in short ${noteLang} (family, loan status, timeline, must-haves).
 - transcript: what was said, written in ${noteLang}. If they spoke another language, translate it faithfully.
@@ -67,7 +72,7 @@ Rules:
         responseMimeType: 'application/json',
         responseSchema: {
           type: 'OBJECT',
-          properties: { transcript: str, name: str, phone: str, email: str, budget: str, bhk: str, property_type: str, location: str, purpose: str, preferred_slot: str, source: str, project: str, score: str, dob: str, note: str },
+          properties: { transcript: str, name: str, phone: str, email: str, budget: str, category: str, bhk: str, property_type: str, city: str, pincode: str, occupation: str, funding: str, location: str, purpose: str, preferred_slot: str, source: str, project: str, score: str, dob: str, note: str },
           required: ['transcript'],
         },
       },
@@ -98,15 +103,20 @@ Rules:
       name: pick(out.name).slice(0, 120),
       phone: validPhone(phone) ? phone : '',
       email: /^\S+@\S+\.\S+$/.test(String(out.email ?? '')) ? pick(out.email).toLowerCase() : '',
-      budget: pick(out.budget).slice(0, 40),
+      budget: (() => { const b = parseBudget(pick(out.budget).slice(0, 40)); return b ? budgetKey(b.min, b.max) : ''; })(),
+      category: pick(out.category, CATEGORIES),
       bhk: pick(out.bhk, BHKS),
       property_type: pick(out.property_type, PTYPES),
+      city: pick(out.city).slice(0, 80),
+      pincode: /^[1-9]\d{5}$/.test(String(out.pincode ?? '').replace(/\s/g, '')) ? String(out.pincode).replace(/\s/g, '') : '',
+      occupation: pick(out.occupation, OCCUPATIONS),
+      funding: pick(out.funding, FUNDING),
       location: pick(out.location).slice(0, 120),
       purpose: pick(out.purpose, PURPOSES),
       preferred_slot: pick(out.preferred_slot).slice(0, 80),
       source: pick(out.source, SOURCES),
       project: pick(out.project, projectNames),
-      score: pick(out.score, ['hot', 'warm', 'cold']),
+      score: pick(out.score, SCORE_KEYS),
       dob: /^\d{4}-\d{2}-\d{2}$/.test(String(out.dob ?? '')) ? String(out.dob) : '',
       note: pick(out.note),
     },

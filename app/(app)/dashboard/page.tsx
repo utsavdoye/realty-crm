@@ -1,6 +1,7 @@
 import { fetchAll } from '@/lib/fetchAll';
 import Link from 'next/link';
 import { DoNow } from '@/components/DoNow';
+import { AutoFilterForm } from '@/components/AutoFilterForm';
 import { requireOrg } from '@/lib/context';
 import { PICK_HELP, PICK_LABEL, fmtPhone, isManager, memberRole, telHref } from '@/lib/roles';
 import { recycleCall, recycleSnooze } from '@/app/crm-actions';
@@ -9,7 +10,9 @@ import { fmtBudget, fmtTime, fuState, fuText, istAt, istDay, rel, stageChip, sta
 type Lead = { id: string; name: string; phone: string; stage: string; score: string; bhk: string | null; budget_min: number | null; budget_max: number | null; location: string | null; next_follow_up: string | null; created_at: string; source: string | null; assigned_to: string | null };
 const COLS = 'id, name, phone, stage, score, bhk, budget_min, budget_max, location, next_follow_up, created_at, source, assigned_to';
 
-export default async function Today({ searchParams }: { searchParams: { welcome?: string; joined?: string; denied?: string; scope?: string } }) {
+const PERIODS = [{ k: 'today', l: 'Today' }, { k: 'week', l: 'This week' }, { k: '15d', l: 'Last 15 days' }, { k: 'month', l: 'This month' }] as const;
+
+export default async function Today({ searchParams }: { searchParams: { welcome?: string; joined?: string; denied?: string; scope?: string; p?: string } }) {
   const { supabase, org, role, me, user } = await requireOrg();
   // Employees and interns get one simple list: what to do now.
   if (role === 'agent') return <DoNow supabase={supabase} orgId={org.id} userId={user.id} firstName={me.full_name.split(' ')[0]} />;
@@ -19,8 +22,17 @@ export default async function Today({ searchParams }: { searchParams: { welcome?
   const endToday = istAt(1, 0);
   const endTomorrow = istAt(2, 0);
   const monthStart = new Date(`${istDay(new Date()).slice(0, 8)}01T00:00:00+05:30`).toISOString();
+  // The period picked at the top: Today, This week (from Monday), Last 15 days, This month.
+  const period = PERIODS.find((x) => x.k === searchParams.p) ?? PERIODS[0];
+  const dow = (new Date(`${istDay(new Date())}T12:00:00+05:30`).getUTCDay() + 6) % 7; // Monday = 0
+  const pStart = period.k === 'today' ? istAt(0, 0) : period.k === 'week' ? istAt(-dow, 0) : period.k === '15d' ? istAt(-14, 0) : monthStart;
+  const pLabel = period.k === 'today' ? 'today' : period.k === 'week' ? 'this week' : period.k === '15d' ? 'in the last 15 days' : 'this month';
 
-  const scoped = <T,>(q: T) => (mine && role !== 'partner' ? (q as unknown as { eq: (c: string, v: string) => T }).eq('assigned_to', user.id) : q);
+  // Secondary (resale) leads have their own list, so they don't crowd the main numbers.
+  const scoped = <T,>(q: T) => {
+    const w = (q as unknown as { eq: (c: string, v: string) => T }).eq('segment', 'primary');
+    return mine && role !== 'partner' ? (w as unknown as { eq: (c: string, v: string) => T }).eq('assigned_to', user.id) : w;
+  };
 
   const [due, fresh, noNext, booked, visits, people, team, sources, recycle, matches] = await Promise.all([
     Promise.all([
@@ -29,7 +41,7 @@ export default async function Today({ searchParams }: { searchParams: { welcome?
     ]).then(([a, b]) => ({ data: [...(a.data ?? []), ...(b.data ?? [])] })),
     scoped(supabase.from('leads').select(COLS).eq('org_id', org.id).eq('stage', 'new').eq('call_attempts', 0).order('created_at', { ascending: false }).limit(20)),
     scoped(supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).is('next_follow_up', null).not('stage', 'in', '(new,booked,lost)')),
-    scoped(supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).gte('booked_at', monthStart)),
+    scoped(supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).gte('booked_at', pStart)),
     supabase.from('visits').select('id, at, status, lead_id, agent_id, project_id, leads(name, phone), projects(name)').eq('org_id', org.id).eq('status', 'scheduled').gte('at', istAt(0, 0)).lt('at', endTomorrow).order('at'),
     supabase.from('members').select('user_id, full_name').eq('org_id', org.id),
     mgr ? supabase.from('members').select('user_id', { count: 'exact', head: true }).eq('org_id', org.id).eq('active', true) : Promise.resolve({ count: 0 }),
@@ -38,22 +50,30 @@ export default async function Today({ searchParams }: { searchParams: { welcome?
     role === 'partner' ? Promise.resolve({ data: [] }) : supabase.from('project_matches').select('project_id, lead_id, created_at, projects(name), leads!inner(name, stage, assigned_to)').eq('org_id', org.id).is('dismissed_at', null).gte('created_at', new Date(Date.now() - 14 * 86400000).toISOString()).order('created_at', { ascending: false }).limit(300),
   ]);
   // Chart + comparison data
-  const chartFrom = new Date(`${istDay(new Date(Date.now() - 13 * 86400000))}T00:00:00+05:30`).toISOString();
+  const nDays = period.k === 'today' ? 14 : period.k === 'week' ? Math.max(7, dow + 1) : period.k === '15d' ? 15 : Math.max(7, Number(istDay(new Date()).slice(8)));
+  const chartFrom = new Date(`${istDay(new Date(Date.now() - (nDays - 1) * 86400000))}T00:00:00+05:30`).toISOString();
   const lastMonthStart = (() => { const d = new Date(`${istDay(new Date()).slice(0, 8)}01T00:00:00Z`); d.setUTCMonth(d.getUTCMonth() - 1); return new Date(`${d.toISOString().slice(0, 10)}T00:00:00+05:30`).toISOString(); })();
   // Real totals (the lists above only show the first few rows).
-  const [recent, bookedPrev, nOver, nToday, nFresh] = await Promise.all([
+  const [recent, bookedPrev, nOver, nToday, nFresh, nIn, nVisited, nSecondary] = await Promise.all([
     fetchAll<{ created_at: string; max_stage: number }>(() => scoped(supabase.from('leads').select('id, created_at, max_stage').eq('org_id', org.id).gte('created_at', chartFrom).order('id'))),
-    scoped(supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).gte('booked_at', lastMonthStart).lt('booked_at', monthStart)),
+    period.k === 'month'
+      ? scoped(supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).gte('booked_at', lastMonthStart).lt('booked_at', monthStart))
+      : scoped(supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).gte('booked_at', new Date(2 * new Date(pStart).getTime() - Date.now()).toISOString()).lt('booked_at', pStart)),
     scoped(supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).lt('next_follow_up', now).not('stage', 'in', '(booked,lost)')),
     scoped(supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).gte('next_follow_up', now).lt('next_follow_up', endToday).not('stage', 'in', '(booked,lost)')),
     scoped(supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).eq('stage', 'new').eq('call_attempts', 0)),
+    scoped(supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).gte('created_at', pStart)),
+    (() => { const v = supabase.from('visits').select('id', { count: 'exact', head: true }).eq('org_id', org.id).eq('status', 'done').gte('at', pStart).lt('at', now); return mine && role !== 'partner' ? v.eq('agent_id', user.id) : v; })(),
+    (() => { const v = supabase.from('leads').select('id', { count: 'exact', head: true }).eq('org_id', org.id).eq('segment', 'secondary').not('stage', 'in', '(booked,lost)'); return mine && role !== 'partner' ? v.eq('assigned_to', user.id) : v; })(),
   ]);
-  const days = Array.from({ length: 14 }, (_, i) => istDay(new Date(Date.now() - (13 - i) * 86400000)));
+  const days = Array.from({ length: nDays }, (_, i) => istDay(new Date(Date.now() - (nDays - 1 - i) * 86400000)));
   const perDay = new Map(days.map((d) => [d, { n: 0, reached: 0 }]));
   recent.forEach((l) => { const r = perDay.get(istDay(l.created_at)); if (r) { r.n++; if (l.max_stage >= 1) r.reached++; } });
   const series = days.map((d) => ({ d, ...perDay.get(d)! }));
   const total14 = series.reduce((a, b) => a + b.n, 0);
   const reached14 = series.reduce((a, b) => a + b.reached, 0);
+  const pIn = recent.filter((l) => l.created_at >= pStart);
+  const pReached = pIn.filter((l) => l.max_stage >= 1).length;
   const top = Math.max(4, ...series.map((x) => x.n));
   const step = Math.ceil(top / 4);
   const yMax = step * 4;
@@ -93,10 +113,14 @@ export default async function Today({ searchParams }: { searchParams: { welcome?
           <h1>{greet}{first ? `, ${first}` : ''}</h1>
           <p className="hint">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Asia/Kolkata' })} · Here is what needs your attention today.</p>
         </div>
+        <AutoFilterForm className="period" action="/dashboard">
+          {searchParams.scope === 'mine' && <input type="hidden" name="scope" value="mine" />}
+          <select name="p" defaultValue={period.k} aria-label="Period">{PERIODS.map((x) => <option key={x.k} value={x.k}>{x.l}</option>)}</select>
+        </AutoFilterForm>
         {mgr && (
           <div className="seg">
-            <Link href="/dashboard?scope=mine" className={mine ? 'on' : ''}>My leads</Link>
-            <Link href="/dashboard" className={!mine ? 'on' : ''}>Everyone</Link>
+            <Link href={`/dashboard?scope=mine${period.k !== 'today' ? `&p=${period.k}` : ''}`} className={mine ? 'on' : ''}>My leads</Link>
+            <Link href={`/dashboard${period.k !== 'today' ? `?p=${period.k}` : ''}`} className={!mine ? 'on' : ''}>Everyone</Link>
           </div>
         )}
         <Link className="btn primary" href="/leads/new">+ Add lead</Link>
@@ -105,6 +129,7 @@ export default async function Today({ searchParams }: { searchParams: { welcome?
       {searchParams.joined && <div className="banner">You joined {org.name} as {PICK_LABEL[memberRole(me)]}. {PICK_HELP[memberRole(me)]}</div>}
       {searchParams.denied && <div className="banner warn">That page is only for admins and managers.</div>}
 
+      <div className="kpi-group"><span className="label">Right now</span></div>
       <div className="kpis">
         <Link className="kpi hero" href="/leads?fu=over">
           <div className="kpi-top"><i className="kpi-ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></i>{overdue.length > 0 && <span className="trend bad">Call now</span>}</div>
@@ -118,7 +143,7 @@ export default async function Today({ searchParams }: { searchParams: { welcome?
         </Link>
         <Link className="kpi" href="/leads?stage=new">
           <div className="kpi-top"><i className="kpi-ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M19 8v6M16 11h6"/></svg></i>{freshList.length > 0 && <span className="trend warn">Waiting</span>}</div>
-          <span className="label">New, not called</span><span className="n">{nFresh.count ?? freshList.length}</span>
+          <span className="label">New, not called yet</span><span className="n">{nFresh.count ?? freshList.length}</span>
           <span className="kpi-sub">Call within 5 minutes</span>
         </Link>
         <Link className="kpi" href="/visits">
@@ -126,16 +151,32 @@ export default async function Today({ searchParams }: { searchParams: { welcome?
           <span className="label">Site visits today</span><span className="n">{visitsToday.length}</span>
           <span className="kpi-sub">{allVisits.length - visitsToday.length} more tomorrow</span>
         </Link>
-        <Link className="kpi" href="/leads?stage=booked">
-          <div className="kpi-top"><i className="kpi-ic" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg></i>{bookedTrend !== null && <span className={`trend ${bookedTrend >= 0 ? 'good' : 'bad'}`}>{bookedTrend >= 0 ? '+' : ''}{bookedTrend}%</span>}</div>
-          <span className="label">Booked this month</span><span className="n">{bookedNow}</span>
-          <span className="kpi-sub">{bookedBefore} last month</span>
+      </div>
+      <div className="kpi-group"><span className="label">{period.l}{mine ? ' · your leads' : ''}</span></div>
+      <div className="kpis">
+        <Link className="kpi" href={`/leads?from=${istDay(pStart)}&to=${istDay(new Date())}`}>
+          <span className="label">Leads received {pLabel}</span><span className="n">{nIn.count ?? pIn.length}</span>
+          <span className="kpi-sub">{(nIn.count ?? 0) ? `${Math.round((pReached / Math.max(1, pIn.length)) * 100)}% reached by phone` : 'None yet'}</span>
         </Link>
+        <Link className="kpi" href="/visits">
+          <span className="label">Site visits done {pLabel}</span><span className="n">{nVisited.count ?? 0}</span>
+          <span className="kpi-sub">Marked “came and saw the site”</span>
+        </Link>
+        <Link className="kpi" href="/leads?stage=booked">
+          <span className="label">Bookings {pLabel}</span><span className="n">{bookedNow}</span>
+          <span className="kpi-sub">{bookedBefore} in the {period.k === 'month' ? 'month' : 'period'} before{bookedTrend !== null && <> · <span className={`trend-t ${bookedTrend >= 0 ? 'good' : 'bad'}`}>{bookedTrend >= 0 ? '+' : ''}{bookedTrend}%</span></>}</span>
+        </Link>
+        {(nSecondary.count ?? 0) > 0 && (
+          <Link className="kpi" href="/leads?seg=secondary">
+            <span className="label">Secondary (resale) leads open</span><span className="n">{nSecondary.count}</span>
+            <span className="kpi-sub">Kept in their own list</span>
+          </Link>
+        )}
       </div>
 
       <section className="panel chart-panel">
         <div className="panel-h">
-          <div className="ph-title"><h2>Leads coming in</h2><span className="hint">Last 14 days{mine ? ' · your leads' : ''} · {total14} new, {total14 ? Math.round((reached14 / total14) * 100) : 0}% reached by phone</span></div>
+          <div className="ph-title"><h2>Leads coming in</h2><span className="hint">Last {nDays} days{mine ? ' · your leads' : ''} · {total14} new, {total14 ? Math.round((reached14 / total14) * 100) : 0}% reached by phone</span></div>
           <div className="legend"><span><i className="lg grey" />New leads</span><span><i className="lg blue" />Reached</span></div>
         </div>
         <div className="bars" style={{ ['--rows' as string]: 4 }}>

@@ -6,7 +6,7 @@ import { AutoFilterForm } from '@/components/AutoFilterForm';
 
 export const metadata = { title: 'Reports' };
 
-type L = { created_at: string; stage: string; max_stage: number; source: string | null; assigned_to: string | null; lost_reason: string | null; next_follow_up: string | null; call_attempts: number };
+type L = { created_at: string; stage: string; score: string; max_stage: number; source: string | null; assigned_to: string | null; lost_reason: string | null; next_follow_up: string | null; call_attempts: number };
 
 const addDays = (d: string, n: number) => { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); };
 const istStart = (d: string) => new Date(d + 'T00:00:00+05:30').toISOString();
@@ -39,7 +39,7 @@ export default async function Reports({ searchParams }: { searchParams: { p?: st
   const per = period(searchParams);
   // Read every row (page by page), so big companies get the real numbers.
   const range = per.from && per.to ? [istStart(per.from), istStart(addDays(per.to, 1))] as const : null;
-  const lq = () => { const q = supabase.from('leads').select('id, created_at, stage, max_stage, source, assigned_to, lost_reason, next_follow_up, call_attempts').eq('org_id', org.id).order('id'); return range ? q.gte('created_at', range[0]).lt('created_at', range[1]) : q; };
+  const lq = () => { const q = supabase.from('leads').select('id, created_at, stage, score, max_stage, source, assigned_to, lost_reason, next_follow_up, call_attempts').eq('org_id', org.id).order('id'); return range ? q.gte('created_at', range[0]).lt('created_at', range[1]) : q; };
   const vq = () => { const q = supabase.from('visits').select('id, status, agent_id, at').eq('org_id', org.id).order('id'); return range ? q.gte('at', range[0]).lt('at', range[1]) : q; };
   // Calendar: the months of the chosen period (at most the last 3), with leads and visits per day.
   const calEnd = per.to ?? istDay(new Date());
@@ -85,7 +85,10 @@ export default async function Reports({ searchParams }: { searchParams: { p?: st
   leads.forEach((l) => { const k = l.source || 'Not set'; bySource.set(k, [...(bySource.get(k) ?? []), l]); });
   const srcRows = [...bySource.entries()].map(([k, ls]) => ({
     k, n: ls.length, contacted: ls.filter((l) => l.max_stage >= 1).length, visited: ls.filter((l) => l.max_stage >= 4).length, booked: ls.filter((l) => l.stage === 'booked').length,
+    junk: ls.filter((l) => l.score === 'junk' || ['Wrong number', 'Not responding'].includes(l.lost_reason ?? '')).length,
   })).sort((a, b) => b.n - a.n);
+  // Side by side for the money decision: MagicBricks vs 99acres
+  const portals = ['MagicBricks', '99acres'].map((k) => srcRows.find((r) => r.k === k) ?? { k, n: 0, contacted: 0, visited: 0, booked: 0, junk: 0 });
   const maxSrc = Math.max(1, ...srcRows.map((r) => r.n));
 
   const team = (people ?? []).filter((p) => p.role !== 'partner').map((p) => {
@@ -172,11 +175,23 @@ export default async function Reports({ searchParams }: { searchParams: { p?: st
           </section>
           <section className="panel">
             <div className="panel-h"><h2>Which source works</h2></div>
+            {portals.some((p) => p.n) && (
+              <div className="portal-vs">
+                {portals.map((p) => (
+                  <div key={p.k} className="pv">
+                    <b>{p.k}</b>
+                    <span className="n">{p.n}</span><span className="hint">leads</span>
+                    <span className="hint">{p.visited} site visits · {p.booked} bookings · {pct(p.junk, p.n)} junk</span>
+                    <span className="hint">{p.n ? `${Math.round((p.visited / p.n) * 100)} visits per 100 leads` : 'No leads yet'}</span>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="table-wrap"><table className="tbl">
-              <thead><tr><th>Source</th><th className="n">Leads</th><th></th><th className="n">Reached</th><th className="n">Visited</th><th className="n">Booked</th></tr></thead>
+              <thead><tr><th>Source</th><th className="n">Leads</th><th></th><th className="n">Reached</th><th className="n">Junk</th><th className="n">Visited</th><th className="n">Booked</th></tr></thead>
               <tbody>{srcRows.length ? srcRows.map((r) => (
-                <tr key={r.k}><td>{r.k}</td><td className="n">{r.n}</td><td style={{ width: 90 }}><span className="hbar" style={{ width: `${(r.n / maxSrc) * 100}%` }} /></td><td className="n">{pct(r.contacted, r.n)}</td><td className="n">{r.visited}</td><td className="n">{r.booked}</td></tr>
-              )) : <tr><td colSpan={6} className="hint">No leads in this period.</td></tr>}</tbody>
+                <tr key={r.k}><td>{r.k}</td><td className="n">{r.n}</td><td style={{ width: 90 }}><span className="hbar" style={{ width: `${(r.n / maxSrc) * 100}%` }} /></td><td className="n">{pct(r.contacted, r.n)}</td><td className="n">{pct(r.junk, r.n)}</td><td className="n">{r.visited}</td><td className="n">{r.booked}</td></tr>
+              )) : <tr><td colSpan={7} className="hint">No leads in this period.</td></tr>}</tbody>
             </table></div>
           </section>
         </div>

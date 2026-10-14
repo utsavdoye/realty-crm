@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { requireOrg } from '@/lib/context';
 import { PHONE_HELP, isManager, normPhone, validPhone } from '@/lib/roles';
-import { OUTCOMES, STAGE_IDX, fmtDT, fromLocalInput, istAt, parseBudget, stageLabel } from '@/lib/crm';
+import { BHKS, CATEGORIES, fmtBudget, FUNDING, OCCUPATIONS, OUTCOMES, PTYPES, PURPOSES, SCORE_KEYS, STAGE_IDX, fmtDT, fromLocalInput, istAt, parseBudget, readBudget, stageLabel } from '@/lib/crm';
 import { notifyLeadAssigned } from '@/lib/whatsapp';
 import type { FormState } from '@/app/actions';
 
@@ -39,29 +39,44 @@ async function ctx() {
 
 // ---------- Leads ----------
 
-function readLeadFields(fd: FormData) {
-  const b = parseBudget(str(fd, 'budget'));
-  return {
-    name: str(fd, 'name'),
+/** A value from a fixed list, or "Other: what they typed" kept short. */
+const pickOf = (v: string, list: string[]) => (!v ? null : list.includes(v) ? v : v.slice(0, 40));
+
+function readLeadFields(fd: FormData, isNew: boolean) {
+  const bv = str(fd, 'budget');
+  const b = bv === 'keep' ? undefined : readBudget(bv);
+  const proj = str(fd, 'project_id');
+  const pin = str(fd, 'pincode').replace(/\s/g, '');
+  const category = pickOf(str(fd, 'category'), CATEGORIES);
+  const f: Record<string, unknown> = {
+    name: str(fd, 'name').slice(0, 120),
     phone: normPhone(str(fd, 'phone')),
-    email: orNull(str(fd, 'email')),
-    dob: orNull(str(fd, 'dob')),
-    budget_min: b?.min ?? null,
-    budget_max: b?.max ?? null,
-    bhk: orNull(str(fd, 'bhk')),
-    property_type: orNull(str(fd, 'property_type')),
-    location: orNull(str(fd, 'location')),
-    purpose: orNull(str(fd, 'purpose')),
-    preferred_slot: orNull(str(fd, 'preferred_slot')),
-    source: orNull(str(fd, 'source')),
-    project_id: orNull(str(fd, 'project_id')),
-    score: ['hot', 'warm', 'cold'].includes(str(fd, 'score')) ? str(fd, 'score') : 'warm',
+    email: orNull(str(fd, 'email').slice(0, 160)),
+    dob: /^\d{4}-\d{2}-\d{2}$/.test(str(fd, 'dob')) ? str(fd, 'dob') : null,
+    category,
+    bhk: category === 'Commercial' ? null : pickOf(str(fd, 'bhk'), BHKS),
+    property_type: pickOf(str(fd, 'property_type'), PTYPES),
+    location: orNull(str(fd, 'location').slice(0, 200)),
+    city: orNull(str(fd, 'city').slice(0, 80)),
+    pincode: /^[1-9]\d{5}$/.test(pin) ? pin : null,
+    occupation: pickOf(str(fd, 'occupation'), OCCUPATIONS),
+    funding: pickOf(str(fd, 'funding'), FUNDING),
+    purpose: pickOf(str(fd, 'purpose'), PURPOSES),
+    preferred_slot: orNull(str(fd, 'preferred_slot').slice(0, 120)),
+    source: orNull(str(fd, 'source').slice(0, 60)),
+    project_id: proj && proj !== '__other' && /^[0-9a-f-]{36}$/.test(proj) ? proj : null,
+    project_other: proj === '__other' ? orNull(str(fd, 'project_other').slice(0, 120)) : null,
+    segment: str(fd, 'segment') === 'secondary' ? 'secondary' : 'primary',
   };
+  if (b !== undefined) { f.budget_min = b?.min ?? null; f.budget_max = b?.max ?? null; }
+  if (isNew) f.score = SCORE_KEYS.includes(str(fd, 'score')) ? str(fd, 'score') : 'warm';
+  return f as Record<string, unknown> & { name: string; phone: string; source: string | null };
 }
 
 export async function createLeadFull(_: FormState, fd: FormData): Promise<FormState> {
   const { supabase, org, role, user, activity } = await ctx();
-  const f = readLeadFields(fd);
+  const f = readLeadFields(fd, true);
+  if (str(fd, 'pincode') && !f.pincode) return { error: 'Pincode should be 6 digits, e.g. 492001.' };
   if (!f.name) return { error: 'Enter the client name.' };
   if (!validPhone(f.phone)) return { error: PHONE_HELP };
   let assigned: string | null = null;
@@ -87,7 +102,7 @@ export async function createLeadFull(_: FormState, fd: FormData): Promise<FormSt
     return { error: friendly(error.message) };
   }
   await activity(data.id, 'created', `Lead added${f.source ? ' from ' + f.source : ''}`);
-  const note = str(fd, 'note');
+  const note = str(fd, 'note').slice(0, 300);
   if (note) await activity(data.id, 'note', note);
   if (assigned && assigned !== user.id) {
     const { data: a } = await supabase.from('members').select('full_name, phone').eq('org_id', org.id).eq('user_id', assigned).single();
@@ -100,7 +115,8 @@ export async function createLeadFull(_: FormState, fd: FormData): Promise<FormSt
 export async function updateLead(_: FormState, fd: FormData): Promise<FormState> {
   const { supabase, org, activity } = await ctx();
   const id = str(fd, 'id');
-  const f = readLeadFields(fd);
+  const f = readLeadFields(fd, false);
+  if (str(fd, 'pincode') && !f.pincode) return { error: 'Pincode should be 6 digits, e.g. 492001.' };
   if (!f.name) return { error: 'Enter the client name.' };
   if (!validPhone(f.phone)) return { error: PHONE_HELP };
   const { error, count } = await supabase.from('leads').update(f, { count: 'exact' }).eq('id', id).eq('org_id', org.id);
@@ -153,10 +169,10 @@ export async function setFollowUp(fd: FormData) {
   const { supabase, org } = await ctx();
   const id = str(fd, 'id'); const preset = str(fd, 'preset');
   let at: string | null = null;
-  if (preset === '2h') at = new Date(Date.now() + 2 * 3600000).toISOString();
+  // "By end of day" = 6 PM today (or 2 hours from now if it is already late)
+  if (preset === 'eod') { const six = istAt(0, 18); at = new Date(six).getTime() - Date.now() > 30 * 60000 ? six : new Date(Date.now() + 2 * 3600000).toISOString(); }
   else if (preset === 'tomorrow') at = istAt(1, 11);
   else if (preset === '3d') at = istAt(3, 11);
-  else if (preset === 'week') at = istAt(7, 11);
   else if (preset === 'custom') at = fromLocalInput(str(fd, 'at'));
   else if (preset === 'clear') at = null;
   if (preset === 'custom' && !at) return;
@@ -179,17 +195,18 @@ export async function logCall(_: FormState, fd: FormData): Promise<FormState> {
     patch.stage = 'lost';
     patch.lost_reason = o.k === 'wrong' ? 'Wrong number' : str(fd, 'reason') || 'Just exploring';
   } else {
-    if (connected && lead.stage === 'new') patch.stage = 'contacted';
+    if (connected && ['new', 'noresponse'].includes(lead.stage)) patch.stage = 'contacted';
+    if (!connected && lead.stage === 'new') patch.stage = 'noresponse'; // we tried, they did not pick up
     if (o.k === 'interested' && idx < 2) patch.stage = 'qualified';
-    if (o.k === 'interested' && lead.score === 'cold') patch.score = 'warm';
+    if (o.k === 'interested' && ['cold', 'junk', 'later'].includes(lead.score)) patch.score = 'warm';
     patch.next_follow_up = fromLocalInput(str(fd, 'next')) ?? (o.hours ? new Date(Date.now() + o.hours * 3600000).toISOString() : null);
   }
   // New needs said on the call (typed or filled by voice)
   const changed: string[] = [];
   const bhk = str(fd, 'upd_bhk');
-  if (bhk && bhk !== lead.bhk) { patch.bhk = bhk; changed.push(bhk); }
-  const b = parseBudget(str(fd, 'upd_budget'));
-  if (b && (b.min !== lead.budget_min || b.max !== lead.budget_max)) { patch.budget_min = b.min; patch.budget_max = b.max; changed.push(`budget ${str(fd, 'upd_budget')}`); }
+  if (bhk && BHKS.includes(bhk) && bhk !== lead.bhk) { patch.bhk = bhk; changed.push(bhk); }
+  const b = readBudget(str(fd, 'upd_budget'));
+  if (b && (b.min !== lead.budget_min || b.max !== lead.budget_max)) { patch.budget_min = b.min; patch.budget_max = b.max; changed.push(`budget ${fmtBudget(b.min, b.max)}`); }
   const loc = str(fd, 'upd_location').slice(0, 200);
   if (loc && loc !== lead.location) { patch.location = loc; changed.push(loc); }
   const visitAt = o.k === 'notint' || o.k === 'wrong' ? null : fromLocalInput(str(fd, 'visit_at'));
@@ -234,7 +251,7 @@ export async function addNote(_: FormState, fd: FormData): Promise<FormState> {
 export async function setScore(fd: FormData) {
   const { supabase, org } = await ctx();
   const s = str(fd, 'score');
-  if (!['hot', 'warm', 'cold'].includes(s)) return;
+  if (!SCORE_KEYS.includes(s)) return;
   await supabase.from('leads').update({ score: s }).eq('id', str(fd, 'id')).eq('org_id', org.id);
   refresh(str(fd, 'id'));
 }
@@ -243,8 +260,10 @@ export async function assignLead(fd: FormData) {
   const { supabase, org, role, user, activity, getLead } = await ctx();
   if (role !== 'owner') return; // only the admin hands leads to people
   const id = str(fd, 'id'); const to = str(fd, 'assigned_to') || null;
+  const reason = str(fd, 'reason').slice(0, 200);
   const lead = await getLead(id);
   if (!lead || lead.assigned_to === to) return;
+  const { data: from } = lead.assigned_to ? await supabase.from('members').select('full_name').eq('org_id', org.id).eq('user_id', lead.assigned_to).maybeSingle() : { data: null };
   const { error } = await supabase.from('leads').update({ assigned_to: to }).eq('id', id).eq('org_id', org.id);
   if (error) return;
   let name = '';
@@ -253,7 +272,8 @@ export async function assignLead(fd: FormData) {
     name = a?.full_name ?? '';
     if (a && to !== user.id) await notifyLeadAssigned({ agentPhone: a.phone, agentName: a.full_name, leadName: lead.name, leadPhone: lead.phone, source: lead.source });
   }
-  await activity(id, 'assign', to ? `Assigned to ${name}` : 'Unassigned');
+  // Who moved it is saved with the note (by_user); from whom and why too.
+  await activity(id, 'assign', `${to ? `Assigned to ${name}` : 'Unassigned'}${from?.full_name ? ` (was ${from.full_name})` : ''}${reason ? `\nReason: ${reason}` : ''}`);
   refresh(id);
 }
 
@@ -266,9 +286,21 @@ export async function logWhatsApp(leadId: string, templateName: string) {
 export async function deleteLead(fd: FormData) {
   const { supabase, org, role } = await ctx();
   if (!isManager(role)) return;
-  await supabase.from('leads').delete().eq('id', str(fd, 'id')).eq('org_id', org.id);
+  // A copy is kept (who, when, why) so the admin can see it and bring it back.
+  const { error } = await supabase.rpc('delete_lead', { p_id: str(fd, 'id'), p_reason: str(fd, 'reason').slice(0, 200) });
+  if (error) await supabase.from('leads').delete().eq('id', str(fd, 'id')).eq('org_id', org.id);
   refresh();
   redirect('/leads');
+}
+
+export async function restoreLead(fd: FormData) {
+  const { supabase, role } = await ctx();
+  if (role !== 'owner') return;
+  const { data, error } = await supabase.rpc('restore_lead', { p_id: str(fd, 'id') });
+  if (error) redirect(`/leads/deleted?err=${encodeURIComponent(friendly(error.message).slice(0, 160))}`);
+  refresh();
+  revalidatePath('/leads/deleted');
+  redirect(`/leads/deleted?ok=${data}`);
 }
 
 // ---------- Site visits ----------
@@ -305,7 +337,7 @@ export async function visitResult(_: FormState, fd: FormData): Promise<FormState
   const { data: v } = await supabase.from('visits').select('*, projects(name)').eq('id', id).eq('org_id', org.id).maybeSingle();
   if (!v) return { error: 'Visit not found' };
   const interest = ['hot', 'warm', 'cold'].includes(str(fd, 'interest')) ? str(fd, 'interest') : null;
-  const feedback = str(fd, 'feedback');
+  const feedback = str(fd, 'feedback').slice(0, 1500);
   const { error } = await supabase.from('visits').update({ status, feedback: feedback || null, interest }).eq('id', id);
   if (error) return { error: friendly(error.message) };
   const lead = await getLead(v.lead_id);
@@ -529,18 +561,19 @@ export async function completeStep(_: FormState, fd: FormData): Promise<FormStat
   const said = str(fd, 'said').slice(0, 1500);
   const extra = str(fd, 'extra').slice(0, 300);
   const projectId = /^[0-9a-f-]{36}$/.test(str(fd, 'project_id')) ? str(fd, 'project_id') : null;
-  let projectName = '';
+  // "Other (not in the list)": the typed project name goes into the summary
+  let projectName = str(fd, 'project_id') === '__other' ? str(fd, 'project_other').slice(0, 120) : '';
   if (projectId) {
     const { data: p } = await supabase.from('projects').select('name').eq('id', projectId).eq('org_id', org.id).maybeSingle();
     projectName = p?.name ?? '';
   }
-  if (step === 'presentation' && !projectId) return { error: 'Pick the project you presented.' };
+  if (step === 'presentation' && !projectId && !projectName) return { error: 'Pick the project you presented.' };
   const summary = step === 'presentation'
     ? `Presented ${projectName}: ${said}${extra ? ` · Client said: ${extra}` : ''}`
     : step === 'visit' ? `${projectName ? `Visited ${projectName}: ` : ''}${said}`
     : step === 'followup' ? `${said}${extra ? ` · Decision: ${extra}` : ''}`
     : said;
-  const interest = ['hot', 'warm', 'cold'].includes(str(fd, 'interest')) ? str(fd, 'interest') : null;
+  const interest = null; // interest is changed in one place only: the Status box
   const { data, error } = await supabase.rpc('complete_step', {
     p_lead: id, p_step: step, p_summary: summary, p_interest: interest, p_project: projectId,
     p_details: { said, extra: extra || null, project: projectName || null },

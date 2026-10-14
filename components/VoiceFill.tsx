@@ -74,6 +74,7 @@ export function VoiceFill({ enabled, endpoint = '/api/voice/lead', extra, onFiel
   }
   function mark(el: HTMLElement) {
     el.dispatchEvent(new Event('input', { bubbles: true }));
+    if (el instanceof HTMLSelectElement) el.dispatchEvent(new Event('change', { bubbles: true })); // lets the form react (e.g. Commercial greys out Configuration)
     el.classList.add('voice-filled');
     setTimeout(() => el.classList.remove('voice-filled'), 4000);
   }

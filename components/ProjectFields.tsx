@@ -1,4 +1,4 @@
-import { PROJECT_STATUS, PTYPES } from '@/lib/crm';
+import { PROJECT_STATUS, PROJECT_TYPES } from '@/lib/crm';
 import { LocationPicker } from '@/components/LocationPicker';
 
 export type ProjectRow = {
@@ -20,7 +20,7 @@ export function ProjectFields({ p }: { p?: ProjectRow }) {
       <label className="field"><span className="label">Developer</span><input name="developer" defaultValue={v('developer')} /></label>
       <label className="field"><span className="label">Location</span><input name="location" defaultValue={v('location')} placeholder="e.g. VIP Road, Raipur" /></label>
       <label className="field"><span className="label">RERA number</span><input name="rera_no" defaultValue={v('rera_no')} /></label>
-      <label className="field"><span className="label">Type</span><select name="type" defaultValue={v('type')}><option value="">—</option>{PTYPES.map((t) => <option key={t}>{t}</option>)}</select></label>
+      <label className="field"><span className="label">Type</span><select name="type" defaultValue={v('type')}><option value="">—</option>{PROJECT_TYPES.map((t) => <option key={t}>{t}</option>)}</select></label>
       <label className="field"><span className="label">Unit options</span><input name="configs" defaultValue={v('configs')} placeholder="e.g. 2, 3 BHK" /></label>
       <label className="field"><span className="label">Price from (₹ lakh)</span><input name="price_from" type="number" min="0" step="0.1" defaultValue={v('price_from')} /></label>
       <label className="field"><span className="label">Price up to (₹ lakh)</span><input name="price_to" type="number" min="0" step="0.1" defaultValue={v('price_to')} /></label>

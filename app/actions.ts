@@ -245,6 +245,14 @@ export async function toggleSource(fd: FormData) {
   revalidatePath('/sources');
 }
 
+/** Resale listings (e.g. a 99acres "certified agent" package) can send their leads to the Secondary list. */
+export async function setSourceSegment(fd: FormData) {
+  const { supabase, org } = await requireOrg(['owner', 'manager']);
+  const segment = str(fd, 'segment') === 'secondary' ? 'secondary' : 'primary';
+  await supabase.from('lead_sources').update({ segment }).eq('id', str(fd, 'id')).eq('org_id', org.id);
+  revalidatePath('/sources');
+}
+
 export async function saveMetaToken(_: FormState, fd: FormData): Promise<FormState> {
   const { supabase, org } = await requireOrg(['owner']);
   const id = str(fd, 'id'); const token = str(fd, 'token');

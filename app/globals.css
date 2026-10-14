@@ -1031,3 +1031,32 @@ html.xl8 body { visibility: hidden; }
 .langsw-fixed { position: absolute; top: 16px; right: 16px; z-index: 5; }
 .auth-main { position: relative; }
 @media (max-width: 900px) { .langbar { margin: -6px 52px 10px 0; } }
+
+/* Oct: new lead fields, interest Junk / Maybe later, dashboard periods, timeline, export */
+.dot.junk { background: #9aa0ad; } .dot.later { background: #b48ce6; }
+.chip.junk { background: #eef0f4; color: #5b6170; } .chip.later { background: #f3ecfd; color: #6b45a8; }
+.kpi-group { margin: 6px 0 8px; }
+.kpi-group + .kpis { margin-bottom: 18px; }
+.period select { padding: 8px 12px; border-radius: var(--r-sm); border: 1px solid var(--line-2); background: var(--surface); font: inherit; font-weight: 600; }
+.seg-sm { margin: 0 0 12px; }
+.seg-sm a { font-size: 13px; }
+.fu-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.fu-row > .label { margin-right: 4px; }
+.fu-custom { display: inline-flex; }
+.fu-custom[open] { display: inline-flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.fu-custom > summary { list-style: none; }
+.fu-custom > summary::-webkit-details-marker { display: none; }
+.warnline-in .fu-row .fu.over { font-weight: 700; }
+.more-fields > summary { margin: 2px 0 8px; }
+.more-fields[open] > summary { margin-bottom: 12px; }
+.tl-day + .tl-day { margin-top: 10px; }
+.tl-dayh { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.tl-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; margin-bottom: 2px; }
+.tl-kind { font-size: 12px; font-weight: 700; color: var(--fg); }
+.tl-more { margin-top: 10px; }
+.portal-vs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 0 16px 12px; }
+.portal-vs .pv { display: flex; flex-direction: column; gap: 2px; padding: 12px; border: 1px solid var(--line); border-radius: var(--r-sm); background: var(--surface-2); }
+.portal-vs .pv .n { font-size: 26px; font-weight: 800; line-height: 1.1; }
+@media (max-width: 640px) { .portal-vs { grid-template-columns: minmax(0, 1fr); } }
+select:disabled { opacity: .55; cursor: not-allowed; background: var(--surface-2); }
+.trend-t { font-weight: 700; } .trend-t.good { color: #15803d; } .trend-t.bad { color: var(--hot); }

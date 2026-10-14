@@ -1,5 +1,5 @@
 import { requireOrg } from '@/lib/context';
-import { createSource, saveMetaToken, setAutoAssign, setReassignMinutes, toggleSource } from '@/app/actions';
+import { createSource, saveMetaToken, setAutoAssign, setReassignMinutes, setSourceSegment, toggleSource } from '@/app/actions';
 import { ActionForm, Submit } from '@/components/forms';
 import { CopyButton } from '@/components/CopyButton';
 import { SourceKindPicker } from '@/components/SourceKindPicker';
@@ -8,7 +8,7 @@ import { ShareButtons } from '@/components/ShareButtons';
 
 export const metadata = { title: 'Lead sources' };
 
-type Source = {
+type Source = { segment?: string;
   id: string; name: string; kind: string; key: string; active: boolean; lead_count: number;
   last_lead_at: string | null; external_id: string | null; default_project_id: string | null;
 };
@@ -50,7 +50,7 @@ const HOW: Record<string, string[]> = {
 export default async function Sources() {
   const { supabase, org, role } = await requireOrg(['owner', 'manager']);
   const [{ data: sources }, { data: projects }, { data: orgRow }] = await Promise.all([
-    supabase.from('lead_sources').select('id, name, kind, key, active, lead_count, last_lead_at, external_id, default_project_id').eq('org_id', org.id).order('created_at'),
+    supabase.from('lead_sources').select('*').eq('org_id', org.id).order('created_at'),
     supabase.from('projects').select('id, name').eq('org_id', org.id).order('name'),
     supabase.from('organizations').select('*').eq('id', org.id).single(),
   ]);
@@ -89,6 +89,11 @@ export default async function Sources() {
                     <input type="hidden" name="id" value={s.id} />
                     <input type="hidden" name="active" value={String(!s.active)} />
                     <button className="btn sm ghost">{s.active ? 'Switch off' : 'Switch on'}</button>
+                  </form>
+                  <form action={setSourceSegment} title="Secondary = resale listings. Their leads go to the Secondary list, not the main dashboard.">
+                    <input type="hidden" name="id" value={s.id} />
+                    <input type="hidden" name="segment" value={s.segment === 'secondary' ? 'primary' : 'secondary'} />
+                    <button className="btn sm ghost">{s.segment === 'secondary' ? 'Leads are Secondary · make Primary' : 'Leads are Primary · make Secondary'}</button>
                   </form>
                 </div>
                 <div className="panel-b stack">

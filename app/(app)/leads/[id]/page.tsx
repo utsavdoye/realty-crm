@@ -14,11 +14,12 @@ import { CopyButton } from '@/components/CopyButton';
 import { LeadFields } from '@/components/LeadFields';
 import { LogCallForm } from '@/components/LogCallForm';
 import { WhatsAppComposer } from '@/components/WhatsAppComposer';
-import { LOST_REASONS, fmtBudget, fmtDT, fmtDate, fuState, fuText, istAt, stageChip, stageLabel, toLocalInput } from '@/lib/crm';
+import { LOST_REASONS, SCORES, fmtBudget, fmtDT, fmtDate, fuState, fuText, istAt, istDay, scoreLabel, stageChip, stageLabel, toLocalInput } from '@/lib/crm';
+import { ProjectPick } from '@/components/LeadPick';
+import { Timeline } from '@/components/Timeline';
 
 export const metadata = { title: 'Lead' };
 
-const ICON: Record<string, string> = { call: '☎', whatsapp: '✉', stage: '⚑', visit: '⌂', enquiry: '★', assign: '→', created: '+', note: '✎' };
 
 export default async function LeadPage({ params }: { params: { id: string } }) {
   const { supabase, org, role, user } = await requireOrg();
@@ -97,7 +98,8 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
             </div>
             <div className="row-gap" style={{ marginTop: 6 }}>
               <span className={`chip ${stageChip(lead.stage)}`}>{lead.stage === 'lost' ? 'Lost' : lead.stage === 'booked' ? 'Booked' : cur ? `Now: ${stepLabel(cur)}` : stageLabel(lead.stage)}</span>
-              <span className={`chip ${lead.score}`}>{lead.score[0].toUpperCase() + lead.score.slice(1)}</span>
+              <span className={`chip ${lead.score}`}>{scoreLabel(lead.score)}</span>
+              {lead.segment === 'secondary' && <span className="chip">Secondary</span>}
               {lead.source && <span className="chip">{lead.source}</span>}
               <span className="hint">{lead.assigned_to ? `Assigned to ${nameOf.get(lead.assigned_to) ?? '—'}` : 'Not assigned'} · came in {fmtDT(lead.created_at)}</span>
             </div>
@@ -151,10 +153,8 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
                             <ActionForm action={completeStep} className="jform">
                               <input type="hidden" name="id" value={lead.id} /><input type="hidden" name="step" value={x.k} />
                               {(x.k === 'presentation' || x.k === 'visit') && (
-                                <select name="project_id" defaultValue={lead.project_id ?? ''} required={x.k === 'presentation'} aria-label="Project">
-                                  <option value="">{x.k === 'presentation' ? 'Which project did you present?' : 'Which project did they see?'}</option>
-                                  {(projects ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                                </select>
+                                <ProjectPick projects={(projects ?? []).map((p) => ({ id: p.id, name: p.name }))} projectId={lead.project_id} label={null}
+                                  required={x.k === 'presentation'} placeholder={x.k === 'presentation' ? 'Which project did you present?' : 'Which project did they see?'} />
                               )}
                               <textarea name="said" rows={3} required minLength={3} placeholder={
                                 x.k === 'call' ? 'What did you discuss? Budget, family, loan, timeline, doubts…'
@@ -163,9 +163,6 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
                                 : 'What was discussed in the follow-up?'} />
                               {x.k === 'presentation' && <input name="extra" placeholder="How did the client react? (e.g. liked the view, worried about price)" />}
                               {x.k === 'followup' && <input name="extra" placeholder="Decision so far (e.g. will book this week, needs loan approval)" />}
-                              <select name="interest" defaultValue={lead.score} aria-label="How interested">
-                                <option value="hot">Very interested (hot)</option><option value="warm">Interested (warm)</option><option value="cold">Not very (cold)</option>
-                              </select>
                               <div><Submit className="btn sm primary">{nxt && teamFor(nxt).length ? 'Save and hand over' : 'Save'}</Submit></div>
                             </ActionForm>
                           </details>
@@ -179,28 +176,30 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
             </div>
           </section>
 
-          {canEdit && !closed && (
-            <section className={`panel ${fs === 'over' ? 'warnline' : ''}`}>
-              <div className="panel-h"><h2>Next follow-up</h2>{lead.next_follow_up ? <span className={`fu ${fs}`}>{fuText(lead.next_follow_up)}</span> : <span className="chip tape">Not planned</span>}</div>
-              <div className="panel-b">
-                <form action={setFollowUp} className="row-gap">
-                  <input type="hidden" name="id" value={lead.id} />
-                  <button className="btn sm" name="preset" value="2h">In 2 hours</button>
-                  <button className="btn sm" name="preset" value="tomorrow">Tomorrow 11 AM</button>
-                  <button className="btn sm" name="preset" value="3d">In 3 days</button>
-                  <button className="btn sm" name="preset" value="week">Next week</button>
-                  <input type="datetime-local" name="at" defaultValue={toLocalInput(lead.next_follow_up) || toLocalInput(istAt(1, 11))} aria-label="Pick a time" className="dt" />
-                  <button className="btn sm" name="preset" value="custom">Set</button>
-                  {lead.next_follow_up && <button className="btn sm ghost" name="preset" value="clear">Clear</button>}
-                </form>
-              </div>
-            </section>
-          )}
-
           <section className="panel">
-            <div className="panel-h"><h2>Status</h2>{lead.stage === 'lost' && lead.lost_reason && <span className="chip bad">{lead.lost_reason}</span>}</div>
-            <div className="panel-b stack">
+            <div className="panel-h"><h2>Status</h2><span className={`chip ${stageChip(lead.stage)}`}>{stageLabel(lead.stage)}</span>{lead.stage === 'lost' && lead.lost_reason && <span className="chip bad">{lead.lost_reason}</span>}</div>
+            <div className={`panel-b stack ${fs === 'over' && !closed ? 'warnline-in' : ''}`}>
               <p className="hint">The status follows the client journey above by itself. {lead.stage === 'booked' ? 'This client has booked.' : ''}</p>
+              {canEdit && !closed && (
+                <form action={setFollowUp} className="fu-row">
+                  <input type="hidden" name="id" value={lead.id} />
+                  <span className="label">Next follow-up</span>
+                  {lead.next_follow_up ? <span className={`fu ${fs}`}>{fuText(lead.next_follow_up)}</span> : <span className="chip tape">Not planned</span>}
+                  <span className="row-gap">
+                    <button className="btn sm" name="preset" value="eod">By end of day</button>
+                    <button className="btn sm" name="preset" value="tomorrow">Tomorrow</button>
+                    <button className="btn sm" name="preset" value="3d">In 3 days</button>
+                    <details className="fu-custom">
+                      <summary className="btn sm">Custom</summary>
+                      <span className="row-gap">
+                        <input type="datetime-local" name="at" defaultValue={toLocalInput(lead.next_follow_up) || toLocalInput(istAt(1, 11))} aria-label="Pick a time" className="dt" />
+                        <button className="btn sm primary" name="preset" value="custom">Set</button>
+                      </span>
+                    </details>
+                    {lead.next_follow_up && <button className="btn sm ghost" name="preset" value="clear">Clear</button>}
+                  </span>
+                </form>
+              )}
               {admin && !['booked', 'lost'].includes(lead.stage) && (
                 <form action={setStage}><input type="hidden" name="id" value={lead.id} /><input type="hidden" name="stage" value="booked" />
                   <button className="btn sm">🎉 Mark as booked</button></form>
@@ -223,7 +222,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
                 <div className="row-gap">
                   <span className="label">Interest</span>
                   <form action={setScore} className="row-gap"><input type="hidden" name="id" value={lead.id} />
-                    {['hot', 'warm', 'cold'].map((s) => <button key={s} name="score" value={s} className={`btn sm ${lead.score === s ? 'primary' : ''}`}>{s[0].toUpperCase() + s.slice(1)}</button>)}
+                    {SCORES.map((x) => <button key={x.k} name="score" value={x.k} className={`btn sm ${lead.score === x.k ? 'primary' : ''}`}>{x.l}</button>)}
                   </form>
                 </div>
               )}
@@ -232,6 +231,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
                   <input type="hidden" name="id" value={lead.id} />
                   <span className="label">Assigned to</span>
                   <select name="assigned_to" defaultValue={lead.assigned_to ?? ''} className="auto"><option value="">Not assigned</option>{assignable.map((p) => <option key={p.user_id} value={p.user_id}>{p.full_name}</option>)}</select>
+                  <input name="reason" placeholder="Reason (optional)" maxLength={200} className="auto" />
                   <button className="btn sm">Save</button>
                 </form>
               )}
@@ -246,7 +246,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
           )}
 
           <section className="panel">
-            <div className="panel-h"><h2>Notes and history</h2></div>
+            <div className="panel-h"><h2>Timeline</h2><span className="hint">Everything that happened, newest first</span></div>
             <div className="panel-b stack">
               {canEdit && (
                 <ActionForm action={addNote} className="stack" resetOnOk>
@@ -255,15 +255,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
                   <div><Submit className="btn sm">Save note</Submit></div>
                 </ActionForm>
               )}
-              <ol className="timeline">
-                {(acts ?? []).map((a) => (
-                  <li key={a.id}>
-                    <span className="tl-ic" aria-hidden="true">{ICON[a.type] ?? '•'}</span>
-                    <div><div className="tl-t">{a.body}</div><div className="hint">{fmtDT(a.created_at)}{a.by_user && nameOf.get(a.by_user) ? ' · ' + nameOf.get(a.by_user) : a.by_user ? '' : ' · automatic'}</div></div>
-                  </li>
-                ))}
-                {!(acts ?? []).length && <li className="hint">Nothing logged yet.</li>}
-              </ol>
+              <Timeline items={(acts ?? []).map((a) => ({ id: a.id, type: a.type, body: a.body, at: a.created_at, day: istDay(a.created_at), who: a.by_user ? nameOf.get(a.by_user) ?? 'Former team member' : null, time: fmtDT(a.created_at) }))} />
             </div>
           </section>
         </div>
@@ -291,14 +283,19 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
             <div className="panel-h"><h2>What they want</h2></div>
             <div className="panel-b">
               <dl className="kv">
+                <div><dt className="label">Category</dt><dd>{lead.category || '—'}</dd></div>
+                <div><dt className="label">Configuration</dt><dd>{lead.category === 'Commercial' ? 'Not needed' : lead.bhk || '—'}</dd></div>
+                <div><dt className="label">Property type</dt><dd>{lead.property_type || '—'}</dd></div>
                 <div><dt className="label">Budget</dt><dd>{fmtBudget(lead.budget_min, lead.budget_max) || '—'}</dd></div>
-                <div><dt className="label">Looking for</dt><dd>{[lead.bhk, lead.property_type].filter(Boolean).join(', ') || '—'}</dd></div>
-                <div><dt className="label">Location</dt><dd>{lead.location || '—'}</dd></div>
-                <div><dt className="label">Project</dt><dd>{project?.name || '—'}</dd></div>
+                <div><dt className="label">Area they want</dt><dd>{lead.location || '—'}</dd></div>
+                <div><dt className="label">Project</dt><dd>{project?.name || lead.project_other || '—'}</dd></div>
                 <div><dt className="label">Purpose</dt><dd>{lead.purpose || '—'}</dd></div>
+                <div><dt className="label">Funding</dt><dd>{lead.funding || '—'}</dd></div>
                 <div><dt className="label">Best time to talk</dt><dd>{lead.preferred_slot || '—'}</dd></div>
-                <div><dt className="label">Date of birth</dt><dd>{fmtDate(lead.dob) || '—'}</dd></div>
-                <div><dt className="label">Source</dt><dd>{lead.source || '—'}</dd></div>
+                <div><dt className="label">Source</dt><dd>{lead.source || '—'}{lead.segment === 'secondary' ? ' · Secondary' : ''}</dd></div>
+                {(lead.city || lead.pincode) && <div><dt className="label">Lives in</dt><dd>{[lead.city, lead.pincode].filter(Boolean).join(' ')}</dd></div>}
+                {lead.occupation && <div><dt className="label">Occupation</dt><dd>{lead.occupation}</dd></div>}
+                {lead.dob && <div><dt className="label">Date of birth</dt><dd>{fmtDate(lead.dob)}</dd></div>}
               </dl>
               {canEdit && (
                 <details>
@@ -384,7 +381,6 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
                       <ActionForm action={visitResult} className="stack inline-box">
                         <input type="hidden" name="visit_id" value={v.id} />
                         <select name="status" defaultValue="done"><option value="done">Came and saw the site</option><option value="noshow">Did not come</option><option value="cancelled">Cancelled</option></select>
-                        <select name="interest" defaultValue="warm" aria-label="Interest after visit"><option value="hot">Hot after visit</option><option value="warm">Warm</option><option value="cold">Cold</option></select>
                         <textarea name="feedback" rows={2} placeholder="What did they say?" />
                         <label className="field"><span className="label">Next follow-up</span><input type="datetime-local" name="next" defaultValue={toLocalInput(istAt(1, 11))} /></label>
                         <Submit className="btn sm primary">Save</Submit>
@@ -399,7 +395,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
                   <span className="label">Book a site visit</span>
                   <select name="project_id" defaultValue={lead.project_id ?? ''} aria-label="Project"><option value="">Choose project</option>{(projects ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
                   <input type="datetime-local" name="at" required defaultValue={toLocalInput(istAt(1, 11))} aria-label="Date and time" />
-                  {mgr && <select name="agent_id" defaultValue={lead.assigned_to ?? ''} aria-label="Who will meet them"><option value="">Assigned agent</option>{assignable.map((p) => <option key={p.user_id} value={p.user_id}>{p.full_name}</option>)}</select>}
+                  {mgr && <select name="agent_id" defaultValue={lead.assigned_to ?? ''} aria-label="Who will meet them"><option value="">Assigned agent</option>{assignable.map((p) => <option key={p.user_id} value={p.user_id}>{p.full_name}</option>)}{(people ?? []).filter((p) => p.active && p.role === 'partner').map((p) => <option key={p.user_id} value={p.user_id}>{p.full_name} (channel partner)</option>)}</select>}
                   <Submit className="btn sm primary">Book visit</Submit>
                 </ActionForm>
               )}
@@ -412,8 +408,9 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
               <summary className="btn sm ghost danger">Delete this lead</summary>
               <form action={deleteLead} className="stack inline-box">
                 <input type="hidden" name="id" value={lead.id} />
-                <p className="hint">This removes the lead, its history and visits for good.</p>
-                <button className="btn sm danger">Yes, delete for good</button>
+                <p className="hint">The lead leaves every list. The admin can see who deleted it and bring it back from Leads → Deleted.</p>
+                <input name="reason" placeholder="Why? (e.g. duplicate, test entry)" maxLength={200} />
+                <button className="btn sm danger">Yes, delete</button>
               </form>
             </details>
           )}

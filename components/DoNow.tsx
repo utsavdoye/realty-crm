@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { fetchAll } from '@/lib/fetchAll';
 import { telHref } from '@/lib/roles';
-import { fmtTime, fuText, istAt } from '@/lib/crm';
+import { fmtTime, fuText, istAt, scoreLabel } from '@/lib/crm';
 import { currentStep, stepLabel } from '@/lib/journey';
 import { CallButton } from '@/components/CallButton';
 import { CheckInButton } from '@/components/CheckInButton';
@@ -83,7 +83,7 @@ export async function DoNow({ supabase, orgId, userId, firstName }: { supabase: 
                   <span className="dn-tags">
                     {st && <span className="chip acc">{stepLabel(st)}</span>}
                     <span className={`chip ${l.tone}`}>{l.why}</span>
-                    <span className={`chip ${l.score}`}>{l.score}</span>
+                    <span className={`chip ${l.score}`}>{scoreLabel(l.score)}</span>
                   </span>
                   {(l.bhk || l.location) && <span className="hint">{[l.bhk, l.location].filter(Boolean).join(' · ')}</span>}
                 </div>

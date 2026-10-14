@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireOrg } from '@/lib/context';
-import { BHKS, LOST_REASONS, OUTCOMES, fmtBudget, stageLabel } from '@/lib/crm';
+import { BHKS, LOST_REASONS, OUTCOMES, budgetKey, fmtBudget, parseBudget, stageLabel } from '@/lib/crm';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -46,7 +46,7 @@ Fields:
 - reason: only if outcome is "notint": one of ${LOST_REASONS.map((r) => `"${r}"`).join(', ')}.
 - next: when to call next, as "YYYY-MM-DDTHH:MM" in India time. Work out dates like "kal", "parso", "Saturday", "next week" from today. If only a day is said, use 11:00. If not said, "".
 - visit_at: if a SITE VISIT was fixed, its time as "YYYY-MM-DDTHH:MM" (same rules). Else "".
-- bhk: if they said what home they want: one of ${BHKS.map((b) => `"${b}"`).join(', ')}.
+- bhk: if they said the configuration they want: one of ${BHKS.map((b) => `"${b}"`).join(', ')}.
 - budget: if a budget was said, short like "60 L to 80 L", "up to 1.2 Cr".
 - location: areas they want, comma separated, proper spelling.
 - note: a short clean summary of the call in ${noteLang} (family, loan, objections, what to send them). Keep it under 60 words.
@@ -92,7 +92,7 @@ Fields:
     next: when(out.next),
     visit_at: when(out.visit_at),
     upd_bhk: (BHKS as readonly string[]).includes(out.bhk) ? out.bhk : '',
-    upd_budget: s(out.budget, 40),
+    upd_budget: (() => { const b = parseBudget(s(out.budget, 40)); return b ? budgetKey(b.min, b.max) : ''; })(),
     upd_location: s(out.location, 120),
     note: s(out.note),
   };

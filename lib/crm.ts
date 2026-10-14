@@ -12,13 +12,71 @@ export const STAGES = [
 ] as const;
 export type StageKey = (typeof STAGES)[number]['k'] | 'lost';
 export const STAGE_IDX: Record<string, number> = Object.fromEntries(STAGES.map((s, i) => [s.k, i]));
-export const stageLabel = (k: string) => (k === 'lost' ? 'Lost' : STAGES.find((s) => s.k === k)?.l ?? k);
-export const stageChip = (k: string) => (k === 'booked' || k === 'token' ? 'good' : k === 'lost' ? 'bad' : k === 'new' ? 'tape' : 'acc');
+STAGE_IDX.noresponse = 0; // "No response": we called, nobody picked up. Same level as New.
+export const stageLabel = (k: string) => (k === 'lost' ? 'Lost' : k === 'noresponse' ? 'No response' : STAGES.find((s) => s.k === k)?.l ?? k);
+export const stageChip = (k: string) => (k === 'booked' || k === 'token' ? 'good' : k === 'lost' ? 'bad' : k === 'new' || k === 'noresponse' ? 'tape' : 'acc');
+/** Status filter list: New, No response, Contacted … Booked */
+export const STATUS_LIST = [STAGES[0], { k: 'noresponse', l: 'No response' }, ...STAGES.slice(1)];
+
+/** Interest. One place to change it: the Status box on the lead page. */
+export const SCORES = [
+  { k: 'hot', l: 'Hot' }, { k: 'warm', l: 'Warm' }, { k: 'cold', l: 'Cold' }, { k: 'junk', l: 'Junk' }, { k: 'later', l: 'Maybe later' },
+] as const;
+export const SCORE_KEYS: string[] = SCORES.map((s) => s.k);
+export const scoreLabel = (k: string) => SCORES.find((s) => s.k === k)?.l ?? k;
 
 export const SOURCES = ['99acres', 'MagicBricks', 'Housing.com', 'Facebook', 'Instagram', 'Google Ads', 'Website', 'Walk-in', 'Referral', 'Channel partner', 'Other'];
-export const BHKS = ['1 BHK', '2 BHK', '3 BHK', '4 BHK', '5+ BHK', 'Plot', 'Villa', 'Shop / Office'];
-export const PTYPES = ['Apartment', 'Villa', 'Plot', 'Commercial'];
-export const PURPOSES = ['Self use', 'Investment', 'Both'];
+/** What kind of property, first question on the form. */
+export const CATEGORIES = ['Residential', 'Commercial', 'Res + Com', 'Plot', 'Farm land', 'Other'];
+/** "Configuration" (was "BHK / type"). Not asked for Commercial. */
+export const BHKS = ['1 BHK', '2 BHK', '2.5 BHK', '3 BHK', '3.5 BHK', '4 BHK', '4.5 BHK', '5+ BHK', 'Studio', 'Penthouse', 'Other'];
+/** Property type of a lead. Office and Retail are commercial ("Shop" is now "Retail"). */
+export const PTYPES = ['Apartment', 'Villa', 'Independent house', 'Plot', 'Office', 'Retail', 'Farm land', 'Other'];
+/** Which property types fit each category (the form narrows the list). */
+export const PTYPES_FOR: Record<string, string[]> = {
+  Residential: ['Apartment', 'Villa', 'Independent house', 'Other'],
+  Commercial: ['Office', 'Retail', 'Other'],
+  'Res + Com': PTYPES,
+  Plot: ['Plot', 'Other'],
+  'Farm land': ['Farm land', 'Other'],
+  Other: PTYPES,
+};
+/** Project types (projects keep the short list). */
+export const PROJECT_TYPES = ['Apartment', 'Villa', 'Plot', 'Commercial', 'Farm land'];
+export const PURPOSES = ['Self use', 'Investment', 'Both', 'Other'];
+export const OCCUPATIONS = ['Salaried', 'Self-employed', 'Business owner', 'Professional (doctor, CA…)', 'Investor', 'Retired', 'Other'];
+export const FUNDING = ['Self-funded', 'Home loan / finance', 'Both', 'Not sure yet'];
+
+/** Budget ranges in lakh, [min, max]; max null = "and above". The form saves these instead of typed amounts. */
+export const BUDGETS: { k: string; l: string; min: number | null; max: number | null }[] = [
+  [null, 25, 'Under ₹25 L'], [25, 50, '₹25 – 50 L'], [50, 100, '₹50 L – 1 Cr'], [100, 150, '₹1 – 1.5 Cr'], [150, 200, '₹1.5 – 2 Cr'],
+  [200, 225, '₹2 – 2.25 Cr'], [225, 250, '₹2.25 – 2.5 Cr'], [250, 275, '₹2.5 – 2.75 Cr'], [275, 300, '₹2.75 – 3 Cr'],
+  [300, 400, '₹3 – 4 Cr'], [400, null, '₹4 Cr+'],
+].map(([min, max, l]) => ({ k: `${min ?? ''}-${max ?? ''}`, l: l as string, min: min as number | null, max: max as number | null }));
+/** The range a saved budget belongs to ('' = none). Uses the top of the budget, or the bottom when only "from" is known. */
+export function budgetKey(min?: number | null, max?: number | null) {
+  const exact = BUDGETS.find((b) => (b.min ?? null) === (min ?? null) && (b.max ?? null) === (max ?? null));
+  if (exact) return exact.k;
+  if (max != null) return (BUDGETS.find((r) => (r.min == null || max > r.min) && (r.max == null || max <= r.max)) ?? BUDGETS[0]).k;
+  if (min != null) return (BUDGETS.find((r) => (r.min == null || min >= r.min) && (r.max == null || min < r.max)) ?? BUDGETS[0]).k; // "2 Cr+" starts at 2 Cr
+  return '';
+}
+/** "50-100" → { min: 50, max: 100 }; also reads typed text like "60 L to 80 L" (voice, old forms). */
+export function readBudget(v: string): { min: number | null; max: number | null } | null {
+  const r = BUDGETS.find((b) => b.k === v);
+  if (r) return { min: r.min, max: r.max };
+  return parseBudget(v);
+}
+
+/** Raipur areas for the area box (people can still type any other place). */
+export const RAIPUR_AREAS = [
+  'Shankar Nagar', 'Khamardih', 'VIP Road', 'Amlidih', 'Telibandha', 'Mowa', 'Saddu', 'Kachna', 'Devendra Nagar', 'Pandri', 'Avanti Vihar',
+  'Civil Lines', 'Daldal Seoni', 'Labhandi', 'Tatibandh', 'Sejbahar', 'Dunda', 'Boriyakhurd', 'Kamal Vihar', 'Lalpur', 'Bhatagaon', 'Mana Camp',
+  'Samta Colony', 'Choubey Colony', 'Shailendra Nagar', 'Fafadih', 'Gudhiyari', 'Tikrapara', 'Sundar Nagar', 'Purani Basti', 'Mathpurena',
+  'Amanaka', 'Ring Road No. 1', 'Ring Road No. 2', 'GE Road', 'Raipura', 'Kota', 'Byron Bazar', 'Moudhapara', 'Khamtarai', 'Urkura', 'Birgaon',
+  'Abhanpur', 'Naya Raipur (sector not sure)',
+  ...Array.from({ length: 40 }, (_, i) => `Naya Raipur – Sector ${i + 1}`),
+];
 export const PROJECT_STATUS = ['Pre-launch', 'Under construction', 'Ready to move', 'Sold out'];
 export const LOST_REASONS = ['Budget mismatch', 'Location not suitable', 'Bought elsewhere', 'Not responding', 'Just exploring', 'Loan not approved', 'Wrong number', 'Other'];
 export const TEMPLATE_USES = ['Welcome', 'Follow-up', 'Visit reminder', 'After visit', 'Birthday', 'Price / offer', 'Other'];
