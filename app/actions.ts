@@ -295,3 +295,13 @@ export async function openNotification(fd: FormData) {
   const link = data?.link ?? '';
   redirect(link.startsWith('/') && !link.startsWith('//') ? link : '/notifications');
 }
+
+// ---------- Client website ----------
+
+export async function saveWebsiteUrl(_: FormState, fd: FormData): Promise<FormState> {
+  const { supabase, org } = await requireOrg(['owner']);
+  const { data, error } = await supabase.rpc('set_website_url', { p_org: org.id, p_url: str(fd, 'url').slice(0, 200) });
+  if (error) return { error: /website address|admin/i.test(error.message) ? error.message : /function|column/i.test(error.message) ? 'Run patch-022 in Supabase first.' : friendly(error.message) };
+  revalidatePath('/sources'); revalidatePath('/projects');
+  return { ok: data ? `Saved. Links you send now open on ${data}.` : 'Removed. Links open on the CRM again.' };
+}

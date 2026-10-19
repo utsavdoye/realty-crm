@@ -16,7 +16,9 @@ const MAX = 8;
 
 const price = (p: P) => (p.price_from ? `${fmtL(p.price_from)}${p.price_to ? ' – ' + fmtL(p.price_to).replace('₹', '') : '+'}` : 'Price on request');
 
-export function ShortlistPanel({ leadId, firstName, phone, projects, past, base }: { leadId: string; firstName: string; phone: string; projects: P[]; past: S[]; base: string }) {
+export function ShortlistPanel({ leadId, firstName, phone, projects, past, base, web }: { leadId: string; firstName: string; phone: string; projects: P[]; past: S[]; base: string; web?: string | null }) {
+  // Links open on the company website when one is set (Lead sources → Your client website), else on the CRM.
+  const linkFor = (token: string) => (web ? `${web}/shortlist.html?t=${token}` : `${base}/s/${token}`);
   // Sold-out projects are never picked (they are not even shown in the list).
   const [sel, setSel] = useState<string[]>(projects.filter((p) => p.match && p.status !== 'Sold out').slice(0, 3).map((p) => p.id));
   const [note, setNote] = useState('');
@@ -49,7 +51,7 @@ export function ShortlistPanel({ leadId, firstName, phone, projects, past, base 
             <b>Link ready for {firstName}</b>
             <span className="hint">Send it on WhatsApp. You get an alert the moment {firstName} opens it or asks for prices.</span>
           </div>
-          <ShareButtons url={`${base}/s/${made}`} text={`Hi ${firstName}, here are some homes I picked for you. Have a look and tap "Book a site visit" on the one you like:`} phone={phone} />
+          <ShareButtons url={linkFor(made)} text={`Hi ${firstName}, here are some homes I picked for you. Have a look and tap "Book a site visit" on the one you like:`} phone={phone} />
           <button className="btn sm ghost" onClick={() => { setMade(null); setNote(''); }}>Make another link</button>
         </div>
       ) : (
@@ -114,7 +116,7 @@ export function ShortlistPanel({ leadId, firstName, phone, projects, past, base 
                 </span>
               </div>
               <span className={`chip ${s.views ? 'good' : ''}`}>{s.views ? `Opened ${s.views}×` : 'Not opened'}</span>
-              <ShareButtons url={`${base}/s/${s.token}`} text={`Hi ${firstName}, here are the homes I picked for you:`} phone={phone} />
+              <ShareButtons url={linkFor(s.token)} text={`Hi ${firstName}, here are the homes I picked for you:`} phone={phone} />
             </div>
           ))}
         </div>

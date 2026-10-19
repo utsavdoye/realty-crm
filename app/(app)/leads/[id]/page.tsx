@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireOrg } from '@/lib/context';
 import { fmtPhone, isManager, siteUrl, telHref } from '@/lib/roles';
+import { websiteUrl } from '@/lib/website';
 import { ShortlistPanel } from '@/components/ShortlistPanel';
 import { CallButton } from '@/components/CallButton';
 import { CheckInButton } from '@/components/CheckInButton';
@@ -33,6 +34,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
     supabase.from('members').select('user_id, full_name, phone, role, active').eq('org_id', org.id),
     supabase.from('templates').select('id, name, use_for, body').eq('org_id', org.id).order('use_for'),
   ]);
+  const web = await websiteUrl(supabase, org.id);
   const [{ data: shortlists }, { data: deal }, { data: leadMatches }, { data: stepRows }, { data: teams }] = await Promise.all([
     supabase.from('shortlists').select('id, token, project_ids, views, last_viewed_at, reactions, created_at').eq('lead_id', lead.id).order('created_at', { ascending: false }).limit(10),
     role === 'owner' ? supabase.from('deals').select('id, agreement_value, commission_amount, status').eq('lead_id', lead.id).order('created_at', { ascending: false }).limit(1).maybeSingle() : Promise.resolve({ data: null }),
@@ -332,7 +334,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
             <section className="panel" id="shortlist">
               <div className="panel-h"><h2>Send homes to the client</h2><span className="hint">One link with photos, price and map</span></div>
               <div className="panel-b">
-                <ShortlistPanel leadId={lead.id} firstName={lead.name.split(' ')[0]} phone={lead.phone} base={siteUrl()}
+                <ShortlistPanel leadId={lead.id} firstName={lead.name.split(' ')[0]} phone={lead.phone} base={siteUrl()} web={web}
                   projects={(projects ?? []).map((p) => ({ ...p, match: matchOf(p) })).sort((a, b) => Number(b.match) - Number(a.match))}
                   past={(shortlists ?? []) as never} />
               </div>

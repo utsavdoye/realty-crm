@@ -11,6 +11,7 @@ import { AddProjectForm } from '@/components/AddProjectForm';
 import { ProjectPlans } from '@/components/ProjectPlans';
 import { ShareButtons } from '@/components/ShareButtons';
 import { siteUrl } from '@/lib/roles';
+import { websiteUrl } from '@/lib/website';
 import { rematchProject, toggleProjectPublic, toggleProjectWebsite } from '@/app/crm-actions';
 
 export const metadata = { title: 'Projects' };
@@ -26,6 +27,7 @@ export default async function Projects() {
     fetchAll<{ project_id: string }>(() => supabase.from('project_matches').select('project_id, lead_id').eq('org_id', org.id).is('dismissed_at', null).order('lead_id').order('project_id')),
     fetchAll<{ project_id: string; status: string }>(() => supabase.from('project_units').select('id, project_id, status').eq('org_id', org.id).order('id')),
   ]);
+  const web = await websiteUrl(supabase, org.id);
   const unitsBy = new Map<string, Record<string, number>>();
   unitRows.forEach((u) => { const c = unitsBy.get(u.project_id) ?? {}; c[u.status] = (c[u.status] ?? 0) + 1; unitsBy.set(u.project_id, c); });
   const matchCount = new Map<string, number>();
@@ -65,13 +67,18 @@ export default async function Projects() {
                 <Link className="match-chip" href={`/leads?match=${p.id}`}>🔔 {matchCount.get(p.id)} {mgr ? 'leads' : 'of your leads'} wanted something like this →</Link>
               )}
               <div className="share-box">
-                {p.is_public ? (
+                {web && p.on_website && p.status !== 'Sold out' ? (
+                  <>
+                    <span className="hint">Link on your website</span>
+                    <ShareButtons url={`${web}/property.html?p=${p.id}`} text={`Have a look at ${p.name}${p.location ? ' in ' + p.location : ''}: photos, price and location`} />
+                  </>
+                ) : p.is_public ? (
                   <>
                     <span className="hint">Client link is on</span>
                     <ShareButtons url={`${siteUrl()}/p/${p.share_token}`} text={`Have a look at ${p.name}${p.location ? ' in ' + p.location : ''}: photos, price and location`} />
                   </>
                 ) : <span className="hint">Client link is off</span>}
-                {mgr && (
+                {mgr && !(web && p.on_website && p.status !== 'Sold out') && (
                   <form action={toggleProjectPublic}>
                     <input type="hidden" name="id" value={p.id} /><input type="hidden" name="on" value={String(!p.is_public)} />
                     <button className="btn sm ghost">{p.is_public ? 'Turn off' : 'Turn on client link'}</button>

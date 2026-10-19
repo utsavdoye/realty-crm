@@ -6,6 +6,7 @@ import { addFloorPlans, removeFloorPlan, setBrochure } from '@/app/crm-actions';
 import { uploadProjectFile } from '@/lib/upload';
 
 type Plan = { url: string; label: string };
+export const isPdf = (u: string) => /\.pdf(\?|#|$)/i.test(u);
 const nameToLabel = (n: string) => n.replace(/\.[a-z0-9]+$/i, '').replace(/[_-]+/g, ' ').trim().slice(0, 60);
 
 /** Floor plans on a project card, plus the brochure PDF upload. */
@@ -48,7 +49,7 @@ export function ProjectPlans({ projectId, orgId, plans, canEdit, hasPdf }: { pro
           {plans.map((p) => (
             <button key={p.url} type="button" className="plan-tile" onClick={() => setView(p)}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.url} alt={p.label} loading="lazy" /><span>{p.label || 'Floor plan'}</span>
+              {isPdf(p.url) ? <span className="plan-pdf" aria-hidden="true">PDF</span> : <img src={p.url} alt={p.label} loading="lazy" />}<span>{p.label || 'Floor plan'}</span>
             </button>
           ))}
         </div>
@@ -58,7 +59,7 @@ export function ProjectPlans({ projectId, orgId, plans, canEdit, hasPdf }: { pro
           {picked.map((p, i) => (
             <div key={p.url} className="mp-plan">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={p.url} alt="" />
+              {p.file.type === 'application/pdf' ? <span className="plan-pdf" aria-hidden="true">PDF</span> : <img src={p.url} alt="" />}
               <input value={p.label} maxLength={60} placeholder="e.g. 3 BHK · 1,450 sq ft" aria-label={`Name of floor plan ${i + 1}`}
                 onChange={(e) => setPicked((x) => x.map((y) => (y === p ? { ...y, label: e.target.value } : y)))} />
               <button type="button" className="btn sm ghost" onClick={() => setPicked((x) => x.filter((y) => y !== p))}>✕</button>
@@ -69,8 +70,8 @@ export function ProjectPlans({ projectId, orgId, plans, canEdit, hasPdf }: { pro
       )}
       {canEdit && (
         <div className="row-gap">
-          <label className="btn sm ghost">+ Floor plans<input type="file" accept="image/jpeg,image/png,image/webp" multiple hidden
-            onChange={(e) => { const add = Array.from(e.target.files ?? []).filter((f) => f.type.startsWith('image/')).slice(0, 20 - plans.length - picked.length).map((file) => ({ file, label: nameToLabel(file.name), url: URL.createObjectURL(file) })); setPicked((x) => [...x, ...add]); e.target.value = ''; }} /></label>
+          <label className="btn sm ghost">+ Floor plans (photo or PDF)<input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple hidden
+            onChange={(e) => { const add = Array.from(e.target.files ?? []).filter((f) => f.type.startsWith('image/') || (f.type === 'application/pdf' && f.size <= 20 * 1024 * 1024)).slice(0, 20 - plans.length - picked.length).map((file) => ({ file, label: nameToLabel(file.name), url: URL.createObjectURL(file) })); setPicked((x) => [...x, ...add]); e.target.value = ''; }} /></label>
           <label className="btn sm ghost">{hasPdf ? 'Replace brochure PDF' : '+ Brochure PDF'}<input type="file" accept="application/pdf" hidden
             onChange={(e) => { const f = e.target.files?.[0]; if (f) pdf(f); e.target.value = ''; }} /></label>
           {busy && !picked.length && <span className="hint">{busy}</span>}
@@ -84,8 +85,15 @@ export function ProjectPlans({ projectId, orgId, plans, canEdit, hasPdf }: { pro
             {canEdit && <button className="btn sm danger" disabled={!!busy} onClick={() => remove(view)}>Remove</button>}
             <button className="btn sm" onClick={() => setView(null)} aria-label="Close">✕</button>
           </div>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={view.url} alt={view.label} onClick={(e) => e.stopPropagation()} style={{ background: '#fff' }} />
+          {isPdf(view.url) ? (
+            <div className="lb-pdf" onClick={(e) => e.stopPropagation()}>
+              <iframe src={view.url} title={view.label || 'Floor plan'} />
+              <a className="btn sm" href={view.url} target="_blank" rel="noopener noreferrer">Open the PDF</a>
+            </div>
+          ) : (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img src={view.url} alt={view.label} onClick={(e) => e.stopPropagation()} style={{ background: '#fff' }} />
+          )}
         </div>
       )}
     </div>

@@ -20,7 +20,7 @@ const rand = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 export async function uploadProjectFile(orgId: string, projectId: string, kind: 'photo' | 'plan' | 'brochure', file: File): Promise<string> {
   const supabase = createClient();
   let blob: Blob = file; let ext = 'jpg'; let type = 'image/jpeg';
-  if (kind === 'brochure') {
+  if (kind === 'brochure' || (kind === 'plan' && file.type === 'application/pdf')) {
     if (file.type !== 'application/pdf') throw new Error('Pick a PDF file');
     if (file.size > 20 * 1024 * 1024) throw new Error('The PDF is bigger than 20 MB');
     ext = 'pdf'; type = 'application/pdf';

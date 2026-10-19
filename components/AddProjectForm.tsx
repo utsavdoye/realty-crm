@@ -99,16 +99,16 @@ export function AddProjectForm({ orgId }: { orgId: string }) {
         )}
 
         <div className="mp-row">
-          <div><b>Floor plans</b><span className="hint">One picture per plan. Clients see them only after they leave their number.</span></div>
-          <label className="btn sm">+ Add floor plans<input type="file" accept="image/jpeg,image/png,image/webp" multiple hidden
-            onChange={(e) => { const add = pickImgs(e.target.files).slice(0, 20 - plans.length).map((file) => ({ file, label: nameToLabel(file.name), url: URL.createObjectURL(file) })); setPlans((p) => [...p, ...add]); e.target.value = ''; }} /></label>
+          <div><b>Floor plans</b><span className="hint">A picture or a PDF per plan. Clients see them only after they leave their number.</span></div>
+          <label className="btn sm">+ Add floor plans<input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple hidden
+            onChange={(e) => { const add = Array.from(e.target.files ?? []).filter((f) => f.type.startsWith('image/') || (f.type === 'application/pdf' && f.size <= 20 * 1024 * 1024)).slice(0, 20 - plans.length).map((file) => ({ file, label: nameToLabel(file.name), url: URL.createObjectURL(file) })); setPlans((p) => [...p, ...add]); e.target.value = ''; }} /></label>
         </div>
         {plans.length > 0 && (
           <div className="mp-plans">
             {plans.map((p, i) => (
               <div key={p.url} className="mp-plan">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={p.url} alt="" />
+                {p.file.type === 'application/pdf' ? <span className="plan-pdf" aria-hidden="true">PDF</span> : <img src={p.url} alt="" />}
                 <input value={p.label} maxLength={60} placeholder="e.g. 2 BHK · 1,150 sq ft" aria-label={`Name of floor plan ${i + 1}`}
                   onChange={(e) => setPlans((x) => x.map((y) => (y === p ? { ...y, label: e.target.value } : y)))} />
                 <button type="button" className="btn sm ghost" onClick={() => setPlans((x) => x.filter((y) => y !== p))}>Remove</button>

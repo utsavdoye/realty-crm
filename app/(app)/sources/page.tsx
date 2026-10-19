@@ -1,5 +1,6 @@
 import { requireOrg } from '@/lib/context';
-import { createSource, saveMetaToken, setAutoAssign, setReassignMinutes, setSourceSegment, toggleSource } from '@/app/actions';
+import { createSource, saveMetaToken, saveWebsiteUrl, setAutoAssign, setReassignMinutes, setSourceSegment, toggleSource } from '@/app/actions';
+import { websiteUrl } from '@/lib/website';
 import { ActionForm, Submit } from '@/components/forms';
 import { CopyButton } from '@/components/CopyButton';
 import { SourceKindPicker } from '@/components/SourceKindPicker';
@@ -55,6 +56,7 @@ export default async function Sources() {
     supabase.from('organizations').select('*').eq('id', org.id).single(),
   ]);
   const base = siteUrl();
+  const site = await websiteUrl(supabase, org.id);
   const list = (sources ?? []) as Source[];
   const auto = (orgRow as { auto_assign?: boolean } | null)?.auto_assign ?? true;
   const reassign = (orgRow as { reassign_minutes?: number | null } | null)?.reassign_minutes ?? null;
@@ -84,6 +86,15 @@ export default async function Sources() {
             <div className="panel-b stack">
               <p className="hint">Your website (for example Surestone) shows every project from Projects here, by itself, within a minute of a change. Hide one with &ldquo;Hide from website&rdquo; on its card; sold-out projects are left out. Enquiries and visit requests from the website come in as leads{web ? <> through <b>{web.name}</b></> : ''}.</p>
               {!web && <p className="msg err">First add a lead source of type &ldquo;Website&rdquo; on the right, so website enquiries become leads.</p>}
+              {role === 'owner' && (
+                <ActionForm action={saveWebsiteUrl} className="stack">
+                  <label className="field"><span className="label">Your website address</span>
+                    <input name="url" type="text" inputMode="url" defaultValue={site ?? ''} placeholder="https://surestonev1.vercel.app" maxLength={200} />
+                    <span className="hint">When this is filled, the homes links your team sends to clients (and project links) open on this website instead of the CRM. Old links keep working.</span>
+                  </label>
+                  <div className="row-gap"><Submit className="btn sm">Save website address</Submit>{site && <span className="hint">Links now open on {site}</span>}</div>
+                </ActionForm>
+              )}
               <span className="label">Give this to your website developer (file crm-config.js)</span>
               <pre className="code">{cfg}</pre>
               <div className="row-gap"><CopyButton text={cfg} label="Copy settings" /><a className="btn sm ghost" href={feed} target="_blank" rel="noopener noreferrer">See what the website gets</a></div>
