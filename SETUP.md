@@ -22,7 +22,7 @@ Takes about 30–40 minutes the first time.
    - Save the database password somewhere safe.
 2. Wait 2 minutes for it to start.
 3. Left menu → **SQL Editor** → **New query**. Open `supabase/schema.sql` from this folder, copy everything, paste, press **Run**. You should see "Success. No rows returned".
-   Then do the same, one by one and in this order, for `supabase/patch-002-whatsapp.sql`, `patch-003-lead-capture.sql`, `patch-004-crm.sql`, `patch-005-alerts-import.sql`, `patch-006-project-photos.sql`, `patch-007-admins-money-sharing-map.sql`, `patch-008-project-matches.sql`, `patch-009-international-phones.sql`, `patch-010-passwords.sql`, `patch-011-forms-interns-teaser.sql`, `patch-012-reassign-alerts.sql`, `patch-013-team-link-projects.sql`, `patch-014-more-templates.sql`, `patch-015-safety.sql`, `patch-016-journey.sql`, `patch-017-daily-merge-checkin.sql`, `patch-018-units.sql`, `patch-019-fields-status-logs.sql`, `patch-020-website-feed.sql`, `patch-021-website-brochure-lock.sql`, `patch-022-website-shortlists.sql`, `patch-023-lease-website-phone.sql`, `patch-024-first-call-lock-votes.sql`, `patch-025-sources-admin-only.sql` and `patch-026-phone-verify.sql`. Each one is safe to run again if you are not sure you ran it.
+   Then do the same, one by one and in this order, for `supabase/patch-002-whatsapp.sql`, `patch-003-lead-capture.sql`, `patch-004-crm.sql`, `patch-005-alerts-import.sql`, `patch-006-project-photos.sql`, `patch-007-admins-money-sharing-map.sql`, `patch-008-project-matches.sql`, `patch-009-international-phones.sql`, `patch-010-passwords.sql`, `patch-011-forms-interns-teaser.sql`, `patch-012-reassign-alerts.sql`, `patch-013-team-link-projects.sql`, `patch-014-more-templates.sql`, `patch-015-safety.sql`, `patch-016-journey.sql`, `patch-017-daily-merge-checkin.sql`, `patch-018-units.sql`, `patch-019-fields-status-logs.sql`, `patch-020-website-feed.sql`, `patch-021-website-brochure-lock.sql`, `patch-022-website-shortlists.sql`, `patch-023-lease-website-phone.sql`, `patch-024-first-call-lock-votes.sql`, `patch-025-sources-admin-only.sql`, `patch-026-phone-verify.sql` and `patch-027-website-accounts-saves.sql`. Each one is safe to run again if you are not sure you ran it.
    **Before patch-005:** left menu → **Database → Extensions** → search `pg_cron` → switch it on. This runs the "move a lead if nobody calls it" check every minute. If you forget, run patch-005 again after switching it on.
 4. Left menu → **Project Settings → API**. Copy two things:
    - **Project URL**
@@ -31,18 +31,19 @@ Takes about 30–40 minutes the first time.
 ### Turn on email OTP (works today, free)
 
 5. **Authentication → Sign In / Providers → Email**: make sure Email is ON.
-6. **Send login emails from trustarcestates@gmail.com (free, about 500 emails a day).**
-   a. Sign in to Gmail as trustarcestates@gmail.com → **myaccount.google.com → Security** → turn on **2-Step Verification**.
-   b. Same page → search **App passwords** → name it `Supabase` → **Create**. Copy the 16-letter password (no spaces). Never share it or paste it in chat.
+6. **Send every email through Resend (free: 3,000 emails a month, 100 a day).** Resend needs your own domain (e.g. `trustarcestates.com`, about ₹800 a year); it cannot send from a Gmail address.
+   a. **resend.com** → sign up → **Domains → Add domain** → type your domain → Resend shows 3–4 DNS records. Add them where you bought the domain (GoDaddy / Hostinger / Namecheap → DNS). Wait until Resend shows **Verified** (minutes to a few hours).
+   b. **Resend → API Keys → Create API key** → name `supabase` → permission **Sending access** → copy it (starts with `re_`). Never share it or paste it in chat.
    c. Supabase → **Authentication → Emails → SMTP Settings** → turn on **Enable Custom SMTP** and fill in:
-      - Sender email: `trustarcestates@gmail.com`
+      - Sender email: `no-reply@yourdomain.com`
       - Sender name: `TrustArc Estates`
-      - Host: `smtp.gmail.com`
+      - Host: `smtp.resend.com`
       - Port: `465`
-      - Username: `trustarcestates@gmail.com`
-      - Password: the 16-letter app password
+      - Username: `resend`
+      - Password: the `re_` API key
       - Minimum interval: `30` seconds → **Save**.
    d. **Authentication → Rate Limits** → emails per hour → `100` → Save.
+   (No domain yet? Until then you can use Gmail instead: host `smtp.gmail.com`, port `465`, username and sender = your Gmail, password = a Gmail **App password**.)
 7. **Authentication → Emails → Templates.** Paste these:
 
    **Magic Link** and **Confirm signup** (same for both)
@@ -139,6 +140,19 @@ Cost: Firebase phone sign-in needs the **Blaze** (pay as you go) plan with a car
 9. **Test:** on the website tap "View brochure" → type name and number → "Send code by SMS" → tick the "I'm not a robot" box if it shows → type the code → it says "Number verified", and a lead appears with the note "Number verified by SMS".
 
 To switch it off, press **Turn off** in Lead sources: the website goes back to name + number without a code.
+
+## Client accounts on the website (Firebase) — one account each, verified, saves in the CRM
+
+The website's "Create account" now sends a verification link; only verified emails (or a mobile verified by SMS) are added to the CRM. One email or mobile = one account. Homes a client saves show in the CRM (Projects → ❤️ Saves, and on the client's lead under "On your website").
+
+1. **console.firebase.google.com** → project **surestone-e3a9e** → **Authentication → Settings → User account linking** → choose **Link accounts that use the same email** (one account per email). Save.
+2. **Authentication → Sign-in method** → make sure **Email/Password** (and Google / Phone if you use them) are **Enabled**.
+3. **Send Firebase emails through Resend too:** **Authentication → Templates** → pencil on any template → **Customize SMTP settings** (or "SMTP settings") → turn on → Sender `no-reply@yourdomain.com`, Host `smtp.resend.com`, Port `465`, Username `resend`, Password = a Resend API key (make a second key named `firebase`), Security **SSL** → Save. Then edit the **Email address verification** template: Sender name `Sure Stone Properties`, subject `Verify your email for Sure Stone`.
+4. **Vercel → realty-crm → Environment Variables:** make sure these exist, then **Redeploy**:
+   - `FIREBASE_PROJECT_ID` = `surestone-e3a9e`
+   - `SUPABASE_SERVICE_ROLE_KEY` = Supabase → Project Settings → API Keys → service_role (server only)
+5. Supabase: run `patch-027-website-accounts-saves.sql`.
+6. **Test:** on the website → Your account → **Create account** with a real email → you get "We sent a link…" → open the email, click the link → back on the site press **I have verified** → save a home → in the CRM, Projects shows ❤️ 1 and "Saved by 1 client". Try creating another account with the same email: it is refused.
 
 ## Running the business side
 

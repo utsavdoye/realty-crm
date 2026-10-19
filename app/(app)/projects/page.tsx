@@ -10,7 +10,7 @@ import { ProjectFields, type ProjectRow } from '@/components/ProjectFields';
 import { AddProjectForm } from '@/components/AddProjectForm';
 import { ProjectPlans } from '@/components/ProjectPlans';
 import { ShareButtons } from '@/components/ShareButtons';
-import { siteUrl } from '@/lib/roles';
+import { fmtPhone, siteUrl } from '@/lib/roles';
 import { websiteUrl } from '@/lib/website';
 import { rematchProject, toggleProjectPublic, toggleProjectWebsite } from '@/app/crm-actions';
 
@@ -35,6 +35,18 @@ export default async function Projects({ searchParams }: { searchParams?: { sort
   const { data: voteRows } = await supabase.from('project_votes').select('project_id').limit(50000);
   const votes = new Map<string, number>();
   (voteRows ?? []).forEach((v: { project_id: string }) => votes.set(v.project_id, (votes.get(v.project_id) ?? 0) + 1));
+  // Homes saved on the website (patch-027): count, and the signed-in clients who saved them
+  const [{ data: saveRows }, { data: webClients }] = await Promise.all([
+    supabase.from('website_saves').select('project_id, client_id').eq('org_id', org.id).limit(50000),
+    supabase.from('website_clients').select('id, name, email, phone').eq('org_id', org.id).limit(20000),
+  ]);
+  const clientOf = new Map((webClients ?? []).map((c: { id: string; name: string | null; email: string | null; phone: string | null }) => [c.id, c]));
+  const saves = new Map<string, { n: number; who: { id: string; name: string | null; email: string | null; phone: string | null }[] }>();
+  (saveRows ?? []).forEach((r: { project_id: string; client_id: string | null }) => {
+    const x = saves.get(r.project_id) ?? { n: 0, who: [] }; x.n++;
+    const c = r.client_id ? clientOf.get(r.client_id) : undefined; if (c) x.who.push(c);
+    saves.set(r.project_id, x);
+  });
   const matchCount = new Map<string, number>();
   (matches ?? []).forEach((m) => matchCount.set(m.project_id, (matchCount.get(m.project_id) ?? 0) + 1));
   const stats = new Map<string, { n: number; booked: number; visited: number }>();
@@ -68,7 +80,12 @@ export default async function Projects({ searchParams }: { searchParams?: { sort
               {p.highlights && <div className="hint">{p.highlights}</div>}
               {p.link && <a href={/^https?:\/\//.test(p.link) ? p.link : 'https://' + p.link} target="_blank" rel="noopener noreferrer">{/\.pdf$/i.test(p.link) ? 'Brochure (PDF)' : 'Brochure / site'}</a>}
               <ProjectPlans projectId={p.id} orgId={org.id} plans={p.floor_plans ?? []} canEdit={mgr} hasPdf={!!p.link && /\.pdf$/i.test(p.link)} />
-              <div className="stats3 stats4"><div><b className="mono">{s.n}</b><span className="hint">Leads</span></div><div><b className="mono">{s.visited}</b><span className="hint">Visited</span></div><div><b className="mono">{s.booked}</b><span className="hint">Booked</span></div><div title="Upvotes from visitors on your website"><b className="mono">👍 {votes.get(p.id) ?? 0}</b><span className="hint">Upvotes</span></div></div>
+              <div className="stats3 stats4"><div><b className="mono">{s.n}</b><span className="hint">Leads</span></div><div><b className="mono">{s.visited}</b><span className="hint">Visited</span></div><div><b className="mono">{s.booked}</b><span className="hint">Booked</span></div><div title="Upvotes from visitors on your website"><b className="mono">👍 {votes.get(p.id) ?? 0}</b><span className="hint">Upvotes</span></div><div title="Saved on your website (signed-in clients and visitors)"><b className="mono">❤️ {saves.get(p.id)?.n ?? 0}</b><span className="hint">Saves</span></div></div>
+              {(saves.get(p.id)?.who.length ?? 0) > 0 && (
+                <details className="saved-by"><summary className="hint">Saved by {saves.get(p.id)!.who.length} client{saves.get(p.id)!.who.length === 1 ? '' : 's'} with an account</summary>
+                  <ul className="saved-list">{saves.get(p.id)!.who.map((c) => <li key={c.id}><b>{c.name || 'No name'}</b> <span className="hint">{[c.phone ? fmtPhone(c.phone) : '', c.email].filter(Boolean).join(' · ')}</span></li>)}</ul>
+                </details>
+              )}
               {(matchCount.get(p.id) ?? 0) > 0 && (
                 <Link className="match-chip" href={`/leads?match=${p.id}`}>🔔 {matchCount.get(p.id)} {mgr ? 'leads' : 'of your leads'} wanted something like this →</Link>
               )}

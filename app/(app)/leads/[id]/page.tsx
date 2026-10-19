@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireOrg } from '@/lib/context';
-import { fmtPhone, isManager, siteUrl, telHref } from '@/lib/roles';
+import { fmtPhone, isManager, normPhone, siteUrl, telHref } from '@/lib/roles';
 import { websiteUrl } from '@/lib/website';
 import { ShortlistPanel } from '@/components/ShortlistPanel';
 import { CallButton } from '@/components/CallButton';
@@ -35,6 +35,16 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
     supabase.from('templates').select('id, name, use_for, body').eq('org_id', org.id).order('use_for'),
   ]);
   const web = await websiteUrl(supabase, org.id);
+  // Website account of this client (patch-027): matched by mobile or email, and the homes they saved there.
+  const leadPhone = normPhone(lead.phone);
+  const [{ data: wcByPhone }, { data: wcByEmail }] = await Promise.all([
+    leadPhone ? supabase.from('website_clients').select('id, name, email, phone, created_at, last_seen_at').eq('org_id', org.id).eq('phone', leadPhone).limit(1) : Promise.resolve({ data: [] }),
+    lead.email ? supabase.from('website_clients').select('id, name, email, phone, created_at, last_seen_at').eq('org_id', org.id).ilike('email', String(lead.email).replace(/[%_]/g, '')).limit(1) : Promise.resolve({ data: [] }),
+  ]);
+  const webClient = ((wcByPhone ?? [])[0] ?? (wcByEmail ?? [])[0] ?? null) as { id: string; name: string | null; email: string | null; phone: string | null; created_at: string; last_seen_at: string } | null;
+  const { data: webSaves } = webClient
+    ? await supabase.from('website_saves').select('project_id, created_at').eq('client_id', webClient.id).order('created_at', { ascending: false })
+    : { data: [] as { project_id: string; created_at: string }[] };
   const [{ data: shortlists }, { data: deal }, { data: leadMatches }, { data: stepRows }, { data: teams }] = await Promise.all([
     supabase.from('shortlists').select('id, token, project_ids, views, last_viewed_at, reactions, created_at').eq('lead_id', lead.id).order('created_at', { ascending: false }).limit(10),
     role === 'owner' ? supabase.from('deals').select('id, agreement_value, commission_amount, status').eq('lead_id', lead.id).order('created_at', { ascending: false }).limit(1).maybeSingle() : Promise.resolve({ data: null }),
@@ -326,6 +336,21 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
                     location: lead.location, bhk: lead.bhk,
                   }}
                 />
+              </div>
+            </section>
+          )}
+
+          {webClient && (
+            <section className="panel" id="website-account">
+              <div className="panel-h"><h2>On your website</h2><span className="hint">Account since {fmtDate(webClient.created_at)} · last seen {fmtDT(webClient.last_seen_at)}</span></div>
+              <div className="panel-b stack" style={{ gap: 8 }}>
+                <span className="hint">{[webClient.name, webClient.email, webClient.phone ? fmtPhone(webClient.phone) : ''].filter(Boolean).join(' · ')}</span>
+                {(webSaves ?? []).length ? (
+                  <div className="amen">{(webSaves ?? []).map((w) => {
+                    const pr = (projects ?? []).find((x) => x.id === w.project_id);
+                    return <span key={w.project_id}>❤️ {pr?.name ?? 'Project'}</span>;
+                  })}</div>
+                ) : <span className="hint">No saved homes yet.</span>}
               </div>
             </section>
           )}
