@@ -1,6 +1,7 @@
 import { createAdminClient, createAnonClient } from '@/lib/supabase/admin';
 import { ingest, KEY_RE } from '@/lib/leadIntake';
 import { siteUrl } from '@/lib/roles';
+import { verifiedPhoneFromFirebase } from '@/lib/firebaseToken';
 
 // Client website: brochure / floor plans open only after the visitor leaves name + mobile.
 // POST { key, project, name, phone, what: 'brochure' | 'plans', t? } → saves the lead, then returns the files.
@@ -29,23 +30,21 @@ export async function POST(req: Request) {
   const t = typeof b.t === 'string' && /^[a-f0-9]{24,64}$/.test(b.t) ? b.t : '';
   if (!KEY_RE.test(key) || !UUID.test(project)) return json({ ok: false, error: 'Something is wrong with this page. Please refresh and try again.' }, 400);
   const anon = createAnonClient();
-  // WhatsApp check (patch-026): when the company turned it on, the number must come from a verified WhatsApp message.
-  const vtoken = typeof b.vtoken === 'string' && /^[a-f0-9]{64}$/.test(b.vtoken) ? b.vtoken : '';
+  // SMS check (patch-026): when the company turned it on, the number must come from a Firebase-verified SMS sign-in.
   let verified = false;
-  if (vtoken) {
-    const { data: v } = await anon.rpc('site_verify_status', { p_token: vtoken, p_key: key });
-    const vv = v as { verified?: boolean; phone?: string; name?: string | null } | null;
-    if (vv?.verified && vv.phone) { verified = true; phone = vv.phone; if (name.length < 2 && vv.name) name = vv.name; }
+  if (typeof b.idToken === 'string' && b.idToken) {
+    const vphone = await verifiedPhoneFromFirebase(b.idToken);
+    if (vphone) { verified = true; phone = vphone; }
   }
   const { data: needVerify } = await anon.rpc('site_verify_needed', { p_key: key });
-  if (needVerify === true && !verified) return json({ ok: false, needVerify: true, error: 'Please verify your mobile number on WhatsApp first.' }, 403);
+  if (needVerify === true && !verified) return json({ ok: false, needVerify: true, error: 'Please verify your mobile number with the SMS code first.' }, 403);
   if (name.length < 2) return json({ ok: false, error: 'Please enter your name.' }, 422);
   if (typeof b.website === 'string' && b.website.trim()) return json({ ok: false, error: 'Please try again.' }, 400); // spam bots
 
   const db = createAdminClient() ?? createAnonClient();
   // recheck: the visitor already left their details; only look again (after the team's first call) without a new lead note.
   const recheck = b.recheck === true;
-  const r = recheck ? { ok: true } as { ok: boolean; error?: string } : await ingest(key, { name, phone, project: String(b.projectName ?? '').slice(0, 200) || undefined, message: `Asked for the ${what} on the website${t ? ' (from the homes link the team sent)' : ''}.${verified ? ' Number verified on WhatsApp.' : ''}` }, { name, phone, what, project, from: t ? 'website shortlist' : 'website', whatsapp_verified: verified });
+  const r = recheck ? { ok: true } as { ok: boolean; error?: string } : await ingest(key, { name, phone, project: String(b.projectName ?? '').slice(0, 200) || undefined, message: `Asked for the ${what} on the website${t ? ' (from the homes link the team sent)' : ''}.${verified ? ' Number verified by SMS.' : ''}` }, { name, phone, what, project, from: t ? 'website shortlist' : 'website', phone_verified: verified });
   if (!r.ok) { const [s, m] = ERR[r.error ?? 'server_error'] ?? ERR.server_error; return json({ ok: false, error: m }, s); }
 
   // The advisor who sent the link also gets the usual "opened prices" alert on that client.

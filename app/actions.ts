@@ -314,8 +314,8 @@ export async function saveWebsitePhone(_: FormState, fd: FormData): Promise<Form
   return { ok: data ? `Saved. The website call button now rings ${data}.` : 'Removed. The website hides the call button.' };
 }
 
-export async function setVerifyWhatsapp(fd: FormData) {
+export async function setVerifyPhone(fd: FormData) {
   const { supabase, org } = await requireOrg(['owner']);
-  await supabase.rpc('set_verify_whatsapp', { p_org: org.id, p_on: str(fd, 'on') === 'true' });
+  await supabase.rpc('set_verify_phone', { p_org: org.id, p_on: str(fd, 'on') === 'true' });
   revalidatePath('/sources');
 }

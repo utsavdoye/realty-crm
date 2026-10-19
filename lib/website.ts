@@ -16,9 +16,9 @@ export async function websitePhone(supabase: SupabaseClient, orgId: string): Pro
   return (data as { website_phone?: string | null } | null)?.website_phone ?? null;
 }
 
-/** Is "Verify on WhatsApp" switched on (patch-026)? */
+/** Is SMS verification switched on (patch-026)? */
 export async function websiteVerify(supabase: SupabaseClient, orgId: string): Promise<boolean | null> {
-  const { data, error } = await supabase.from('organizations').select('verify_whatsapp').eq('id', orgId).maybeSingle();
+  const { data, error } = await supabase.from('organizations').select('verify_phone').eq('id', orgId).maybeSingle();
   if (error) return null;
-  return !!(data as { verify_whatsapp?: boolean } | null)?.verify_whatsapp;
+  return !!(data as { verify_phone?: boolean } | null)?.verify_phone;
 }
