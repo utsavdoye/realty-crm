@@ -1,4 +1,4 @@
-import { PROJECT_STATUS, PROJECT_TYPES } from '@/lib/crm';
+import { PROJECT_DEALS, PROJECT_STATUS, PROJECT_TYPES } from '@/lib/crm';
 import { LocationPicker } from '@/components/LocationPicker';
 
 export type ProjectRow = {
@@ -7,7 +7,7 @@ export type ProjectRow = {
   photos: string[] | null; lat: number | null; lng: number | null; is_public: boolean; share_token: string;
   floor_plans: { url: string; label: string }[] | null; size_from: number | null; size_to: number | null; towers: string | null; units: number | null;
   amenities: string | null; banks: string | null;
-  map_url?: string | null; on_website?: boolean | null; payment_plan?: string | null; terms?: string | null; rate_card?: { floors: string; rate: number }[] | null;
+  map_url?: string | null; on_website?: boolean | null; deal?: string | null; payment_plan?: string | null; terms?: string | null; rate_card?: { floors: string; rate: number }[] | null;
 };
 
 /** All the project boxes, used by "Add a project" and "Edit". */
@@ -21,6 +21,7 @@ export function ProjectFields({ p }: { p?: ProjectRow }) {
       <label className="field"><span className="label">Location</span><input name="location" defaultValue={v('location')} placeholder="e.g. VIP Road, Raipur" /></label>
       <label className="field"><span className="label">RERA number</span><input name="rera_no" defaultValue={v('rera_no')} /></label>
       <label className="field"><span className="label">Type</span><select name="type" defaultValue={v('type')}><option value="">—</option>{PROJECT_TYPES.map((t) => <option key={t}>{t}</option>)}</select></label>
+      <label className="field"><span className="label">Sale or lease</span><select name="deal" defaultValue={p?.deal ?? 'sale'}>{PROJECT_DEALS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
       <label className="field"><span className="label">Unit options</span><input name="configs" defaultValue={v('configs')} placeholder="e.g. 2, 3 BHK" /></label>
       <label className="field"><span className="label">Price from (₹ lakh)</span><input name="price_from" type="number" min="0" step="0.1" defaultValue={v('price_from')} /></label>
       <label className="field"><span className="label">Price up to (₹ lakh)</span><input name="price_to" type="number" min="0" step="0.1" defaultValue={v('price_to')} /></label>

@@ -1,6 +1,6 @@
 import { requireOrg } from '@/lib/context';
-import { createSource, saveMetaToken, saveWebsiteUrl, setAutoAssign, setReassignMinutes, setSourceSegment, toggleSource } from '@/app/actions';
-import { websiteUrl } from '@/lib/website';
+import { createSource, saveMetaToken, saveWebsitePhone, saveWebsiteUrl, setAutoAssign, setReassignMinutes, setSourceSegment, toggleSource } from '@/app/actions';
+import { websitePhone, websiteUrl } from '@/lib/website';
 import { ActionForm, Submit } from '@/components/forms';
 import { CopyButton } from '@/components/CopyButton';
 import { SourceKindPicker } from '@/components/SourceKindPicker';
@@ -57,6 +57,7 @@ export default async function Sources() {
   ]);
   const base = siteUrl();
   const site = await websiteUrl(supabase, org.id);
+  const sitePhone = await websitePhone(supabase, org.id);
   const list = (sources ?? []) as Source[];
   const auto = (orgRow as { auto_assign?: boolean } | null)?.auto_assign ?? true;
   const reassign = (orgRow as { reassign_minutes?: number | null } | null)?.reassign_minutes ?? null;
@@ -93,6 +94,15 @@ export default async function Sources() {
                     <span className="hint">When this is filled, the homes links your team sends to clients (and project links) open on this website instead of the CRM. Old links keep working.</span>
                   </label>
                   <div className="row-gap"><Submit className="btn sm">Save website address</Submit>{site && <span className="hint">Links now open on {site}</span>}</div>
+                </ActionForm>
+              )}
+              {role === 'owner' && (
+                <ActionForm action={saveWebsitePhone} className="stack">
+                  <label className="field"><span className="label">Phone number for the website call button</span>
+                    <input name="phone" type="tel" inputMode="tel" defaultValue={sitePhone ?? ''} placeholder="e.g. 98765 43210" maxLength={30} />
+                    <span className="hint">Shown as a 📞 button next to &ldquo;Contact seller&rdquo; on every home. Leave empty to hide the button.</span>
+                  </label>
+                  <div className="row-gap"><Submit className="btn sm">Save phone number</Submit>{sitePhone && <span className="hint">Calls go to {sitePhone}</span>}</div>
                 </ActionForm>
               )}
               <span className="label">Give this to your website developer (file crm-config.js)</span>

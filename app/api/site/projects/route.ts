@@ -12,10 +12,14 @@ export function OPTIONS() { return new Response(null, { status: 204, headers: CO
 export async function GET(req: Request) {
   const org = new URL(req.url).searchParams.get('org') ?? '';
   if (!UUID.test(org)) return Response.json({ ok: false, error: 'Missing or wrong company id.' }, { status: 400, headers: CORS });
-  const { data, error } = await createAnonClient().rpc('site_projects', { p_org: org.toLowerCase() });
+  const db = createAnonClient();
+  const [{ data, error }, { data: contact }] = await Promise.all([
+    db.rpc('site_projects', { p_org: org.toLowerCase() }),
+    db.rpc('site_contact', { p_org: org.toLowerCase() }), // patch-023; null before it is run
+  ]);
   if (error) { console.error('site_projects failed:', error.message); return Response.json({ ok: false, error: 'Could not load projects.' }, { status: 500, headers: CORS }); }
   if (data == null) return Response.json({ ok: false, error: 'This company was not found or its plan has ended.' }, { status: 404, headers: CORS });
-  return Response.json({ ok: true, projects: data }, {
+  return Response.json({ ok: true, projects: data, contact: contact ?? null }, {
     headers: { ...CORS, 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=600' },
   });
 }

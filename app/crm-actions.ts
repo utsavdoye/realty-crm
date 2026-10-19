@@ -393,6 +393,7 @@ export async function saveProject(_: FormState, fd: FormData): Promise<FormState
     towers: orNull(str(fd, 'towers').slice(0, 120)), amenities: orNull(str(fd, 'amenities').slice(0, 600)), banks: orNull(str(fd, 'banks').slice(0, 200)),
     map_url: /^https:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps|(www\.)?google\.[a-z.]+\/maps)/.test(str(fd, 'map_url')) ? str(fd, 'map_url').slice(0, 300) : null,
     payment_plan: orNull(str(fd, 'payment_plan').slice(0, 2000)), terms: orNull(str(fd, 'terms').slice(0, 4000)),
+    ...(fd.has('deal') ? { deal: ['sale', 'lease', 'both'].includes(str(fd, 'deal')) ? str(fd, 'deal') : 'sale' } : {}),
   };
   const id = str(fd, 'id');
   const newId = /^[0-9a-f-]{36}$/i.test(str(fd, 'new_id')) ? str(fd, 'new_id') : undefined;

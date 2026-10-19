@@ -305,3 +305,11 @@ export async function saveWebsiteUrl(_: FormState, fd: FormData): Promise<FormSt
   revalidatePath('/sources'); revalidatePath('/projects');
   return { ok: data ? `Saved. Links you send now open on ${data}.` : 'Removed. Links open on the CRM again.' };
 }
+
+export async function saveWebsitePhone(_: FormState, fd: FormData): Promise<FormState> {
+  const { supabase, org } = await requireOrg(['owner']);
+  const { data, error } = await supabase.rpc('set_website_phone', { p_org: org.id, p_phone: str(fd, 'phone').slice(0, 30) });
+  if (error) return { error: /phone number|admin/i.test(error.message) ? error.message : /function|column/i.test(error.message) ? 'Run patch-023 in Supabase first.' : friendly(error.message) };
+  revalidatePath('/sources');
+  return { ok: data ? `Saved. The website call button now rings ${data}.` : 'Removed. The website hides the call button.' };
+}

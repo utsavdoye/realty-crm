@@ -8,3 +8,10 @@ export async function websiteUrl(supabase: SupabaseClient, orgId: string): Promi
   const u = (data as { website_url?: string | null } | null)?.website_url ?? null;
   return u && /^https:\/\//.test(u) ? u.replace(/\/+$/, '') : null;
 }
+
+/** The number clients call from the website (patch-023), or null. */
+export async function websitePhone(supabase: SupabaseClient, orgId: string): Promise<string | null> {
+  const { data, error } = await supabase.from('organizations').select('website_phone').eq('id', orgId).maybeSingle();
+  if (error) return null;
+  return (data as { website_phone?: string | null } | null)?.website_phone ?? null;
+}

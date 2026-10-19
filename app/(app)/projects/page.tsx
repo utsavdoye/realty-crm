@@ -48,7 +48,7 @@ export default async function Projects() {
               <h2>{p.name}</h2>
               <div className="hint">{[p.developer, p.location].filter(Boolean).join(' · ')}</div>
               {p.price_from && <div className="price">{fmtL(p.price_from)}{p.price_to ? ` – ${fmtL(p.price_to).replace('₹', '')}` : ''}</div>}
-              <div className="hint">{[p.type, p.configs, p.possession ? 'Possession ' + p.possession : ''].filter(Boolean).join(' · ')}</div>
+              <div className="hint">{[p.deal === 'lease' ? 'For lease' : p.deal === 'both' ? 'Sale or lease' : '', p.type, p.configs, p.possession ? 'Possession ' + p.possession : ''].filter(Boolean).join(' · ')}</div>
               {(p.size_from || p.towers || p.units) && <div className="hint">{[p.size_from ? `${p.size_from.toLocaleString('en-IN')}${p.size_to ? '–' + p.size_to.toLocaleString('en-IN') : ''} sq ft` : '', p.towers, p.units ? `${p.units} homes` : ''].filter(Boolean).join(' · ')}</div>}
               {p.amenities && <div className="amen">{p.amenities.split(/[,•\n]+/).map((a) => a.trim()).filter(Boolean).slice(0, 8).map((a) => <span key={a}>{a}</span>)}</div>}
               {p.banks && <div className="hint">Home loan: {p.banks}</div>}

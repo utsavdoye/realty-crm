@@ -42,7 +42,8 @@ export const PTYPES_FOR: Record<string, string[]> = {
   Other: PTYPES,
 };
 /** Project types (projects keep the short list). */
-export const PROJECT_TYPES = ['Apartment', 'Villa', 'Plot', 'Commercial', 'Farm land'];
+export const PROJECT_TYPES = ['Apartment', 'Villa', 'Plot', 'Retail', 'Office', 'Commercial', 'Farm land'];
+export const PROJECT_DEALS: [string, string][] = [['sale', 'For sale'], ['lease', 'For lease / rent'], ['both', 'Sale or lease']];
 export const PURPOSES = ['Self use', 'Investment', 'Both', 'Other'];
 export const OCCUPATIONS = ['Salaried', 'Self-employed', 'Business owner', 'Professional (doctor, CA…)', 'Investor', 'Retired', 'Other'];
 export const FUNDING = ['Self-funded', 'Home loan / finance', 'Both', 'Not sure yet'];
