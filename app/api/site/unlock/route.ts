@@ -23,17 +23,29 @@ export function OPTIONS() { return new Response(null, { status: 204, headers: CO
 export async function POST(req: Request) {
   let b: Record<string, unknown> = {};
   try { b = (await req.json()) as Record<string, unknown>; } catch { /* empty */ }
-  const key = String(b.key ?? ''), project = String(b.project ?? ''), name = String(b.name ?? '').trim().slice(0, 120), phone = String(b.phone ?? '').trim().slice(0, 30);
+  const key = String(b.key ?? ''), project = String(b.project ?? '');
+  let name = String(b.name ?? '').trim().slice(0, 120), phone = String(b.phone ?? '').trim().slice(0, 30);
   const what = b.what === 'plans' ? 'floor plans' : 'brochure';
   const t = typeof b.t === 'string' && /^[a-f0-9]{24,64}$/.test(b.t) ? b.t : '';
   if (!KEY_RE.test(key) || !UUID.test(project)) return json({ ok: false, error: 'Something is wrong with this page. Please refresh and try again.' }, 400);
+  const anon = createAnonClient();
+  // WhatsApp check (patch-026): when the company turned it on, the number must come from a verified WhatsApp message.
+  const vtoken = typeof b.vtoken === 'string' && /^[a-f0-9]{64}$/.test(b.vtoken) ? b.vtoken : '';
+  let verified = false;
+  if (vtoken) {
+    const { data: v } = await anon.rpc('site_verify_status', { p_token: vtoken, p_key: key });
+    const vv = v as { verified?: boolean; phone?: string; name?: string | null } | null;
+    if (vv?.verified && vv.phone) { verified = true; phone = vv.phone; if (name.length < 2 && vv.name) name = vv.name; }
+  }
+  const { data: needVerify } = await anon.rpc('site_verify_needed', { p_key: key });
+  if (needVerify === true && !verified) return json({ ok: false, needVerify: true, error: 'Please verify your mobile number on WhatsApp first.' }, 403);
   if (name.length < 2) return json({ ok: false, error: 'Please enter your name.' }, 422);
   if (typeof b.website === 'string' && b.website.trim()) return json({ ok: false, error: 'Please try again.' }, 400); // spam bots
 
   const db = createAdminClient() ?? createAnonClient();
   // recheck: the visitor already left their details; only look again (after the team's first call) without a new lead note.
   const recheck = b.recheck === true;
-  const r = recheck ? { ok: true } as { ok: boolean; error?: string } : await ingest(key, { name, phone, project: String(b.projectName ?? '').slice(0, 200) || undefined, message: `Asked for the ${what} on the website${t ? ' (from the homes link the team sent)' : ''}.` }, { name, phone, what, project, from: t ? 'website shortlist' : 'website' });
+  const r = recheck ? { ok: true } as { ok: boolean; error?: string } : await ingest(key, { name, phone, project: String(b.projectName ?? '').slice(0, 200) || undefined, message: `Asked for the ${what} on the website${t ? ' (from the homes link the team sent)' : ''}.${verified ? ' Number verified on WhatsApp.' : ''}` }, { name, phone, what, project, from: t ? 'website shortlist' : 'website', whatsapp_verified: verified });
   if (!r.ok) { const [s, m] = ERR[r.error ?? 'server_error'] ?? ERR.server_error; return json({ ok: false, error: m }, s); }
 
   // The advisor who sent the link also gets the usual "opened prices" alert on that client.

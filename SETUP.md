@@ -22,7 +22,7 @@ Takes about 30–40 minutes the first time.
    - Save the database password somewhere safe.
 2. Wait 2 minutes for it to start.
 3. Left menu → **SQL Editor** → **New query**. Open `supabase/schema.sql` from this folder, copy everything, paste, press **Run**. You should see "Success. No rows returned".
-   Then do the same, one by one and in this order, for `supabase/patch-002-whatsapp.sql`, `patch-003-lead-capture.sql`, `patch-004-crm.sql`, `patch-005-alerts-import.sql`, `patch-006-project-photos.sql`, `patch-007-admins-money-sharing-map.sql`, `patch-008-project-matches.sql`, `patch-009-international-phones.sql`, `patch-010-passwords.sql`, `patch-011-forms-interns-teaser.sql`, `patch-012-reassign-alerts.sql`, `patch-013-team-link-projects.sql`, `patch-014-more-templates.sql`, `patch-015-safety.sql`, `patch-016-journey.sql`, `patch-017-daily-merge-checkin.sql`, `patch-018-units.sql`, `patch-019-fields-status-logs.sql`, `patch-020-website-feed.sql`, `patch-021-website-brochure-lock.sql`, `patch-022-website-shortlists.sql`, `patch-023-lease-website-phone.sql`, `patch-024-first-call-lock-votes.sql` and `patch-025-sources-admin-only.sql`. Each one is safe to run again if you are not sure you ran it.
+   Then do the same, one by one and in this order, for `supabase/patch-002-whatsapp.sql`, `patch-003-lead-capture.sql`, `patch-004-crm.sql`, `patch-005-alerts-import.sql`, `patch-006-project-photos.sql`, `patch-007-admins-money-sharing-map.sql`, `patch-008-project-matches.sql`, `patch-009-international-phones.sql`, `patch-010-passwords.sql`, `patch-011-forms-interns-teaser.sql`, `patch-012-reassign-alerts.sql`, `patch-013-team-link-projects.sql`, `patch-014-more-templates.sql`, `patch-015-safety.sql`, `patch-016-journey.sql`, `patch-017-daily-merge-checkin.sql`, `patch-018-units.sql`, `patch-019-fields-status-logs.sql`, `patch-020-website-feed.sql`, `patch-021-website-brochure-lock.sql`, `patch-022-website-shortlists.sql`, `patch-023-lease-website-phone.sql`, `patch-024-first-call-lock-votes.sql`, `patch-025-sources-admin-only.sql` and `patch-026-whatsapp-verify.sql`. Each one is safe to run again if you are not sure you ran it.
    **Before patch-005:** left menu → **Database → Extensions** → search `pg_cron` → switch it on. This runs the "move a lead if nobody calls it" check every minute. If you forget, run patch-005 again after switching it on.
 4. Left menu → **Project Settings → API**. Copy two things:
    - **Project URL**
@@ -121,6 +121,31 @@ Until SMS is on, the login page tells people to use email. Nothing breaks.
 If all 7 work, Step 1 is done.
 
 ---
+
+## Verify clients on WhatsApp (free)
+
+On the client website, a client proves their mobile number by sending one WhatsApp message to your company number. Messages that clients send you are free. Meta tells the CRM which number sent it, so nobody can type someone else's number.
+
+You need a WhatsApp number connected to Meta's **WhatsApp Cloud API** (the same setup the CRM uses for agent alerts). Use a separate number: a number on the Cloud API usually cannot also be used in the normal WhatsApp app.
+
+1. **Meta for Developers** (developers.facebook.com) → **My Apps → Create app → Business** → add the **WhatsApp** product.
+2. **WhatsApp → API Setup** → add and verify your company number. Copy the **Phone number ID**. Create a **permanent token** (Business settings → System users → Generate token with `whatsapp_business_messaging`).
+3. **App settings → Basic** → copy the **App secret**.
+4. **Vercel → realty-crm → Settings → Environment Variables** → add (server only, never `NEXT_PUBLIC_`):
+   - `WHATSAPP_TOKEN` = the permanent token
+   - `WHATSAPP_PHONE_NUMBER_ID` = the Phone number ID
+   - `WHATSAPP_VERIFY_NUMBER` = the company WhatsApp number with country code, e.g. `919876543210`
+   - `WHATSAPP_APP_SECRET` = the App secret
+   - `WHATSAPP_VERIFY_TOKEN` = any long random word you make up
+   - `SUPABASE_SERVICE_ROLE_KEY` = Supabase → Project Settings → API Keys → service_role (if not added already)
+   Then **Redeploy**.
+5. **Meta → WhatsApp → Configuration → Webhook → Edit**:
+   - Callback URL: `https://realty-crm-navy.vercel.app/api/whatsapp/webhook`
+   - Verify token: the same word as `WHATSAPP_VERIFY_TOKEN` → **Verify and save**
+   - Under **Webhook fields**, subscribe to **messages**.
+6. Supabase: run `patch-026-whatsapp-verify.sql`.
+7. CRM → **Lead sources → Your client website → Verify clients on WhatsApp before the brochure → Turn on.**
+8. **Test:** on the website, tap "View brochure" → "Verify on WhatsApp" → press Send in WhatsApp → come back. Within a few seconds it says "Verified", and a lead appears with your WhatsApp number.
 
 ## Running the business side
 

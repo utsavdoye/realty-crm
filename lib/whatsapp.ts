@@ -78,3 +78,14 @@ export async function notifyLeadAssigned(args: { agentPhone: string | null | und
   ]);
   if (!r.ok) console.error('WhatsApp lead alert failed:', r.error);
 }
+
+/** A plain text reply. Free while the customer's 24-hour window is open (they just messaged us). */
+export function sendText(phone: string, text: string) {
+  return send({ to: toWaNumber(phone), type: 'text', text: { body: text.slice(0, 1000) } });
+}
+
+/** The company WhatsApp number clients message to verify (digits with country code), or null. */
+export function verifyNumber() {
+  const d = String(process.env.WHATSAPP_VERIFY_NUMBER || '').replace(/\D/g, '');
+  return d.length >= 10 ? (d.length === 10 ? '91' + d : d) : null;
+}

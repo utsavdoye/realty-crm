@@ -1,6 +1,7 @@
 import { requireOrg } from '@/lib/context';
-import { createSource, saveMetaToken, saveWebsitePhone, saveWebsiteUrl, setAutoAssign, setReassignMinutes, setSourceSegment, toggleSource } from '@/app/actions';
-import { websitePhone, websiteUrl } from '@/lib/website';
+import { createSource, saveMetaToken, saveWebsitePhone, setVerifyWhatsapp, saveWebsiteUrl, setAutoAssign, setReassignMinutes, setSourceSegment, toggleSource } from '@/app/actions';
+import { websitePhone, websiteUrl, websiteVerify } from '@/lib/website';
+import { verifyNumber, whatsappReady } from '@/lib/whatsapp';
 import { ActionForm, Submit } from '@/components/forms';
 import { CopyButton } from '@/components/CopyButton';
 import { SourceKindPicker } from '@/components/SourceKindPicker';
@@ -58,6 +59,8 @@ export default async function Sources() {
   const base = siteUrl();
   const site = await websiteUrl(supabase, org.id);
   const sitePhone = await websitePhone(supabase, org.id);
+  const siteVerify = await websiteVerify(supabase, org.id);
+  const waVerifyReady = whatsappReady() && !!verifyNumber() && !!(process.env.WHATSAPP_APP_SECRET || process.env.META_APP_SECRET) && !!process.env.SUPABASE_SERVICE_ROLE_KEY;
   const list = (sources ?? []) as Source[];
   const auto = (orgRow as { auto_assign?: boolean } | null)?.auto_assign ?? true;
   const reassign = (orgRow as { reassign_minutes?: number | null } | null)?.reassign_minutes ?? null;
@@ -104,6 +107,18 @@ export default async function Sources() {
                   </label>
                   <div className="row-gap"><Submit className="btn sm">Save phone number</Submit>{sitePhone && <span className="hint">Calls go to {sitePhone}</span>}</div>
                 </ActionForm>
+              )}
+              {role === 'owner' && siteVerify !== null && (
+                <div className="stack" style={{ gap: 6 }}>
+                  <span className="label">Verify clients on WhatsApp before the brochure</span>
+                  <span className="hint">Clients send one WhatsApp message to your company number. That proves the number is really theirs (free, cannot be faked). The brochure and floor plans still open only after the first call.</span>
+                  {!waVerifyReady && <p className="msg err">Not set up yet: add WHATSAPP_TOKEN, WHATSAPP_PHONE_NUMBER_ID, WHATSAPP_VERIFY_NUMBER, WHATSAPP_APP_SECRET and SUPABASE_SERVICE_ROLE_KEY in Vercel, and connect the webhook. Steps are in SETUP.md.</p>}
+                  <form action={setVerifyWhatsapp} className="row-gap">
+                    <input type="hidden" name="on" value={String(!siteVerify)} />
+                    <span className={`chip ${siteVerify ? 'good' : ''}`}>{siteVerify ? 'On' : 'Off'}</span>
+                    <button className="btn sm" disabled={!siteVerify && !waVerifyReady}>{siteVerify ? 'Turn off' : 'Turn on'}</button>
+                  </form>
+                </div>
               )}
               <span className="label">Give this to your website developer (file crm-config.js)</span>
               <pre className="code">{cfg}</pre>

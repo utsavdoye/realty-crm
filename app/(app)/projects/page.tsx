@@ -18,7 +18,8 @@ export const metadata = { title: 'Projects' };
 
 type P = ProjectRow;
 
-export default async function Projects() {
+export default async function Projects({ searchParams }: { searchParams?: { sort?: string } }) {
+  const byVotes = searchParams?.sort === 'votes';
   const { supabase, org, role } = await requireOrg();
   const mgr = isManager(role);
   const [{ data: projects }, leads, matches, unitRows] = await Promise.all([
@@ -39,9 +40,10 @@ export default async function Projects() {
   const stats = new Map<string, { n: number; booked: number; visited: number }>();
   (leads ?? []).forEach((l) => { const s = stats.get(l.project_id!) ?? { n: 0, booked: 0, visited: 0 }; s.n++; if (l.stage === 'booked') s.booked++; if (['visited', 'negotiation', 'token', 'booked'].includes(l.stage)) s.visited++; stats.set(l.project_id!, s); });
   const list = (projects ?? []) as P[];
+  if (byVotes) list.sort((a, b) => (votes.get(b.id) ?? 0) - (votes.get(a.id) ?? 0) || a.name.localeCompare(b.name));
   return (
     <>
-      <div className="top"><h1>Projects</h1></div>
+      <div className="top"><h1>Projects</h1>{votes.size > 0 && <div className="row-gap"><span className="hint">Sort:</span><Link className={`btn sm ${byVotes ? 'ghost' : ''}`} href="/projects">A–Z</Link><Link className={`btn sm ${byVotes ? '' : 'ghost'}`} href="/projects?sort=votes">👍 Most upvoted</Link></div>}</div>
       <div className="cards">
         {list.map((p) => {
           const s = stats.get(p.id) ?? { n: 0, booked: 0, visited: 0 };
@@ -66,7 +68,7 @@ export default async function Projects() {
               {p.highlights && <div className="hint">{p.highlights}</div>}
               {p.link && <a href={/^https?:\/\//.test(p.link) ? p.link : 'https://' + p.link} target="_blank" rel="noopener noreferrer">{/\.pdf$/i.test(p.link) ? 'Brochure (PDF)' : 'Brochure / site'}</a>}
               <ProjectPlans projectId={p.id} orgId={org.id} plans={p.floor_plans ?? []} canEdit={mgr} hasPdf={!!p.link && /\.pdf$/i.test(p.link)} />
-              <div className="stats3"><div><b className="mono">{s.n}</b><span className="hint">Leads</span></div><div><b className="mono">{s.visited}</b><span className="hint">Visited</span></div><div><b className="mono">{s.booked}</b><span className="hint">Booked</span></div></div>
+              <div className="stats3 stats4"><div><b className="mono">{s.n}</b><span className="hint">Leads</span></div><div><b className="mono">{s.visited}</b><span className="hint">Visited</span></div><div><b className="mono">{s.booked}</b><span className="hint">Booked</span></div><div title="Upvotes from visitors on your website"><b className="mono">👍 {votes.get(p.id) ?? 0}</b><span className="hint">Upvotes</span></div></div>
               {(matchCount.get(p.id) ?? 0) > 0 && (
                 <Link className="match-chip" href={`/leads?match=${p.id}`}>🔔 {matchCount.get(p.id)} {mgr ? 'leads' : 'of your leads'} wanted something like this →</Link>
               )}
@@ -91,7 +93,7 @@ export default async function Projects() {
               </div>
               {p.on_website !== undefined && (
                 <div className="share-box">
-                  <span className="hint">{p.status === 'Sold out' ? '🌐 Not on website (sold out)' : p.on_website ? '🌐 Shown on website' : '🌐 Hidden from website'}{(votes.get(p.id) ?? 0) > 0 ? ` · 👍 ${votes.get(p.id)} upvote${votes.get(p.id) === 1 ? '' : 's'}` : ''}</span>
+                  <span className="hint">{p.status === 'Sold out' ? '🌐 Not on website (sold out)' : p.on_website ? '🌐 Shown on website' : '🌐 Hidden from website'}</span>
                   {mgr && p.status !== 'Sold out' && (
                     <form action={toggleProjectWebsite}>
                       <input type="hidden" name="id" value={p.id} /><input type="hidden" name="on" value={String(!p.on_website)} />
