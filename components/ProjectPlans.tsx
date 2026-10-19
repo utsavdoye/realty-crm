@@ -44,17 +44,18 @@ export function ProjectPlans({ projectId, orgId, plans, canEdit, hasPdf }: { pro
   return (
     <div className="plans">
       {plans.length > 0 && <b className="small-h">Floor plans ({plans.length})</b>}
-      {plans.length > 0 && (
+      {/* PDF floor plans: plain links like "Brochure (PDF)", open in a new tab */}
+      {plans.filter((p) => isPdf(p.url)).map((p, i, all) => (
+        <span key={p.url} className="plan-link-row">
+          <a href={p.url} target="_blank" rel="noopener noreferrer" title={p.label || undefined}>
+            {p.label && p.label.length <= 30 ? p.label : all.length > 1 ? `Floor plan ${i + 1}` : 'Floor plan'} (PDF)
+          </a>
+          {canEdit && <button type="button" className="linkbtn small plan-remove" disabled={!!busy} onClick={() => remove(p)} aria-label={`Remove ${p.label || 'floor plan'}`}>Remove</button>}
+        </span>
+      ))}
+      {plans.some((p) => !isPdf(p.url)) && (
         <div className="plans-grid">
-          {plans.map((p) => isPdf(p.url) ? (
-            // PDF plans open in a new tab, like the brochure
-            <div key={p.url} className="plan-tile-wrap">
-              <a className="plan-tile" href={p.url} target="_blank" rel="noopener noreferrer" title="Open the floor plan (PDF) in a new tab">
-                <span className="plan-pdf" aria-hidden="true">PDF</span><span className="plan-name">{p.label || 'Floor plan'}</span><span className="plan-open">Open PDF ↗</span>
-              </a>
-              {canEdit && <button type="button" className="linkbtn small danger" disabled={!!busy} onClick={() => remove(p)}>Remove</button>}
-            </div>
-          ) : (
+          {plans.filter((p) => !isPdf(p.url)).map((p) => (
             <button key={p.url} type="button" className="plan-tile" onClick={() => setView(p)}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={p.url} alt={p.label} loading="lazy" /><span className="plan-name">{p.label || 'Floor plan'}</span>
