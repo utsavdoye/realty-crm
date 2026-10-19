@@ -11,7 +11,7 @@ import { AddProjectForm } from '@/components/AddProjectForm';
 import { ProjectPlans } from '@/components/ProjectPlans';
 import { ShareButtons } from '@/components/ShareButtons';
 import { siteUrl } from '@/lib/roles';
-import { rematchProject, toggleProjectPublic } from '@/app/crm-actions';
+import { rematchProject, toggleProjectPublic, toggleProjectWebsite } from '@/app/crm-actions';
 
 export const metadata = { title: 'Projects' };
 
@@ -78,6 +78,17 @@ export default async function Projects() {
                   </form>
                 )}
               </div>
+              {p.on_website !== undefined && (
+                <div className="share-box">
+                  <span className="hint">{p.status === 'Sold out' ? '🌐 Not on website (sold out)' : p.on_website ? '🌐 Shown on website' : '🌐 Hidden from website'}</span>
+                  {mgr && p.status !== 'Sold out' && (
+                    <form action={toggleProjectWebsite}>
+                      <input type="hidden" name="id" value={p.id} /><input type="hidden" name="on" value={String(!p.on_website)} />
+                      <button className="btn sm ghost">{p.on_website ? 'Hide from website' : 'Show on website'}</button>
+                    </form>
+                  )}
+                </div>
+              )}
               <div className="row-gap">
                 <Link className="btn sm" href={`/leads?project=${p.id}`}>See leads</Link>
                 {p.lat != null && <Link className="btn sm ghost" href="/map">On map</Link>}

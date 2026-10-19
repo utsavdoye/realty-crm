@@ -74,6 +74,24 @@ export default async function Sources() {
         </div>
       </section>
 
+      {(() => {
+        const web = list.find((x) => x.kind === 'website' && x.active);
+        const feed = `${base}/api/site/projects?org=${org.id}`;
+        const cfg = `window.SURESTONE_CRM = {\n  url: '${base}',\n  org: '${org.id}',\n  formKey: '${web?.key ?? 'ADD-A-WEBSITE-LEAD-SOURCE-FIRST'}'\n};`;
+        return (
+          <section className="panel" style={{ marginBottom: 16 }}>
+            <div className="panel-h"><h2>Your client website</h2><span className="hint">Projects and enquiries stay in sync</span></div>
+            <div className="panel-b stack">
+              <p className="hint">Your website (for example Surestone) shows every project from Projects here, by itself, within a minute of a change. Hide one with &ldquo;Hide from website&rdquo; on its card; sold-out projects are left out. Enquiries and visit requests from the website come in as leads{web ? <> through <b>{web.name}</b></> : ''}.</p>
+              {!web && <p className="msg err">First add a lead source of type &ldquo;Website&rdquo; on the right, so website enquiries become leads.</p>}
+              <span className="label">Give this to your website developer (file crm-config.js)</span>
+              <pre className="code">{cfg}</pre>
+              <div className="row-gap"><CopyButton text={cfg} label="Copy settings" /><a className="btn sm ghost" href={feed} target="_blank" rel="noopener noreferrer">See what the website gets</a></div>
+            </div>
+          </section>
+        );
+      })()}
+
       <div className="grid-main">
         <div className="stack">
           {list.length === 0 && <section className="panel"><p className="empty">No lead sources yet. Add your first one on the right.</p></section>}

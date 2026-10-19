@@ -2,7 +2,7 @@ import { safeNext } from '@/lib/roles';
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-const PUBLIC_PATHS = ['/login', '/join', '/blocked', '/auth', '/api/hooks', '/api/leads', '/api/cron', '/p', '/s', '/r', '/forgot'];
+const PUBLIC_PATHS = ['/login', '/join', '/blocked', '/auth', '/api/hooks', '/api/leads', '/api/site', '/api/cron', '/p', '/s', '/r', '/forgot'];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request });

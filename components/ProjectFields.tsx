@@ -7,7 +7,7 @@ export type ProjectRow = {
   photos: string[] | null; lat: number | null; lng: number | null; is_public: boolean; share_token: string;
   floor_plans: { url: string; label: string }[] | null; size_from: number | null; size_to: number | null; towers: string | null; units: number | null;
   amenities: string | null; banks: string | null;
-  map_url?: string | null; payment_plan?: string | null; terms?: string | null; rate_card?: { floors: string; rate: number }[] | null;
+  map_url?: string | null; on_website?: boolean | null; payment_plan?: string | null; terms?: string | null; rate_card?: { floors: string; rate: number }[] | null;
 };
 
 /** All the project boxes, used by "Add a project" and "Edit". */

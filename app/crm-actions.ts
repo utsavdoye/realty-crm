@@ -371,6 +371,13 @@ export async function toggleProjectPublic(fd: FormData) {
   revalidatePath('/projects');
 }
 
+export async function toggleProjectWebsite(fd: FormData) {
+  const { supabase, org, role } = await ctx();
+  if (!isManager(role)) return;
+  await supabase.from('projects').update({ on_website: str(fd, 'on') === 'true' }).eq('id', str(fd, 'id')).eq('org_id', org.id);
+  revalidatePath('/projects');
+}
+
 export async function saveProject(_: FormState, fd: FormData): Promise<FormState> {
   const { supabase, org, role } = await ctx();
   if (!isManager(role)) return { error: 'Only an admin or a manager can change projects.' };
