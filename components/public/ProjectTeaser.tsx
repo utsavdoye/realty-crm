@@ -110,6 +110,7 @@ export function ProjectTeaser({ p, mode, token, buzz = 0, advisor, children }: {
                 ? 'Unlocked! Our team will also WhatsApp you the price list and floor plans.'
                 : `Unlocked! ${advisor ? advisor.split(' ')[0] : 'Your advisor'} will send the price list and floor plans on WhatsApp.`}
             </p>
+            {full.files_locked && <p className="msg">🔒 The brochure and floor plans open here right after your first call with {advisor ? advisor.split(' ')[0] : 'our team'}. We will call you soon.</p>}
             {p.payment_plan && <div><b className="small-h">Payment plan</b><p style={{ whiteSpace: 'pre-line', margin: '4px 0 0' }}>{p.payment_plan}</p></div>}
             {full.floor_plans.length > 0 && <ProjectPlans projectId={p.id} orgId="" plans={full.floor_plans} canEdit={false} hasPdf={false} />}
             {full.link && <a className="btn sm" href={/^https?:\/\//.test(full.link) ? full.link : 'https://' + full.link} target="_blank" rel="noopener noreferrer">Open brochure / floor plans</a>}

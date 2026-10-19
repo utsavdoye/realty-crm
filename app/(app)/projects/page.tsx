@@ -30,6 +30,10 @@ export default async function Projects() {
   const web = await websiteUrl(supabase, org.id);
   const unitsBy = new Map<string, Record<string, number>>();
   unitRows.forEach((u) => { const c = unitsBy.get(u.project_id) ?? {}; c[u.status] = (c[u.status] ?? 0) + 1; unitsBy.set(u.project_id, c); });
+  // Website upvotes (patch-024); empty before it is run
+  const { data: voteRows } = await supabase.from('project_votes').select('project_id').limit(50000);
+  const votes = new Map<string, number>();
+  (voteRows ?? []).forEach((v: { project_id: string }) => votes.set(v.project_id, (votes.get(v.project_id) ?? 0) + 1));
   const matchCount = new Map<string, number>();
   (matches ?? []).forEach((m) => matchCount.set(m.project_id, (matchCount.get(m.project_id) ?? 0) + 1));
   const stats = new Map<string, { n: number; booked: number; visited: number }>();
@@ -87,7 +91,7 @@ export default async function Projects() {
               </div>
               {p.on_website !== undefined && (
                 <div className="share-box">
-                  <span className="hint">{p.status === 'Sold out' ? '🌐 Not on website (sold out)' : p.on_website ? '🌐 Shown on website' : '🌐 Hidden from website'}</span>
+                  <span className="hint">{p.status === 'Sold out' ? '🌐 Not on website (sold out)' : p.on_website ? '🌐 Shown on website' : '🌐 Hidden from website'}{(votes.get(p.id) ?? 0) > 0 ? ` · 👍 ${votes.get(p.id)} upvote${votes.get(p.id) === 1 ? '' : 's'}` : ''}</span>
                   {mgr && p.status !== 'Sold out' && (
                     <form action={toggleProjectWebsite}>
                       <input type="hidden" name="id" value={p.id} /><input type="hidden" name="on" value={String(!p.on_website)} />

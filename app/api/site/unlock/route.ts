@@ -31,16 +31,23 @@ export async function POST(req: Request) {
   if (typeof b.website === 'string' && b.website.trim()) return json({ ok: false, error: 'Please try again.' }, 400); // spam bots
 
   const db = createAdminClient() ?? createAnonClient();
-  const r = await ingest(key, { name, phone, project: String(b.projectName ?? '').slice(0, 200) || undefined, message: `Asked for the ${what} on the website${t ? ' (from the homes link the team sent)' : ''}.` }, { name, phone, what, project, from: t ? 'website shortlist' : 'website' });
+  // recheck: the visitor already left their details; only look again (after the team's first call) without a new lead note.
+  const recheck = b.recheck === true;
+  const r = recheck ? { ok: true } as { ok: boolean; error?: string } : await ingest(key, { name, phone, project: String(b.projectName ?? '').slice(0, 200) || undefined, message: `Asked for the ${what} on the website${t ? ' (from the homes link the team sent)' : ''}.` }, { name, phone, what, project, from: t ? 'website shortlist' : 'website' });
   if (!r.ok) { const [s, m] = ERR[r.error ?? 'server_error'] ?? ERR.server_error; return json({ ok: false, error: m }, s); }
 
   // The advisor who sent the link also gets the usual "opened prices" alert on that client.
-  if (t) await createAnonClient().rpc('shortlist_react', { p_token: t, p_project: project, p_reaction: 'details', p_when: null });
+  if (t && !recheck) await createAnonClient().rpc('shortlist_react', { p_token: t, p_project: project, p_reaction: 'details', p_when: null });
   const { data, error } = t
     ? await db.rpc('site_shortlist_files', { p_token: t, p_project: project, p_phone: phone })
     : await db.rpc('site_project_files', { p_key: key, p_project: project, p_phone: phone });
   if (error) { console.error('site_project_files failed:', error.message); return json({ ok: false, error: ERR.server_error[1] }, 500); }
   if (!data) return json({ ok: false, error: 'This project is not available any more.' }, 404);
+  if ((data as { locked?: boolean }).locked) {
+    return json({ ok: false, locked: true, error: recheck
+      ? 'Not open yet. The brochure and floor plans open right after your first call with our team.'
+      : 'Thank you! Our team will call you soon. The brochure and floor plans open here right after that call.' });
+  }
   const d = data as { name: string; link: string | null; floor_plans: { url: string; label?: string }[] };
   const safe = (u: unknown) => (typeof u === 'string' && /^https?:\/\//i.test(u) ? u : typeof u === 'string' && /^\/[^/]/.test(u) ? siteUrl() + u : typeof u === 'string' && /^[\w.-]+\.[a-z]{2,}(\/|$)/i.test(u) ? 'https://' + u : null);
   return json({

@@ -58,7 +58,7 @@ export async function sendRequirement(_: ReqState, fd: FormData): Promise<ReqSta
   return { ok: true, fits: r.fits ?? 0, advisor: r.advisor ?? null, name: name.split(' ')[0] };
 }
 
-export type Unlocked = { photos: string[]; price_to: number | null; link: string | null; floor_plans: { url: string; label: string }[] };
+export type Unlocked = { photos: string[]; price_to: number | null; link: string | null; floor_plans: { url: string; label: string }[]; files_locked?: boolean };
 
 /** Project page: client leaves name + number → gets the full price range, all photos and the brochure. */
 export async function unlockProject(_: { ok?: boolean; error?: string; data?: Unlocked } | null, fd: FormData): Promise<{ ok?: boolean; error?: string; data?: Unlocked }> {
@@ -70,9 +70,9 @@ export async function unlockProject(_: { ok?: boolean; error?: string; data?: Un
   if (!validPhone(phone)) return { error: 'Please enter a valid mobile number.' };
   // One step in the database: saves the enquiry, then (only then) gives the full details.
   const { data } = await createAnonClient().rpc('unlock_public_project', { p_token: token, p_name: name, p_phone: phone });
-  const p = data as { photos: string[] | null; price_to: number | null; link: string | null; floor_plans?: { url: string; label: string }[] | null } | null;
+  const p = data as { photos: string[] | null; price_to: number | null; link: string | null; floor_plans?: { url: string; label: string }[] | null; files_locked?: boolean } | null;
   if (!p) return { error: 'Could not open right now. Please try again in a minute, or call us.' };
-  return { ok: true, data: { photos: p?.photos ?? [], price_to: p?.price_to ?? null, link: p?.link ?? null, floor_plans: p?.floor_plans ?? [] } };
+  return { ok: true, data: { photos: p?.photos ?? [], price_to: p?.price_to ?? null, link: p?.link ?? null, floor_plans: p?.floor_plans ?? [], files_locked: !!p?.files_locked } };
 }
 
 /** Shortlist page: the client is already known, so one tap unlocks it and tells their advisor. */
@@ -81,7 +81,8 @@ export async function unlockShortlist(token: string, projectId: string): Promise
   const db = createAnonClient();
   const { data: ok } = await db.rpc('shortlist_react', { p_token: token, p_project: projectId, p_reaction: 'details', p_when: null });
   if (!ok) return null;
-  const { data } = await db.rpc('get_shortlist', { p_token: token });
-  const p = (data as { projects: { id: string; photos: string[] | null; price_to: number | null; link: string | null; floor_plans?: { url: string; label: string }[] | null }[] } | null)?.projects.find((x) => x.id === projectId);
-  return p ? { photos: p.photos ?? [], price_to: p.price_to, link: p.link, floor_plans: p.floor_plans ?? [] } : null;
+  // Brochure and floor plans come back only after the client's first call is marked done (patch-024).
+  const { data } = await db.rpc('shortlist_unlock', { p_token: token, p_project: projectId });
+  const p = data as { photos: string[] | null; price_to: number | null; link: string | null; floor_plans?: { url: string; label: string }[] | null; files_locked?: boolean } | null;
+  return p ? { photos: p.photos ?? [], price_to: p.price_to, link: p.link, floor_plans: p.floor_plans ?? [], files_locked: !!p.files_locked } : null;
 }
