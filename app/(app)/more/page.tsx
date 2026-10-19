@@ -12,7 +12,7 @@ export default async function More() {
     { href: '/notifications', label: 'Alerts', show: true },
     { href: '/messages', label: 'Message templates', show: role !== 'partner' },
     { href: '/reports', label: 'Reports', show: m },
-    { href: '/sources', label: 'Lead sources', show: m },
+    { href: '/sources', label: 'Lead sources', show: role === 'owner' },
     { href: '/team', label: 'Team', show: m },
     { href: '/profile', label: 'Profile and log out', show: true },
   ].filter((l) => l.show);

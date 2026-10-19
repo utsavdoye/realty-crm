@@ -226,7 +226,7 @@ export async function addLead(_: FormState, fd: FormData): Promise<FormState> {
 const KINDS = ['generic', '99acres', 'magicbricks', 'housing', 'website', 'meta', 'google'];
 
 export async function createSource(_: FormState, fd: FormData): Promise<FormState> {
-  const { supabase, org } = await requireOrg(['owner', 'manager']);
+  const { supabase, org } = await requireOrg(['owner']);
   const kind = KINDS.includes(str(fd, 'kind')) ? str(fd, 'kind') : 'generic';
   const name = str(fd, 'name') || ({ '99acres': '99acres', magicbricks: 'MagicBricks', housing: 'Housing.com', website: 'Website', meta: 'Facebook / Instagram', google: 'Google Ads', generic: 'Other' } as Record<string, string>)[kind];
   const pageId = str(fd, 'page_id').replace(/\D/g, '');
@@ -240,14 +240,14 @@ export async function createSource(_: FormState, fd: FormData): Promise<FormStat
 }
 
 export async function toggleSource(fd: FormData) {
-  const { supabase } = await requireOrg(['owner', 'manager']);
+  const { supabase } = await requireOrg(['owner']);
   await supabase.from('lead_sources').update({ active: str(fd, 'active') === 'true' }).eq('id', str(fd, 'id'));
   revalidatePath('/sources');
 }
 
 /** Resale listings (e.g. a 99acres "certified agent" package) can send their leads to the Secondary list. */
 export async function setSourceSegment(fd: FormData) {
-  const { supabase, org } = await requireOrg(['owner', 'manager']);
+  const { supabase, org } = await requireOrg(['owner']);
   const segment = str(fd, 'segment') === 'secondary' ? 'secondary' : 'primary';
   await supabase.from('lead_sources').update({ segment }).eq('id', str(fd, 'id')).eq('org_id', org.id);
   revalidatePath('/sources');

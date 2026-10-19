@@ -193,7 +193,7 @@ export default async function Leads({ searchParams }: { searchParams: Record<str
               })}
             </div>
           ) : (
-            <div className="empty">{listErr && page > 1 ? <>This page is past the end. <Link href="/leads">Go to page 1</Link>.</> : listErr ? 'Could not load leads. Please refresh the page.' : anyFilter ? 'No leads match these filters.' : <>No leads yet. <Link href="/leads/new">Add your first lead</Link>{mgr ? <> or <Link href="/sources">connect a lead source</Link></> : null}.</>}</div>
+            <div className="empty">{listErr && page > 1 ? <>This page is past the end. <Link href="/leads">Go to page 1</Link>.</> : listErr ? 'Could not load leads. Please refresh the page.' : anyFilter ? 'No leads match these filters.' : <>No leads yet. <Link href="/leads/new">Add your first lead</Link>{role === 'owner' ? <> or <Link href="/sources">connect a lead source</Link></> : null}.</>}</div>
           )}
           {(count ?? 0) > PAGE && (
             <div className="pager">

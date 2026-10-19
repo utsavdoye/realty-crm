@@ -45,7 +45,7 @@ export function NavLinks({ role, mobile = false }: { role: Role; mobile?: boolea
     { href: '/money', label: 'Money', icon: ICONS.money, show: role === 'owner', sec: 'Business' },
     { href: '/messages', label: 'Messages', icon: ICONS.messages, show: role !== 'partner', sec: role === 'owner' ? undefined : 'Business' },
     { href: '/reports', label: 'Reports', icon: ICONS.reports, show: m },
-    { href: '/sources', label: 'Lead sources', icon: ICONS.sources, show: m },
+    { href: '/sources', label: 'Lead sources', icon: ICONS.sources, show: role === 'owner' },
     { href: '/team', label: 'Team', icon: ICONS.team, show: m, sec: 'Settings' },
     { href: '/profile', label: 'Profile', icon: ICONS.me, show: true, sec: m ? undefined : 'Settings' },
   ].filter((i) => i.show) as { href: string; label: string; icon: string; show: boolean; sec?: string }[];

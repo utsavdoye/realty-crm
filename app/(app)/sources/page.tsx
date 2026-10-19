@@ -49,7 +49,7 @@ const HOW: Record<string, string[]> = {
 };
 
 export default async function Sources() {
-  const { supabase, org, role } = await requireOrg(['owner', 'manager']);
+  const { supabase, org, role } = await requireOrg(['owner']);
   const [{ data: sources }, { data: projects }, { data: orgRow }] = await Promise.all([
     supabase.from('lead_sources').select('*').eq('org_id', org.id).order('created_at'),
     supabase.from('projects').select('id, name').eq('org_id', org.id).order('name'),
