@@ -20,6 +20,6 @@ export async function GET(req: Request) {
   if (error) { console.error('site_projects failed:', error.message); return Response.json({ ok: false, error: 'Could not load projects.' }, { status: 500, headers: CORS }); }
   if (data == null) return Response.json({ ok: false, error: 'This company was not found or its plan has ended.' }, { status: 404, headers: CORS });
   return Response.json({ ok: true, projects: data, contact: contact ?? null }, {
-    headers: { ...CORS, 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=600' },
+    headers: { ...CORS, 'Cache-Control': 'public, s-maxage=5, stale-while-revalidate=20' },
   });
 }

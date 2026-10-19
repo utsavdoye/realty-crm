@@ -6,8 +6,13 @@ import { createClient } from '@/lib/supabase/client';
 import { addProjectPhotos, removeProjectPhoto, setCoverPhoto } from '@/app/crm-actions';
 import { shrink } from '@/lib/upload';
 
-export function ProjectPhotos({ projectId, orgId, name, photos, canEdit }: { projectId: string; orgId: string; name: string; photos: string[]; canEdit: boolean }) {
+export function ProjectPhotos({ projectId, orgId, name, photos: fromServer, canEdit }: { projectId: string; orgId: string; name: string; photos: string[]; canEdit: boolean }) {
   const router = useRouter();
+  // The list shown here changes at once when you remove a photo or pick a cover; the save runs in the background.
+  const [photos, setPhotos] = useState(fromServer);
+  const pending = useRef(0);
+  const key = fromServer.join('|');
+  useEffect(() => { if (!pending.current) setPhotos(fromServer); }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
   const [open, setOpen] = useState<number | null>(null);
   const [busy, setBusy] = useState('');
   const [error, setError] = useState('');
@@ -41,16 +46,39 @@ export function ProjectPhotos({ projectId, orgId, name, photos, canEdit }: { pro
         setError(`Could not upload ${list[i].name}. ${e instanceof Error && e.message.includes('Bucket') ? 'Run patch-006 in Supabase first.' : ''}`);
       }
     }
-    if (urls.length) { const r = await addProjectPhotos(projectId, urls); if (r.error) setError(r.error); }
+    if (urls.length) {
+      setPhotos((p) => [...p, ...urls].slice(0, 20));
+      pending.current++;
+      const r = await addProjectPhotos(projectId, urls).finally(() => { pending.current--; });
+      if (r.error) setError(r.error);
+    }
     setBusy('');
     router.refresh();
   }
 
-  async function act(fn: () => Promise<{ error?: string }>) {
-    setBusy('Saving…');
-    const r = await fn();
-    setBusy('');
-    if (r.error) setError(r.error); else { close(); router.refresh(); }
+  async function quick(next: string[], save: () => Promise<{ error?: string }>) {
+    const before = photos;
+    setError('');
+    setPhotos(next);
+    pending.current++;
+    try {
+      const r = await save();
+      if (r.error) { setPhotos(before); setError(r.error); }
+    } catch { setPhotos(before); setError('Could not save. Check your internet and try again.'); }
+    finally { pending.current--; }
+  }
+
+  function removeAt(i: number) {
+    const url = photos[i];
+    const next = photos.filter((u) => u !== url);
+    setOpen(next.length ? Math.min(i, next.length - 1) : null);
+    quick(next, () => removeProjectPhoto(projectId, url));
+  }
+
+  function makeCover(i: number) {
+    const url = photos[i];
+    setOpen(0);
+    quick([url, ...photos.filter((u) => u !== url)], () => setCoverPhoto(projectId, url));
   }
 
   return (
@@ -87,8 +115,8 @@ export function ProjectPhotos({ projectId, orgId, name, photos, canEdit }: { pro
         <div className="lightbox" role="dialog" aria-modal="true" aria-label={`${name} photos`} onClick={close}>
           <div className="lb-top" onClick={(e) => e.stopPropagation()}>
             <b>{name}</b><span className="hint">{open + 1} / {photos.length}</span>
-            {canEdit && open > 0 && <button className="btn sm" disabled={!!busy} onClick={() => act(() => setCoverPhoto(projectId, photos[open]))}>Make cover</button>}
-            {canEdit && <button className="btn sm danger" disabled={!!busy} onClick={() => { if (confirm('Remove this photo?')) act(() => removeProjectPhoto(projectId, photos[open])); }}>Remove</button>}
+            {canEdit && open > 0 && <button className="btn sm" disabled={!!busy} onClick={() => makeCover(open)}>Make cover</button>}
+            {canEdit && <button className="btn sm danger" disabled={!!busy} onClick={() => { if (confirm('Remove this photo?')) removeAt(open); }}>Remove</button>}
             <button className="btn sm" onClick={close} aria-label="Close">✕</button>
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element */}

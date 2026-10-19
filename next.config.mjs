@@ -2,6 +2,8 @@
 const nextConfig = {
   eslint: { ignoreDuringBuilds: true },
   poweredByHeader: false,
+  // Pages you go back to always show fresh data (no 30-second old copy after a change).
+  experimental: { staleTimes: { dynamic: 0 } },
   async headers() {
     return [{
       source: '/(.*)',

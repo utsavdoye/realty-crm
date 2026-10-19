@@ -364,18 +364,16 @@ function coord(v: string, max: number) {
   return v && Number.isFinite(n) && Math.abs(n) <= max ? n : null;
 }
 
-export async function toggleProjectPublic(fd: FormData) {
+/** Show / hide a project on the client website, or turn its CRM client link on / off.
+ *  The page updates on the spot (no waiting for the whole Projects page to reload). */
+export async function setProjectFlag(id: string, flag: 'on_website' | 'is_public', on: boolean): Promise<{ error?: string; token?: string }> {
   const { supabase, org, role } = await ctx();
-  if (!isManager(role)) return;
-  await supabase.from('projects').update({ is_public: str(fd, 'on') === 'true' }).eq('id', str(fd, 'id')).eq('org_id', org.id);
-  revalidatePath('/projects');
-}
-
-export async function toggleProjectWebsite(fd: FormData) {
-  const { supabase, org, role } = await ctx();
-  if (!isManager(role)) return;
-  await supabase.from('projects').update({ on_website: str(fd, 'on') === 'true' }).eq('id', str(fd, 'id')).eq('org_id', org.id);
-  revalidatePath('/projects');
+  if (!isManager(role)) return { error: 'Only an admin or a manager can change this.' };
+  if (flag !== 'on_website' && flag !== 'is_public') return { error: 'Not allowed.' };
+  const { data, error } = await supabase.from('projects').update({ [flag]: on === true }).eq('id', id).eq('org_id', org.id).select('share_token').maybeSingle();
+  if (error) return { error: friendly(error.message) };
+  if (!data) return { error: 'Project not found.' };
+  return { token: data.share_token ?? undefined };
 }
 
 export async function saveProject(_: FormState, fd: FormData): Promise<FormState> {
@@ -505,7 +503,6 @@ export async function removeProjectPhoto(id: string, url: string): Promise<{ err
   const { error } = await p.supabase.from('projects').update({ photos: p.photos.filter((u) => u !== url) }).eq('id', id).eq('org_id', p.org.id);
   const marker = '/storage/v1/object/public/project-photos/';
   if (!error && url.includes(marker)) await p.supabase.storage.from('project-photos').remove([url.split(marker)[1]]);
-  revalidatePath('/projects');
   return error ? { error: friendly(error.message) } : {};
 }
 
@@ -513,7 +510,6 @@ export async function setCoverPhoto(id: string, url: string): Promise<{ error?: 
   const p = await projectPhotos(id);
   if (!p || !p.photos.includes(url)) return { error: 'Photo not found.' };
   const { error } = await p.supabase.from('projects').update({ photos: [url, ...p.photos.filter((u) => u !== url)] }).eq('id', id).eq('org_id', p.org.id);
-  revalidatePath('/projects');
   return error ? { error: friendly(error.message) } : {};
 }
 

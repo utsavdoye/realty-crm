@@ -12,7 +12,9 @@ import { ProjectPlans } from '@/components/ProjectPlans';
 import { ShareButtons } from '@/components/ShareButtons';
 import { fmtPhone, siteUrl } from '@/lib/roles';
 import { websiteUrl } from '@/lib/website';
-import { rematchProject, toggleProjectPublic, toggleProjectWebsite } from '@/app/crm-actions';
+import { rematchProject } from '@/app/crm-actions';
+import { LiveCounts, LiveCount } from '@/components/LiveCounts';
+import { ProjectShare } from '@/components/ProjectShare';
 
 export const metadata = { title: 'Projects' };
 
@@ -56,6 +58,7 @@ export default async function Projects({ searchParams }: { searchParams?: { sort
   return (
     <>
       <div className="top"><h1>Projects</h1>{votes.size > 0 && <div className="row-gap"><span className="hint">Sort:</span><Link className={`btn sm ${byVotes ? 'ghost' : ''}`} href="/projects">A–Z</Link><Link className={`btn sm ${byVotes ? '' : 'ghost'}`} href="/projects?sort=votes">👍 Most upvoted</Link></div>}</div>
+      <LiveCounts orgId={org.id} initial={{ votes: Object.fromEntries(votes), saves: Object.fromEntries(Array.from(saves, ([k, v]) => [k, v.n])) }}>
       <div className="cards">
         {list.map((p) => {
           const s = stats.get(p.id) ?? { n: 0, booked: 0, visited: 0 };
@@ -80,7 +83,7 @@ export default async function Projects({ searchParams }: { searchParams?: { sort
               {p.highlights && <div className="hint">{p.highlights}</div>}
               {p.link && <a href={/^https?:\/\//.test(p.link) ? p.link : 'https://' + p.link} target="_blank" rel="noopener noreferrer">{/\.pdf$/i.test(p.link) ? 'Brochure (PDF)' : 'Brochure / site'}</a>}
               <ProjectPlans projectId={p.id} orgId={org.id} plans={p.floor_plans ?? []} canEdit={mgr} hasPdf={!!p.link && /\.pdf$/i.test(p.link)} />
-              <div className="stats3 stats4"><div><b className="mono">{s.n}</b><span className="hint">Leads</span></div><div><b className="mono">{s.visited}</b><span className="hint">Visited</span></div><div><b className="mono">{s.booked}</b><span className="hint">Booked</span></div><div title="Upvotes from visitors on your website"><b className="mono">👍 {votes.get(p.id) ?? 0}</b><span className="hint">Upvotes</span></div><div title="Saved on your website (signed-in clients and visitors)"><b className="mono">❤️ {saves.get(p.id)?.n ?? 0}</b><span className="hint">Saves</span></div></div>
+              <div className="stats3 stats4"><div><b className="mono">{s.n}</b><span className="hint">Leads</span></div><div><b className="mono">{s.visited}</b><span className="hint">Visited</span></div><div><b className="mono">{s.booked}</b><span className="hint">Booked</span></div><div title="Upvotes from visitors on your website"><b className="mono">👍 <LiveCount kind="votes" id={p.id} /></b><span className="hint">Upvotes</span></div><div title="Saved on your website (signed-in clients and visitors)"><b className="mono">❤️ <LiveCount kind="saves" id={p.id} /></b><span className="hint">Saves</span></div></div>
               {(saves.get(p.id)?.who.length ?? 0) > 0 && (
                 <details className="saved-by"><summary className="hint">Saved by {saves.get(p.id)!.who.length} client{saves.get(p.id)!.who.length === 1 ? '' : 's'} with an account</summary>
                   <ul className="saved-list">{saves.get(p.id)!.who.map((c) => <li key={c.id}><b>{c.name || 'No name'}</b> <span className="hint">{[c.phone ? fmtPhone(c.phone) : '', c.email].filter(Boolean).join(' · ')}</span></li>)}</ul>
@@ -89,36 +92,8 @@ export default async function Projects({ searchParams }: { searchParams?: { sort
               {(matchCount.get(p.id) ?? 0) > 0 && (
                 <Link className="match-chip" href={`/leads?match=${p.id}`}>🔔 {matchCount.get(p.id)} {mgr ? 'leads' : 'of your leads'} wanted something like this →</Link>
               )}
-              <div className="share-box">
-                {web && p.on_website && p.status !== 'Sold out' ? (
-                  <>
-                    <span className="hint">Link on your website</span>
-                    <ShareButtons url={`${web}/property.html?p=${p.id}`} text={`Have a look at ${p.name}${p.location ? ' in ' + p.location : ''}: photos, price and location`} />
-                  </>
-                ) : p.is_public ? (
-                  <>
-                    <span className="hint">Client link is on</span>
-                    <ShareButtons url={`${siteUrl()}/p/${p.share_token}`} text={`Have a look at ${p.name}${p.location ? ' in ' + p.location : ''}: photos, price and location`} />
-                  </>
-                ) : <span className="hint">Client link is off</span>}
-                {mgr && !(web && p.on_website && p.status !== 'Sold out') && (
-                  <form action={toggleProjectPublic}>
-                    <input type="hidden" name="id" value={p.id} /><input type="hidden" name="on" value={String(!p.is_public)} />
-                    <button className="btn sm ghost">{p.is_public ? 'Turn off' : 'Turn on client link'}</button>
-                  </form>
-                )}
-              </div>
-              {p.on_website !== undefined && (
-                <div className="share-box">
-                  <span className="hint">{p.status === 'Sold out' ? '🌐 Not on website (sold out)' : p.on_website ? '🌐 Shown on website' : '🌐 Hidden from website'}</span>
-                  {mgr && p.status !== 'Sold out' && (
-                    <form action={toggleProjectWebsite}>
-                      <input type="hidden" name="id" value={p.id} /><input type="hidden" name="on" value={String(!p.on_website)} />
-                      <button className="btn sm ghost">{p.on_website ? 'Hide from website' : 'Show on website'}</button>
-                    </form>
-                  )}
-                </div>
-              )}
+              <ProjectShare id={p.id} web={web} crmLink={`${siteUrl()}/p/${p.share_token}`} soldOut={p.status === 'Sold out'} mgr={mgr}
+                onWebsite={p.on_website === undefined ? undefined : !!p.on_website} isPublic={!!p.is_public} text={`Have a look at ${p.name}${p.location ? ' in ' + p.location : ''}: photos, price and location`} />
               <div className="row-gap">
                 <Link className="btn sm" href={`/leads?project=${p.id}`}>See leads</Link>
                 {p.lat != null && <Link className="btn sm ghost" href="/map">On map</Link>}
@@ -136,6 +111,7 @@ export default async function Projects({ searchParams }: { searchParams?: { sort
         })}
         {!list.length && <div className="panel"><p className="empty">No projects yet.{mgr ? ' Add the projects you sell below, with price range and unit options.' : ''}</p></div>}
       </div>
+      </LiveCounts>
       {mgr && (
         <section className="panel narrow" style={{ marginTop: 16 }}>
           <div className="panel-h"><h2>Add a project</h2></div>
