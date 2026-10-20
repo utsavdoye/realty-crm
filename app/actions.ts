@@ -288,6 +288,23 @@ export async function markAllRead() {
   revalidatePath('/notifications');
 }
 
+/** Alerts page: mark one alert, or every unread alert in one group, as read (without leaving the page). */
+export async function markAlertsRead(fd: FormData) {
+  const { supabase, user } = await requireOrg();
+  const id = str(fd, 'id');
+  const group = str(fd, 'group');
+  const now = new Date().toISOString();
+  if (id) {
+    await supabase.from('notifications').update({ read_at: now }).eq('id', id).eq('user_id', user.id);
+  } else if (group) {
+    const { groupOf } = await import('@/lib/alerts');
+    const { data } = await supabase.from('notifications').select('id, type').eq('user_id', user.id).is('read_at', null).limit(5000);
+    const ids = (data ?? []).filter((n: { type: string }) => groupOf(n.type) === group).map((n: { id: string }) => n.id);
+    for (let i = 0; i < ids.length; i += 200) await supabase.from('notifications').update({ read_at: now }).in('id', ids.slice(i, i + 200)).eq('user_id', user.id);
+  }
+  revalidatePath('/notifications');
+}
+
 export async function openNotification(fd: FormData) {
   const { supabase, user } = await requireOrg();
   const id = str(fd, 'id');
