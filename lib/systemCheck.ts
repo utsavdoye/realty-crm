@@ -59,6 +59,8 @@ export async function systemCheck(website: string | null): Promise<Check[]> {
     await probe('Database: website alerts and testimonials (patch-032)', 'Run supabase/patch-032-website-alerts-testimonials.sql.', () => admin.from('testimonials').select('id').limit(1));
     { const { data: fc } = await admin.rpc('first_call_done', { p_org: '00000000-0000-0000-0000-000000000000', p_phone: '9999999999' });
       out.push(fc === true ? { name: 'Database: brochure opens with name and mobile (patch-033)', ok: true, detail: 'Done.' } : { name: 'Database: brochure opens with name and mobile (patch-033)', ok: false, detail: 'Not run yet (brochures still wait for the first call).', fix: 'Run supabase/patch-033-files-open-with-details.sql.' }); }
+    { const { data: at } = await admin.rpc('alert_title', { p_name: 'A', p_project: 'B', p_message: 'Opened the brochure on the website.' });
+      out.push(typeof at === 'string' ? { name: 'Database: clear alert titles and open testimonials (patch-034)', ok: true, detail: 'Done.' } : { name: 'Database: clear alert titles and open testimonials (patch-034)', ok: false, detail: 'Not run yet.', fix: 'Run supabase/patch-034-clear-alerts-open-testimonials.sql.' }); }
     const { data: st, error: stErr } = await admin.rpc('setup_status');
     if (stErr || !st) {
       out.push({ name: 'Database: alerts for repeat enquiries and sellers (patch-031)', ok: false, detail: 'Not run yet.', fix: 'Run supabase/patch-031-repeat-enquiry-alerts.sql.' });

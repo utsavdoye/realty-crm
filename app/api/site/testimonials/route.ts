@@ -31,6 +31,15 @@ export async function POST(req: Request) {
   let b: Record<string, unknown> = {};
   try { b = (await req.json()) as Record<string, unknown>; } catch { /* empty */ }
   const r = String(b.r ?? ''), rating = Math.round(Number(b.rating)), text = String(b.text ?? '').trim();
+  // "Share your experience" on the website (no request link): needs the website key, a name and a few words.
+  if (!r && typeof b.key === 'string') {
+    if (!/^[a-f0-9]{32,64}$/.test(b.key)) return json({ ok: false }, 400);
+    if (!(rating >= 1 && rating <= 5)) return json({ ok: false, error: 'Please pick a rating.' }, 422);
+    if (String(b.name ?? '').trim().length < 2) return json({ ok: false, error: 'Please enter your name.' }, 422);
+    if (text.length < 10) return json({ ok: false, error: 'Please write a few words (at least 10 letters).' }, 422);
+    const { data } = await createAnonClient().rpc('site_testimonial_open', { p_key: b.key, p_name: String(b.name).slice(0, 80), p_phone: String(b.phone ?? '').slice(0, 20) || null, p_place: String(b.place ?? '').slice(0, 80), p_rating: rating, p_body: text.slice(0, 1200) });
+    return data ? json({ ok: true }) : json({ ok: false, error: 'Could not send right now. Please try again later.' }, 429);
+  }
   if (!TOK.test(r)) return json({ ok: false, error: 'This link is not complete.' }, 400);
   if (!(rating >= 1 && rating <= 5)) return json({ ok: false, error: 'Please pick a rating.' }, 422);
   if (text.length < 10) return json({ ok: false, error: 'Please write a few words (at least 10 letters).' }, 422);
