@@ -5,6 +5,9 @@ import { LiveRefresh } from '@/components/LiveRefresh';
 
 export const metadata = { title: 'Alerts' };
 
+/** e.g. "20 Oct 2026, 11:35 pm" (India time) */
+const exact = (iso: string) => new Date(iso).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true }).replace(/\b(am|pm)\b/i, (m) => m.toLowerCase());
+
 type N = { id: string; type: string; title: string; body: string | null; link: string | null; read_at: string | null; created_at: string };
 
 export default async function Notifications() {
@@ -27,7 +30,7 @@ export default async function Notifications() {
               <b>{n.title}</b>
               {n.body && <span className="hint">{n.body}</span>}
             </span>
-            <span className="ntime" title={new Date(n.created_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}>{rel(n.created_at)}</span>
+            <span className="ntime"><b>{exact(n.created_at)}</b><span>{rel(n.created_at)}</span></span>
             <span className="nacts">
               <form action={openNotification}><input type="hidden" name="id" value={n.id} /><button className="btn sm ghost">{n.link ? 'Open' : 'OK'}</button></form>
               {!n.read_at && n.link && <form action={markAlertsRead}><input type="hidden" name="id" value={n.id} /><button className="btn sm ghost" title="Mark as read" aria-label="Mark as read">✓</button></form>}
