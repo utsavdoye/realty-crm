@@ -1093,45 +1093,12 @@ a.plan-tile { text-decoration: none; }
 .saved-by summary { cursor: pointer; }
 .saved-list { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; }
 
-/* ---------- Alerts page: groups, day sections, stacked alerts ---------- */
-.al-total { font-size: 13px; font-weight: 600; background: var(--accent); color: var(--accent-fg); border-radius: 999px; padding: 3px 10px; vertical-align: middle; margin-left: 8px; }
-.al-tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; margin-bottom: 10px; scrollbar-width: none; }
-.al-tabs a { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--surface); color: var(--fg); font-size: 13.5px; white-space: nowrap; }
-.al-tabs a.on { background: var(--fg); color: var(--surface); border-color: var(--fg); }
-.al-tabs a i { font-style: normal; font-size: 11.5px; font-weight: 700; background: #ef4444; color: #fff; border-radius: 999px; padding: 1px 7px; }
-.al-tabs a em { font-style: normal; font-size: 11.5px; color: var(--faint); }
-.al-tabs a.on em { color: inherit; opacity: .7; }
-.al-bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
-.al-search { display: flex; gap: 8px; align-items: center; flex: 1; min-width: 200px; }
-.al-search input { flex: 1; min-width: 0; padding: 7px 10px; border: 1px solid var(--line-2); border-radius: 8px; background: var(--surface); font-size: 13.5px; }
-.al-hint { margin: -2px 0 10px; }
-.al-sec { margin-bottom: 14px; overflow: hidden; }
-.al-sec-h { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 16px; background: var(--surface-2); }
-.al-sec-h .btn { margin-left: auto; }
-.notif { border-left: 3px solid transparent; }
-.notif.al-hot { border-left-color: #ef4444; }
-.notif.al-leads { border-left-color: var(--accent); }
-.notif.al-activity { border-left-color: #f59e0b; }
-.notif.al-team { border-left-color: #10b981; }
-.notif.al-daily { border-left-color: var(--faint); }
-.notif.read b { font-weight: 500; }
-.notif .al-ico { font-size: 16px; line-height: 22px; flex: none; width: 22px; text-align: center; }
-.notif.read .al-ico { opacity: .55; }
-.notif .al-acts { display: flex; gap: 4px; flex: none; }
-.al-more summary { cursor: pointer; margin-top: 4px; }
-.al-more ul { margin: 6px 0 0; padding-left: 16px; display: flex; flex-direction: column; gap: 4px; font-size: 13.5px; }
-.al-more li.unread b { color: var(--accent); }
-.al-pad summary { padding: 8px 16px; }
-@media (max-width: 640px) { .notif .al-acts { flex-direction: column; } .al-search { min-width: 100%; } }
-.al-bar, .al-hint { max-width: 760px; }
-/* Alert group markers (plain coloured dots, no emojis) */
-.notif .al-ico { width: 8px; height: 8px; border-radius: 50%; margin: 7px 4px 0; flex: none; background: var(--faint); font-size: 0; }
-.notif.al-hot .al-ico, .al-d-hot { background: #ef4444; }
-.notif.al-leads .al-ico, .al-d-leads { background: var(--accent); }
-.notif.al-activity .al-ico, .al-d-activity { background: #f59e0b; }
-.notif.al-team .al-ico, .al-d-team { background: #10b981; }
-.notif.al-daily .al-ico, .al-d-daily { background: var(--faint); }
-.notif.read .al-ico { opacity: .45; }
-.al-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
-.al-tabs a.on .al-dot { box-shadow: 0 0 0 2px var(--surface); }
 .syscheck { align-items: flex-start; } .syscheck .chip { flex: none; min-width: 64px; text-align: center; }
+
+/* Alerts: one clean list, newest first */
+.notif { align-items: center; }
+.notif .nmain b { font-weight: 600; }
+.notif.read .nmain b { font-weight: 500; }
+.notif .ntime { flex: none; width: 92px; text-align: right; font-size: 12.5px; color: var(--faint); white-space: nowrap; }
+.notif .nacts { display: flex; gap: 4px; flex: none; width: 104px; justify-content: flex-end; }
+@media (max-width: 640px) { .notif { align-items: flex-start; flex-wrap: wrap; row-gap: 2px; } .notif .nacts { width: auto; } .notif .ntime { order: 3; width: 100%; text-align: left; padding-left: 20px; } }
