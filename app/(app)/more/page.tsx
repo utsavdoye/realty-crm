@@ -7,6 +7,7 @@ export default async function More() {
   const { role } = await requireOrg();
   const m = role === 'owner' || role === 'manager';
   const links = [
+    { href: '/website-clients', label: 'Website clients', show: m },
     { href: '/map', label: 'Map of projects', show: role !== 'partner' },
     { href: '/money', label: 'Money (admins only)', show: role === 'owner' },
     { href: '/notifications', label: 'Alerts', show: true },

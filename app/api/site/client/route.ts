@@ -38,7 +38,13 @@ export async function POST(req: Request) {
     const phone = who.phone_number ?? null;
     if (!email && !phone) return json({ ok: false, needEmailVerify: !!who.email });
     const name = String(b.name ?? '').trim().slice(0, 120) || who.name || '';
-    const { data, error } = await admin.rpc('site_client_upsert', { p_key: key, p_uid: who.uid, p_name: name, p_email: email, p_phone: phone });
+    // The mobile the client typed on the website (not SMS checked): used to make their lead in the CRM.
+    const typed = typeof b.phone === 'string' ? b.phone.replace(/[^\d+]/g, '').slice(0, 16) : '';
+    let { data, error } = await admin.rpc('site_client_upsert', { p_key: key, p_uid: who.uid, p_name: name, p_email: email, p_phone: phone, p_contact_phone: typed || null });
+    if (error && /function|p_contact_phone|schema cache/i.test(error.message)) {
+      // patch-029 not run yet: register the account without a lead
+      ({ data, error } = await admin.rpc('site_client_upsert', { p_key: key, p_uid: who.uid, p_name: name, p_email: email, p_phone: phone }));
+    }
     if (error) { console.error('site_client_upsert failed:', error.message); return json({ ok: false }, 500); }
     return json(data ?? { ok: false });
   }

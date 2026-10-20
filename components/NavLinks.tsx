@@ -21,6 +21,7 @@ const ICONS = {
   money: '<rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/>',
   me: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.2-6 8-6s7 2 8 6"/>',
   add: '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
+  web: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9c-2.5-2.6-3.7-5.6-3.7-9s1.2-6.4 3.7-9z"/>',
   board: '<rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/>',
 };
 
@@ -41,6 +42,7 @@ export function NavLinks({ role, mobile = false }: { role: Role; mobile?: boolea
     { href: '/pipeline', label: 'Journey board', icon: ICONS.board, show: m },
     { href: '/visits', label: 'Visits', icon: ICONS.visits, show: role !== 'partner' },
     { href: '/projects', label: 'Projects', icon: ICONS.projects, show: true },
+    { href: '/website-clients', label: 'Website clients', icon: ICONS.web, show: m },
     { href: '/map', label: 'Map', icon: ICONS.map, show: role !== 'partner' },
     { href: '/money', label: 'Money', icon: ICONS.money, show: role === 'owner', sec: 'Business' },
     { href: '/messages', label: 'Messages', icon: ICONS.messages, show: role !== 'partner', sec: role === 'owner' ? undefined : 'Business' },

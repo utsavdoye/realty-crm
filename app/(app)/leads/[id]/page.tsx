@@ -37,11 +37,12 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
   const web = await websiteUrl(supabase, org.id);
   // Website account of this client (patch-027): matched by mobile or email, and the homes they saved there.
   const leadPhone = normPhone(lead.phone);
-  const [{ data: wcByPhone }, { data: wcByEmail }] = await Promise.all([
+  const [{ data: wcByLead }, { data: wcByPhone }, { data: wcByEmail }] = await Promise.all([
+    supabase.from('website_clients').select('id, name, email, phone, created_at, last_seen_at').eq('org_id', org.id).eq('lead_id', lead.id).limit(1), // patch-029
     leadPhone ? supabase.from('website_clients').select('id, name, email, phone, created_at, last_seen_at').eq('org_id', org.id).eq('phone', leadPhone).limit(1) : Promise.resolve({ data: [] }),
     lead.email ? supabase.from('website_clients').select('id, name, email, phone, created_at, last_seen_at').eq('org_id', org.id).ilike('email', String(lead.email).replace(/[%_]/g, '')).limit(1) : Promise.resolve({ data: [] }),
   ]);
-  const webClient = ((wcByPhone ?? [])[0] ?? (wcByEmail ?? [])[0] ?? null) as { id: string; name: string | null; email: string | null; phone: string | null; created_at: string; last_seen_at: string } | null;
+  const webClient = ((wcByLead ?? [])[0] ?? (wcByPhone ?? [])[0] ?? (wcByEmail ?? [])[0] ?? null) as { id: string; name: string | null; email: string | null; phone: string | null; created_at: string; last_seen_at: string } | null;
   const { data: webSaves } = webClient
     ? await supabase.from('website_saves').select('project_id, created_at').eq('client_id', webClient.id).order('created_at', { ascending: false })
     : { data: [] as { project_id: string; created_at: string }[] };
