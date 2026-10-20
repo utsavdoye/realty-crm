@@ -31,27 +31,34 @@ export async function POST(req: Request) {
   const t = String(b.t ?? '');
   if (!TOKEN.test(t)) return json({ ok: false, error: 'This link is not complete. Please ask your property advisor for it again.' }, 400);
 
-  const who = typeof b.idToken === 'string' && b.idToken ? await verifyFirebaseToken(b.idToken) : null;
-  if (!who) return json({ ok: false, needLogin: true, error: 'Please sign in to see these homes.' }, 401);
+  // Who is looking: a signed-in website account (checked token), or the name + mobile they typed on the website.
+  const token = typeof b.idToken === 'string' && b.idToken ? await verifyFirebaseToken(b.idToken) : null;
+  const typedPhone = normPhone(String(b.phone ?? '').slice(0, 20));
+  const typedName = String(b.name ?? '').trim().slice(0, 120);
+  if (!token && !typedPhone) return json({ ok: false, needLogin: true, error: 'Please tell us your name and mobile number to see these homes.' }, 401);
+  const who = token ?? { uid: '', name: typedName, email: null as string | null, email_verified: false, phone_number: null as string | null };
   const admin = createAdminClient();
   if (!admin) return json({ ok: false, error: 'This link is not available right now. Please call us.' }, 503);
 
   const { data: sl } = await admin.from('shortlists').select('org_id, lead_id').eq('token', t).maybeSingle();
   if (!sl) return json({ ok: false, error: 'This link is not active any more. Please ask your property advisor for a new one.' }, 404);
   const s = sl as { org_id: string; lead_id: string };
-  const [{ data: leadRow }, { data: clientRow }] = await Promise.all([
+  const [{ data: leadRow }, { data: clientRow }, { data: orgRow }] = await Promise.all([
     admin.from('leads').select('id, name, phone, email, other_phones').eq('id', s.lead_id).maybeSingle(),
-    admin.from('website_clients').select('id, name, email, phone, contact_phone, lead_id').eq('org_id', s.org_id).eq('uid', who.uid).maybeSingle(),
+    who.uid ? admin.from('website_clients').select('id, name, email, phone, contact_phone, lead_id').eq('org_id', s.org_id).eq('uid', who.uid).maybeSingle() : Promise.resolve({ data: null }),
+    admin.from('organizations').select('verify_phone').eq('id', s.org_id).maybeSingle(),
   ]);
+  // With "Verify clients' mobile" on, only an SMS-checked number counts; otherwise the typed number does.
+  const strict = (orgRow as { verify_phone?: boolean } | null)?.verify_phone === true;
   const lead = leadRow as Lead | null, client = clientRow as Client | null;
 
   // Is the signed-in person the client these homes were picked for?
-  const phones = [who.phone_number, client?.phone, client?.contact_phone].map((p) => normPhone(p ?? '')).filter(Boolean);
+  const phones = [who.phone_number, client?.phone, strict ? null : client?.contact_phone, strict ? null : typedPhone].map((p) => normPhone(p ?? '')).filter(Boolean);
   const leadPhones = [lead?.phone, ...(lead?.other_phones ?? [])].map((p) => normPhone(p ?? '')).filter(Boolean);
   const emailOk = !!who.email && who.email_verified && !!lead?.email && who.email.toLowerCase() === lead.email.toLowerCase();
   const owner = !!lead && ((client?.lead_id === lead.id) || phones.some((p) => leadPhones.includes(p)) || emailOk);
   if (owner && client && !client.lead_id) await admin.from('website_clients').update({ lead_id: lead!.id }).eq('id', client.id);
-  const myPhone = phones[0] ?? '';
+  const myPhone = phones[0] ?? typedPhone ?? '';
   const myName = (client?.name || who.name || '').trim();
 
   if (b.action === 'load' || !b.action) {
