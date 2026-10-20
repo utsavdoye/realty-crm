@@ -2,6 +2,7 @@ import { requireOrg } from '@/lib/context';
 import { createSource, saveMetaToken, saveWebsitePhone, setVerifyPhone, saveWebsiteUrl, setAutoAssign, setReassignMinutes, setSourceSegment, toggleSource } from '@/app/actions';
 import { websitePhone, websiteUrl, websiteVerify } from '@/lib/website';
 import { firebaseReady } from '@/lib/firebaseToken';
+import { systemCheck } from '@/lib/systemCheck';
 import { ActionForm, Submit } from '@/components/forms';
 import { CopyButton } from '@/components/CopyButton';
 import { SourceKindPicker } from '@/components/SourceKindPicker';
@@ -61,6 +62,7 @@ export default async function Sources() {
   const sitePhone = await websitePhone(supabase, org.id);
   const siteVerify = await websiteVerify(supabase, org.id);
   const smsReady = firebaseReady();
+  const checks = role === 'owner' ? await systemCheck(site) : [];
   const list = (sources ?? []) as Source[];
   const auto = (orgRow as { auto_assign?: boolean } | null)?.auto_assign ?? true;
   const reassign = (orgRow as { reassign_minutes?: number | null } | null)?.reassign_minutes ?? null;
@@ -68,6 +70,19 @@ export default async function Sources() {
   return (
     <>
       <div className="top"><h1>Lead sources</h1></div>
+      {checks.length > 0 && (
+        <section className="panel" style={{ marginBottom: 16 }}>
+          <div className="panel-h"><h2>System check</h2><span className="hint">{checks.every((c) => c.ok !== false) ? 'Everything needed for the website link is working.' : `${checks.filter((c) => c.ok === false).length} thing${checks.filter((c) => c.ok === false).length === 1 ? '' : 's'} to fix`}</span></div>
+          <div className="rows">
+            {checks.map((c) => (
+              <div key={c.name} className="callrow syscheck">
+                <span className={`chip ${c.ok ? 'good' : c.ok === false ? 'bad' : ''}`}>{c.ok ? 'Working' : c.ok === false ? 'Fix' : 'Check'}</span>
+                <span className="cr-main"><b>{c.name}</b><span className="hint">{c.detail}</span>{c.fix && <span className="hint"><b>How to fix:</b> {c.fix}</span>}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
       <p className="muted" style={{ marginTop: -8, maxWidth: '70ch' }}>
         Connect each place your leads come from. New leads land in your CRM within seconds, go to the next agent automatically, and the agent gets a WhatsApp alert. A number that enquires again is added to the same lead, never copied.
       </p>
@@ -103,7 +118,7 @@ export default async function Sources() {
                 <ActionForm action={saveWebsitePhone} className="stack">
                   <label className="field"><span className="label">Phone number for the website call button</span>
                     <input name="phone" type="tel" inputMode="tel" defaultValue={sitePhone ?? ''} placeholder="e.g. 98765 43210" maxLength={30} />
-                    <span className="hint">Shown as a 📞 button next to &ldquo;Contact seller&rdquo; on every home. Leave empty to hide the button.</span>
+                    <span className="hint">Shown as a call button next to &ldquo;Contact seller&rdquo; on every home. Leave empty to hide the button.</span>
                   </label>
                   <div className="row-gap"><Submit className="btn sm">Save phone number</Submit>{sitePhone && <span className="hint">Calls go to {sitePhone}</span>}</div>
                 </ActionForm>

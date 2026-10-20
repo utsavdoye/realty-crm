@@ -42,7 +42,7 @@ export default async function WebsiteClients() {
                     <b>{c.name || c.email?.split('@')[0] || 'No name'}</b>
                     <span className="hint">{[phone ? fmtPhone(phone) + (c.phone ? ' ✓' : '') : 'No mobile yet', c.email].filter(Boolean).join(' · ')}</span>
                     <span className="hint">Joined {rel(c.created_at)} · last on the website {rel(c.last_seen_at)}</span>
-                    {homes.length > 0 && <span className="hint">❤️ Saved: {homes.join(', ')}</span>}
+                    {homes.length > 0 && <span className="hint">Saved: {homes.join(', ')}</span>}
                   </span>
                   {c.lead_id ? <Link className="btn sm" href={`/leads/${c.lead_id}`}>Open lead</Link> : <span className="chip">Not a lead yet</span>}
                 </div>

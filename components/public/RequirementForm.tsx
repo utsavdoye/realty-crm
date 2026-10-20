@@ -82,7 +82,7 @@ export function RequirementForm({ token, by, areas, advisor }: { token: string; 
       </div>
       {state?.error && <p className="msg err" role="alert">{state.error}</p>}
       <Send />
-      <p className="hint center">🔒 Your number is safe with us. We call only about homes you asked for.</p>
+      <p className="hint center">Your number is safe with us. We call only about homes you asked for.</p>
     </div></form>
   );
 }

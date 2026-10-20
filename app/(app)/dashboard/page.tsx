@@ -261,7 +261,7 @@ export default async function Today({ searchParams }: { searchParams: { welcome?
           </section>
           {matchGroups.length > 0 && (
             <section className="panel">
-              <div className="panel-h"><h2>🔔 New projects fit your leads</h2><span className="hint">Last 14 days</span></div>
+              <div className="panel-h"><h2>New projects fit your leads</h2><span className="hint">Last 14 days</span></div>
               <div className="rows">
                 {matchGroups.map((g) => (
                   <Link key={g.id} href={`/leads?match=${g.id}`} className="callrow">

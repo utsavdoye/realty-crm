@@ -50,7 +50,7 @@ export default async function PublicProject({ params }: { params: { token: strin
       </div>
       <footer className="pub-foot pub-wrap hint">{d.company}{d.company_rera ? ` · RERA ${d.company_rera}` : ''} · Prices and details can change. Please confirm with our team.</footer>
       <nav className="cta-bar" aria-label="Contact">
-        {d.contact_phone && <a className="btn" href={telHref(d.contact_phone)}>📞 Call</a>}
+        {d.contact_phone && <a className="btn" href={telHref(d.contact_phone)}>Call</a>}
         {wa && <a className="btn wa" href={wa} target="_blank" rel="noopener noreferrer">WhatsApp</a>}
         <a className="btn primary" href="#visit">Book visit</a>
       </nav>

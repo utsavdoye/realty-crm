@@ -125,7 +125,7 @@ export default async function Leads({ searchParams }: { searchParams: Record<str
       )}
       {matchName && sp.found !== '0' && sp.found !== 'err' && (
         <div className="banner match-banner">
-          <span><b>🔔 {sp.found ? `${sp.found} lead${sp.found === '1' ? '' : 's'}` : 'These leads'} wanted something like {matchName}.</b> Their budget fits, plus the home type or area. Call them or send the project from the lead page.</span>
+          <span><b>{sp.found ? `${sp.found} lead${sp.found === '1' ? '' : 's'}` : 'These leads'} wanted something like {matchName}.</b> Their budget fits, plus the home type or area. Call them or send the project from the lead page.</span>
           <form action={dismissMatches}><input type="hidden" name="project_id" value={sp.match} /><button className="btn sm ghost">Hide this list</button></form>
         </div>
       )}

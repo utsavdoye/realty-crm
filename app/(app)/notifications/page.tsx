@@ -19,7 +19,7 @@ function Row({ n, more }: { n: N; more?: N[] }) {
   const unreadMore = (more ?? []).filter((x) => !x.read_at).length;
   return (
     <div className={`notif al-${g.key} ${n.read_at ? 'read' : 'unread'}`}>
-      <span className="al-ico" aria-hidden="true">{g.icon}</span>
+      <span className="al-ico" aria-hidden="true" />
       <span className="nmain">
         <b>{n.title}</b>
         {n.body && <span className="hint">{n.body}</span>}
@@ -115,7 +115,7 @@ export default async function Notifications({ searchParams }: { searchParams?: P
         <Link href={href({ g: '' })} className={group === 'all' ? 'on' : ''}>All{unreadAll ? <i>{unreadAll}</i> : null}</Link>
         {GROUPS.map((x) => {
           const c = count.get(x.key);
-          return <Link key={x.key} href={href({ g: x.key })} className={`al-tab-${x.key} ${group === x.key ? 'on' : ''}`}>{x.icon} {x.label}{c?.u ? <i>{c.u}</i> : <em>{c?.n ?? 0}</em>}</Link>;
+          return <Link key={x.key} href={href({ g: x.key })} className={`al-tab-${x.key} ${group === x.key ? 'on' : ''}`}><span className={`al-dot al-d-${x.key}`} aria-hidden="true" />{x.label}{c?.u ? <i>{c.u}</i> : <em>{c?.n ?? 0}</em>}</Link>;
         })}
       </nav>
 

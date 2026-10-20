@@ -28,7 +28,7 @@ async function toWav(blob: Blob): Promise<Blob> {
 
 
 /**
- * 🎤 button that fills the form it sits in. Speak Hindi, English or Hinglish; check, then Save.
+ * Mic button that fills the form it sits in. Speak Hindi, English or Hinglish; check, then Save.
  * endpoint: which voice service to use (new lead or after-call). extra: sent along (e.g. the lead id).
  * onFields: lets the form handle some fields itself (returns the keys it handled).
  */

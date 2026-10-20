@@ -57,7 +57,7 @@ export default async function Projects({ searchParams }: { searchParams?: { sort
   if (byVotes) list.sort((a, b) => (votes.get(b.id) ?? 0) - (votes.get(a.id) ?? 0) || a.name.localeCompare(b.name));
   return (
     <>
-      <div className="top"><h1>Projects</h1>{votes.size > 0 && <div className="row-gap"><span className="hint">Sort:</span><Link className={`btn sm ${byVotes ? 'ghost' : ''}`} href="/projects">A–Z</Link><Link className={`btn sm ${byVotes ? '' : 'ghost'}`} href="/projects?sort=votes">👍 Most upvoted</Link></div>}</div>
+      <div className="top"><h1>Projects</h1>{votes.size > 0 && <div className="row-gap"><span className="hint">Sort:</span><Link className={`btn sm ${byVotes ? 'ghost' : ''}`} href="/projects">A–Z</Link><Link className={`btn sm ${byVotes ? '' : 'ghost'}`} href="/projects?sort=votes">Most upvoted</Link></div>}</div>
       <LiveCounts orgId={org.id} initial={{ votes: Object.fromEntries(votes), saves: Object.fromEntries(Array.from(saves, ([k, v]) => [k, v.n])) }}>
       <div className="cards">
         {list.map((p) => {
@@ -78,19 +78,19 @@ export default async function Projects({ searchParams }: { searchParams?: { sort
                 <Link href={`/projects/${p.id}/units`} className="units-chip"><b>{c.open ?? 0}</b> of {all} flats open{c.booked ? ` · ${c.booked} booked` : ''}{c.hold ? ` · ${c.hold} on hold` : ''}{c.mortgage ? ` · ${c.mortgage} mortgage` : ''} → see flats & prices</Link>
               ); })()}
               {!unitsBy.has(p.id) && mgr && <Link href={`/projects/${p.id}/units`} className="hint">+ Add flats &amp; prices from Excel</Link>}
-              {p.map_url && <a href={p.map_url} target="_blank" rel="noopener noreferrer" className="hint">📍 Google Maps</a>}
+              {p.map_url && <a href={p.map_url} target="_blank" rel="noopener noreferrer" className="hint">Google Maps</a>}
               {p.rera_no && <div className="hint mono">RERA {p.rera_no}</div>}
               {p.highlights && <div className="hint">{p.highlights}</div>}
               {p.link && <a href={/^https?:\/\//.test(p.link) ? p.link : 'https://' + p.link} target="_blank" rel="noopener noreferrer">{/\.pdf$/i.test(p.link) ? 'Brochure (PDF)' : 'Brochure / site'}</a>}
               <ProjectPlans projectId={p.id} orgId={org.id} plans={p.floor_plans ?? []} canEdit={mgr} hasPdf={!!p.link && /\.pdf$/i.test(p.link)} />
-              <div className="stats3 stats4"><div><b className="mono">{s.n}</b><span className="hint">Leads</span></div><div><b className="mono">{s.visited}</b><span className="hint">Visited</span></div><div><b className="mono">{s.booked}</b><span className="hint">Booked</span></div><div title="Upvotes from visitors on your website"><b className="mono">👍 <LiveCount kind="votes" id={p.id} /></b><span className="hint">Upvotes</span></div><div title="Saved on your website (signed-in clients and visitors)"><b className="mono">❤️ <LiveCount kind="saves" id={p.id} /></b><span className="hint">Saves</span></div></div>
+              <div className="stats3 stats4"><div><b className="mono">{s.n}</b><span className="hint">Leads</span></div><div><b className="mono">{s.visited}</b><span className="hint">Visited</span></div><div><b className="mono">{s.booked}</b><span className="hint">Booked</span></div><div title="Upvotes from visitors on your website"><b className="mono"><LiveCount kind="votes" id={p.id} /></b><span className="hint">Upvotes</span></div><div title="Saved on your website (signed-in clients and visitors)"><b className="mono"><LiveCount kind="saves" id={p.id} /></b><span className="hint">Saves</span></div></div>
               {(saves.get(p.id)?.who.length ?? 0) > 0 && (
                 <details className="saved-by"><summary className="hint">Saved by {saves.get(p.id)!.who.length} client{saves.get(p.id)!.who.length === 1 ? '' : 's'} with an account</summary>
                   <ul className="saved-list">{saves.get(p.id)!.who.map((c) => <li key={c.id}><b>{c.name || 'No name'}</b> <span className="hint">{[c.phone ? fmtPhone(c.phone) : '', c.email].filter(Boolean).join(' · ')}</span></li>)}</ul>
                 </details>
               )}
               {(matchCount.get(p.id) ?? 0) > 0 && (
-                <Link className="match-chip" href={`/leads?match=${p.id}`}>🔔 {matchCount.get(p.id)} {mgr ? 'leads' : 'of your leads'} wanted something like this →</Link>
+                <Link className="match-chip" href={`/leads?match=${p.id}`}>{matchCount.get(p.id)} {mgr ? 'leads' : 'of your leads'} wanted something like this →</Link>
               )}
               <ProjectShare id={p.id} web={web} crmLink={`${siteUrl()}/p/${p.share_token}`} soldOut={p.status === 'Sold out'} mgr={mgr}
                 onWebsite={p.on_website === undefined ? undefined : !!p.on_website} isPublic={!!p.is_public} text={`Have a look at ${p.name}${p.location ? ' in ' + p.location : ''}: photos, price and location`} />

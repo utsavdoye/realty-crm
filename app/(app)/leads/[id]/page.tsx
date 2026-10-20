@@ -119,7 +119,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
           </div>
           {canEdit && (
             <div className="row-gap">
-              <CallButton leadId={lead.id} name={lead.name} tel={tel} step={callStep}>📞 Call</CallButton>
+              <CallButton leadId={lead.id} name={lead.name} tel={tel} step={callStep}>Call</CallButton>
               <a className="btn wa" href="#whatsapp">WhatsApp</a>
               <a className="btn" href="#visit">Book visit</a>
               {admin && <a className="btn" href="#money">₹ Payments</a>}
@@ -130,7 +130,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
 
       {(leadMatches ?? []).length > 0 && (
         <div className="banner match-banner">
-          <span><b>🔔 New project fits this client:</b> {(leadMatches as unknown as { projects: { name: string } | null; reasons: string[] }[]).map((m) => `${m.projects?.name ?? 'Project'} (${m.reasons.join(', ')})`).join(' · ')}</span>
+          <span><b>New project fits this client:</b> {(leadMatches as unknown as { projects: { name: string } | null; reasons: string[] }[]).map((m) => `${m.projects?.name ?? 'Project'} (${m.reasons.join(', ')})`).join(' · ')}</span>
           {!closed && <a className="btn sm primary" href="#shortlist">Send it to them</a>}
           {lead.stage === 'lost' && canEdit && <form action={recycleCall}><input type="hidden" name="id" value={lead.id} /><button className="btn sm primary">Reopen and call</button></form>}
           <form action={dismissMatches}><input type="hidden" name="lead_id" value={lead.id} /><button className="btn sm ghost">Hide</button></form>
@@ -215,7 +215,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
               )}
               {admin && !['booked', 'lost'].includes(lead.stage) && (
                 <form action={setStage}><input type="hidden" name="id" value={lead.id} /><input type="hidden" name="stage" value="booked" />
-                  <button className="btn sm">🎉 Mark as booked</button></form>
+                  <button className="btn sm">Mark as booked</button></form>
               )}
               {lead.stage === 'lost' && canEdit && (
                 <form action={recycleCall}><input type="hidden" name="id" value={lead.id} /><button className="btn sm">Reopen this client</button></form>
@@ -349,7 +349,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
                 {(webSaves ?? []).length ? (
                   <div className="amen">{(webSaves ?? []).map((w) => {
                     const pr = (projects ?? []).find((x) => x.id === w.project_id);
-                    return <span key={w.project_id}>❤️ {pr?.name ?? 'Project'}</span>;
+                    return <span key={w.project_id}>{pr?.name ?? 'Project'}</span>;
                   })}</div>
                 ) : <span className="hint">No saved homes yet.</span>}
               </div>
@@ -398,7 +398,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
                   <div className="hint">{(v.project_id && projectOf.get(v.project_id)?.name) || 'Project not set'}{v.agent_id ? ' · ' + (nameOf.get(v.agent_id) ?? '') : ''}</div>
                   {v.feedback && <div className="hint">“{v.feedback}”</div>}
                   {v.checkin_at ? (
-                    <div className="hint">📍 Checked in {fmtDT(v.checkin_at)}{v.checkin_distance_m != null ? ` · ${v.checkin_distance_m < 1000 ? v.checkin_distance_m + ' m' : (v.checkin_distance_m / 1000).toFixed(1) + ' km'} from the project` : ''}{v.checkin_address ? ` · ${v.checkin_address}` : ''}
+                    <div className="hint">Checked in {fmtDT(v.checkin_at)}{v.checkin_distance_m != null ? ` · ${v.checkin_distance_m < 1000 ? v.checkin_distance_m + ' m' : (v.checkin_distance_m / 1000).toFixed(1) + ' km'} from the project` : ''}{v.checkin_address ? ` · ${v.checkin_address}` : ''}
                       {(admin || role === 'manager') && v.checkin_lat != null && <> · <a href={`https://www.google.com/maps?q=${v.checkin_lat},${v.checkin_lng}`} target="_blank" rel="noopener noreferrer">see on map</a></>}
                       {v.checkin_distance_m != null && v.checkin_distance_m > 1500 && <span className="chip bad" style={{ marginLeft: 6 }}>Far from the project</span>}
                     </div>

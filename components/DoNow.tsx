@@ -63,7 +63,7 @@ export async function DoNow({ supabase, orgId, userId, firstName }: { supabase: 
                 <div className="dn-main"><Link href={`/leads/${v.lead_id}#visit`}><b>{v.leads?.name ?? 'Client'}</b></Link>
                   <span className="hint">{fmtTime(v.at)} · {v.projects?.name ?? 'Project not set'}{v.checkin_at ? ` · checked in ${fmtTime(v.checkin_at)}` : ''}</span>
                   {!v.checkin_at && <CheckInButton visitId={v.id} />}</div>
-                {v.leads?.phone && <CallButton leadId={v.lead_id} name={v.leads.name} tel={telHref(v.leads.phone)} step={null} className="btn dn-call">📞 Call</CallButton>}
+                {v.leads?.phone && <CallButton leadId={v.lead_id} name={v.leads.name} tel={telHref(v.leads.phone)} step={null} className="btn dn-call">Call</CallButton>}
               </div>
             ))}
           </div>
@@ -88,7 +88,7 @@ export async function DoNow({ supabase, orgId, userId, firstName }: { supabase: 
                   {(l.bhk || l.location) && <span className="hint">{[l.bhk, l.location].filter(Boolean).join(' · ')}</span>}
                 </div>
                 <CallButton leadId={l.id} name={l.name} tel={telHref(l.phone)} className="btn primary dn-call"
-                  step={canFinish && st ? { k: st, label: stepLabel(st), next: teamNames(NEXT[st]) } : null}>📞 Call</CallButton>
+                  step={canFinish && st ? { k: st, label: stepLabel(st), next: teamNames(NEXT[st]) } : null}>Call</CallButton>
               </div>
             );
           })}

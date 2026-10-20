@@ -39,7 +39,7 @@ export function ProjectShare({ id, web, crmLink, soldOut, mgr, onWebsite, isPubl
       </div>
       {onWeb !== undefined && (
         <div className="share-box">
-          <span className="hint">{soldOut ? '🌐 Not on website (sold out)' : onWeb ? '🌐 Shown on website' : '🌐 Hidden from website'}</span>
+          <span className="hint">{soldOut ? 'Not on website (sold out)' : onWeb ? 'Shown on website' : 'Hidden from website'}</span>
           {mgr && !soldOut && (
             <button type="button" className="btn sm ghost" onClick={() => flip('on_website', !onWeb)}>{onWeb ? 'Hide from website' : 'Show on website'}</button>
           )}

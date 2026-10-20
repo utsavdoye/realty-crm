@@ -26,7 +26,7 @@ export function CheckInButton({ visitId }: { visitId: string }) {
 
   return (
     <span className="checkin">
-      <button type="button" className="btn sm primary" onClick={go} disabled={busy}>{busy ? 'Finding your location…' : '📍 I’m at the site'}</button>
+      <button type="button" className="btn sm primary" onClick={go} disabled={busy}>{busy ? 'Finding your location…' : 'I’m at the site'}</button>
       {msg?.ok && <span className="msg ok">{msg.ok}</span>}
       {msg?.error && <span className="msg err">{msg.error}</span>}
     </span>

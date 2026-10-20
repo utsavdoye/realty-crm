@@ -1124,3 +1124,14 @@ a.plan-tile { text-decoration: none; }
 .al-pad summary { padding: 8px 16px; }
 @media (max-width: 640px) { .notif .al-acts { flex-direction: column; } .al-search { min-width: 100%; } }
 .al-bar, .al-hint { max-width: 760px; }
+/* Alert group markers (plain coloured dots, no emojis) */
+.notif .al-ico { width: 8px; height: 8px; border-radius: 50%; margin: 7px 4px 0; flex: none; background: var(--faint); font-size: 0; }
+.notif.al-hot .al-ico, .al-d-hot { background: #ef4444; }
+.notif.al-leads .al-ico, .al-d-leads { background: var(--accent); }
+.notif.al-activity .al-ico, .al-d-activity { background: #f59e0b; }
+.notif.al-team .al-ico, .al-d-team { background: #10b981; }
+.notif.al-daily .al-ico, .al-d-daily { background: var(--faint); }
+.notif.read .al-ico { opacity: .45; }
+.al-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex: none; }
+.al-tabs a.on .al-dot { box-shadow: 0 0 0 2px var(--surface); }
+.syscheck { align-items: flex-start; } .syscheck .chip { flex: none; min-width: 64px; text-align: center; }

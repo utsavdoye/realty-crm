@@ -45,7 +45,7 @@ export default async function Shortlist({ params }: { params: { token: string } 
       <footer className="pub-foot pub-wrap hint">{d.company} · Prices and details can change. Please confirm with your advisor.</footer>
       {d.agent_phone && (
         <nav className="cta-bar" aria-label="Contact your advisor">
-          <a className="btn" href={telHref(d.agent_phone)}>📞 Call {d.agent_name?.split(' ')[0]}</a>
+          <a className="btn" href={telHref(d.agent_phone)}>Call {d.agent_name?.split(' ')[0]}</a>
           <a className="btn wa" href={waLink(d.agent_phone, `Hi ${d.agent_name?.split(' ')[0] ?? ''}, I saw the homes you sent. Can we talk?`)} target="_blank" rel="noopener noreferrer">WhatsApp</a>
         </nav>
       )}

@@ -16,7 +16,7 @@ export function CallButton({ leadId, name, tel, step = null, className = 'btn pr
   return (
     <a className={className} href={tel} onClick={() => {
       try { localStorage.setItem(KEY, JSON.stringify({ id: leadId, name, step, at: Date.now() } satisfies Pending)); } catch { /* private mode: no pop-up, the form is still on the page */ }
-    }}>{children ?? '📞 Call'}</a>
+    }}>{children ?? 'Call'}</a>
   );
 }
 
