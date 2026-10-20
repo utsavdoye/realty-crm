@@ -33,7 +33,7 @@ export default async function Projects({ searchParams }: { searchParams?: { sort
   const web = await websiteUrl(supabase, org.id);
   const unitsBy = new Map<string, Record<string, number>>();
   unitRows.forEach((u) => { const c = unitsBy.get(u.project_id) ?? {}; c[u.status] = (c[u.status] ?? 0) + 1; unitsBy.set(u.project_id, c); });
-  // Website upvotes (patch-024); empty before it is run
+  // Website likes (patch-024); empty before it is run
   const { data: voteRows } = await supabase.from('project_votes').select('project_id').limit(50000);
   const votes = new Map<string, number>();
   (voteRows ?? []).forEach((v: { project_id: string }) => votes.set(v.project_id, (votes.get(v.project_id) ?? 0) + 1));
@@ -57,7 +57,7 @@ export default async function Projects({ searchParams }: { searchParams?: { sort
   if (byVotes) list.sort((a, b) => (votes.get(b.id) ?? 0) - (votes.get(a.id) ?? 0) || a.name.localeCompare(b.name));
   return (
     <>
-      <div className="top"><h1>Projects</h1>{votes.size > 0 && <div className="row-gap"><span className="hint">Sort:</span><Link className={`btn sm ${byVotes ? 'ghost' : ''}`} href="/projects">A–Z</Link><Link className={`btn sm ${byVotes ? '' : 'ghost'}`} href="/projects?sort=votes">Most upvoted</Link></div>}</div>
+      <div className="top"><h1>Projects</h1>{votes.size > 0 && <div className="row-gap"><span className="hint">Sort:</span><Link className={`btn sm ${byVotes ? 'ghost' : ''}`} href="/projects">A–Z</Link><Link className={`btn sm ${byVotes ? '' : 'ghost'}`} href="/projects?sort=votes">Most liked</Link></div>}</div>
       <LiveCounts orgId={org.id} initial={{ votes: Object.fromEntries(votes), saves: Object.fromEntries(Array.from(saves, ([k, v]) => [k, v.n])) }}>
       <div className="cards">
         {list.map((p) => {
@@ -83,7 +83,7 @@ export default async function Projects({ searchParams }: { searchParams?: { sort
               {p.highlights && <div className="hint">{p.highlights}</div>}
               {p.link && <a href={/^https?:\/\//.test(p.link) ? p.link : 'https://' + p.link} target="_blank" rel="noopener noreferrer">{/\.pdf$/i.test(p.link) ? 'Brochure (PDF)' : 'Brochure / site'}</a>}
               <ProjectPlans projectId={p.id} orgId={org.id} plans={p.floor_plans ?? []} canEdit={mgr} hasPdf={!!p.link && /\.pdf$/i.test(p.link)} />
-              <div className="stats3 stats4"><div><b className="mono">{s.n}</b><span className="hint">Leads</span></div><div><b className="mono">{s.visited}</b><span className="hint">Visited</span></div><div><b className="mono">{s.booked}</b><span className="hint">Booked</span></div><div title="Upvotes from visitors on your website"><b className="mono"><LiveCount kind="votes" id={p.id} /></b><span className="hint">Upvotes</span></div><div title="Saved on your website (signed-in clients and visitors)"><b className="mono"><LiveCount kind="saves" id={p.id} /></b><span className="hint">Saves</span></div></div>
+              <div className="stats3 stats4"><div><b className="mono">{s.n}</b><span className="hint">Leads</span></div><div><b className="mono">{s.visited}</b><span className="hint">Visited</span></div><div><b className="mono">{s.booked}</b><span className="hint">Booked</span></div><div title="Likes from visitors on your website"><b className="mono"><LiveCount kind="votes" id={p.id} /></b><span className="hint">Likes</span></div><div title="Saved on your website (signed-in clients and visitors)"><b className="mono"><LiveCount kind="saves" id={p.id} /></b><span className="hint">Saves</span></div></div>
               {(saves.get(p.id)?.who.length ?? 0) > 0 && (
                 <details className="saved-by"><summary className="hint">Saved by {saves.get(p.id)!.who.length} client{saves.get(p.id)!.who.length === 1 ? '' : 's'} with an account</summary>
                   <ul className="saved-list">{saves.get(p.id)!.who.map((c) => <li key={c.id}><b>{c.name || 'No name'}</b> <span className="hint">{[c.phone ? fmtPhone(c.phone) : '', c.email].filter(Boolean).join(' · ')}</span></li>)}</ul>

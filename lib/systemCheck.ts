@@ -52,7 +52,7 @@ export async function systemCheck(website: string | null): Promise<Check[]> {
       const { error } = await q();
       out.push(error ? { name, ok: false, detail: 'Not run yet.', fix } : { name, ok: true, detail: 'Done.' });
     };
-    await probe('Database: upvotes (patch-024)', 'Run supabase/patch-024-first-call-lock-votes.sql in Supabase → SQL Editor.', () => admin.from('project_votes').select('project_id').limit(1));
+    await probe('Database: likes (patch-024)', 'Run supabase/patch-024-first-call-lock-votes.sql in Supabase → SQL Editor.', () => admin.from('project_votes').select('project_id').limit(1));
     await probe('Database: SMS check (patch-026)', 'Run supabase/patch-026-phone-verify.sql.', () => admin.from('organizations').select('verify_phone').limit(1));
     await probe('Database: website accounts and saves (patch-027)', 'Run supabase/patch-027-website-accounts-saves.sql.', () => admin.from('website_saves').select('id').limit(1));
     await probe('Database: website sign-ins become leads (patch-029)', 'Run supabase/patch-029-website-clients-as-leads.sql.', () => admin.from('website_clients').select('lead_id').limit(1));
@@ -68,7 +68,7 @@ export async function systemCheck(website: string | null): Promise<Check[]> {
     } else {
       const rt: string[] = st.realtime ?? [];
       out.push(st.repeat_alerts ? { name: 'Database: alerts for repeat enquiries and sellers (patch-031)', ok: true, detail: 'Done.' } : { name: 'Database: alerts for repeat enquiries and sellers (patch-031)', ok: false, detail: 'Not run yet.', fix: 'Run supabase/patch-031-repeat-enquiry-alerts.sql.' });
-      out.push(rt.includes('project_votes') && rt.includes('website_saves') ? { name: 'Database: live upvotes and saves (patch-028)', ok: true, detail: 'Done.' } : { name: 'Database: live upvotes and saves (patch-028)', ok: false, detail: 'Not run yet (counts still update every 10 seconds).', fix: 'Run supabase/patch-028-live-counts.sql.' });
+      out.push(rt.includes('project_votes') && rt.includes('website_saves') ? { name: 'Database: live likes and saves (patch-028)', ok: true, detail: 'Done.' } : { name: 'Database: live likes and saves (patch-028)', ok: false, detail: 'Not run yet (counts still update every 10 seconds).', fix: 'Run supabase/patch-028-live-counts.sql.' });
       out.push(rt.includes('notifications') ? { name: 'Database: live alerts (patch-030)', ok: true, detail: 'Done.' } : { name: 'Database: live alerts (patch-030)', ok: false, detail: 'Not run yet (alerts still update every 15 seconds).', fix: 'Run supabase/patch-030-live-alerts.sql.' });
     }
   }
