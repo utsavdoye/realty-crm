@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   const db = createAdminClient() ?? createAnonClient();
   // recheck: the visitor already left their details; only look again (after the team's first call) without a new lead note.
   const recheck = b.recheck === true;
-  const r = recheck ? { ok: true } as { ok: boolean; error?: string } : await ingest(key, { name, phone, project: String(b.projectName ?? '').slice(0, 200) || undefined, message: `Asked for the ${what} on the website${t ? ' (from the homes link the team sent)' : ''}.${verified ? ' Number verified by SMS.' : ''}` }, { name, phone, what, project, from: t ? 'website shortlist' : 'website', phone_verified: verified });
+  const r = recheck ? { ok: true } as { ok: boolean; error?: string } : await ingest(key, { name, phone, email: typeof b.email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(b.email) ? b.email.slice(0, 200) : undefined, project: String(b.projectName ?? '').slice(0, 200) || undefined, message: `Opened the ${what} on the website${t ? ' (from the homes link the team sent)' : ''}.${verified ? ' Number verified by SMS.' : ''}` }, { name, phone, what, project, from: t ? 'website shortlist' : 'website', phone_verified: verified });
   if (!r.ok) { const [s, m] = ERR[r.error ?? 'server_error'] ?? ERR.server_error; return json({ ok: false, error: m }, s); }
 
   // The advisor who sent the link also gets the usual "opened prices" alert on that client.
@@ -63,8 +63,8 @@ export async function POST(req: Request) {
   if (!data) return json({ ok: false, error: 'This project is not available any more.' }, 404);
   if ((data as { locked?: boolean }).locked) {
     return json({ ok: false, locked: true, error: recheck
-      ? 'Not open yet. The brochure and floor plans open right after your first call with our team.'
-      : 'Thank you! Our team will call you soon. The brochure and floor plans open here right after that call.' });
+      ? 'Could not open it right now. Please try again.'
+      : 'Could not open it right now. Please try again.' });
   }
   const d = data as { name: string; link: string | null; floor_plans: { url: string; label?: string }[] };
   // which company (for the contact details printed on the PDFs)
