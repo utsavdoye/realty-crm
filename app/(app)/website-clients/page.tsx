@@ -56,7 +56,7 @@ export default async function WebsiteClients() {
         ) : <p className="empty">No one has made an account on your website yet.</p>}
       </section>
       <section className="panel" id="testimonials" style={{ marginTop: 16 }}>
-        <div className="panel-h"><h2>Testimonials</h2><span className="hint">Ask a client from their lead page after they book. Approved ones show on your website.</span></div>
+        <div className="panel-h"><h2>Testimonials</h2><span className="hint">Real clients' reviews show on your website by themselves. Reviews from unknown numbers wait here for you. You can hide any review.</span></div>
         {testimonials.length ? (
           <div className="rows">
             {testimonials.map((t) => (
