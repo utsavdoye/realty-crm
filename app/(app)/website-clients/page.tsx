@@ -4,6 +4,7 @@ import { requireOrg } from '@/lib/context';
 import { isManager, fmtPhone } from '@/lib/roles';
 import { rel } from '@/lib/crm';
 import { LiveRefresh } from '@/components/LiveRefresh';
+import { setTestimonialStatus } from '@/app/crm-actions';
 
 export const metadata = { title: 'Website clients' };
 
@@ -24,10 +25,13 @@ export default async function WebsiteClients() {
   const savedBy = new Map<string, string[]>();
   (saves ?? []).forEach((s: { client_id: string; project_id: string }) => { const l = savedBy.get(s.client_id) ?? []; const n = pname.get(s.project_id); if (n) l.push(n); savedBy.set(s.client_id, l); });
   const withLead = clients.filter((c) => c.lead_id).length;
+  // Testimonials (patch-032): empty before it is run
+  const { data: tRows } = await supabase.from('testimonials').select('id, name, place, rating, body, status, submitted_at, lead_id, projects(name)').eq('org_id', org.id).neq('status', 'asked').order('submitted_at', { ascending: false }).limit(200);
+  const testimonials = (tRows ?? []) as unknown as { id: string; name: string | null; place: string | null; rating: number; body: string; status: string; submitted_at: string; lead_id: string | null; projects: { name: string } | null }[];
 
   return (
     <>
-      <LiveRefresh tables={['website_clients', 'website_saves']} orgId={org.id} />
+      <LiveRefresh tables={['website_clients', 'website_saves', 'testimonials']} orgId={org.id} />
       <div className="top"><h1>Website clients</h1><span className="hint">{clients.length} signed up · {withLead} in your leads</span></div>
       <p className="hint" style={{ marginTop: -6 }}>Everyone who made an account on your website. New sign-ups and saved homes show here on their own. A client with a mobile number is added to Leads automatically.</p>
       <section className="panel">
@@ -50,6 +54,31 @@ export default async function WebsiteClients() {
             })}
           </div>
         ) : <p className="empty">No one has made an account on your website yet.</p>}
+      </section>
+      <section className="panel" id="testimonials" style={{ marginTop: 16 }}>
+        <div className="panel-h"><h2>Testimonials</h2><span className="hint">Ask a client from their lead page after they book. Approved ones show on your website.</span></div>
+        {testimonials.length ? (
+          <div className="rows">
+            {testimonials.map((t) => (
+              <div key={t.id} className="callrow" style={{ alignItems: 'flex-start' }}>
+                <span className="cr-main">
+                  <b>{t.name || 'Client'}{t.place ? <span className="hint"> · {t.place}</span> : null}</b>
+                  <span className="hint">{'★'.repeat(t.rating)}{'☆'.repeat(5 - t.rating)}{t.projects?.name ? ` · ${t.projects.name}` : ''} · {rel(t.submitted_at)}</span>
+                  <span>{t.body}</span>
+                </span>
+                <span className="stack" style={{ gap: 6, alignItems: 'flex-end' }}>
+                  <span className={`chip ${t.status === 'approved' ? 'good' : t.status === 'hidden' ? '' : 'acc'}`}>{t.status === 'approved' ? 'On website' : t.status === 'hidden' ? 'Hidden' : 'Waiting'}</span>
+                  <form action={setTestimonialStatus} className="row-gap">
+                    <input type="hidden" name="id" value={t.id} />
+                    {t.status !== 'approved' && <button className="btn sm primary" name="status" value="approved">Show on website</button>}
+                    {t.status !== 'hidden' && <button className="btn sm ghost" name="status" value="hidden">Hide</button>}
+                  </form>
+                  {t.lead_id && <Link className="hint" href={`/leads/${t.lead_id}`}>Open lead</Link>}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : <p className="empty">No testimonials yet.</p>}
       </section>
       <p className="hint">✓ = mobile checked by SMS. &ldquo;Not a lead yet&rdquo; = signed in with email or Google and has not given a mobile number; the website asks them for it.</p>
     </>

@@ -56,6 +56,7 @@ export async function systemCheck(website: string | null): Promise<Check[]> {
     await probe('Database: SMS check (patch-026)', 'Run supabase/patch-026-phone-verify.sql.', () => admin.from('organizations').select('verify_phone').limit(1));
     await probe('Database: website accounts and saves (patch-027)', 'Run supabase/patch-027-website-accounts-saves.sql.', () => admin.from('website_saves').select('id').limit(1));
     await probe('Database: website sign-ins become leads (patch-029)', 'Run supabase/patch-029-website-clients-as-leads.sql.', () => admin.from('website_clients').select('lead_id').limit(1));
+    await probe('Database: website alerts and testimonials (patch-032)', 'Run supabase/patch-032-website-alerts-testimonials.sql.', () => admin.from('testimonials').select('id').limit(1));
     const { data: st, error: stErr } = await admin.rpc('setup_status');
     if (stErr || !st) {
       out.push({ name: 'Database: alerts for repeat enquiries and sellers (patch-031)', ok: false, detail: 'Not run yet.', fix: 'Run supabase/patch-031-repeat-enquiry-alerts.sql.' });

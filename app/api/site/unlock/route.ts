@@ -2,6 +2,7 @@ import { createAdminClient, createAnonClient } from '@/lib/supabase/admin';
 import { ingest, KEY_RE } from '@/lib/leadIntake';
 import { siteUrl } from '@/lib/roles';
 import { verifiedPhoneFromFirebase } from '@/lib/firebaseToken';
+import { fileLink } from '@/lib/fileLink';
 
 // Client website: brochure / floor plans open only after the visitor leaves name + mobile.
 // POST { key, project, name, phone, what: 'brochure' | 'plans', t? } → saves the lead, then returns the files.
@@ -48,7 +49,13 @@ export async function POST(req: Request) {
   if (!r.ok) { const [s, m] = ERR[r.error ?? 'server_error'] ?? ERR.server_error; return json({ ok: false, error: m }, s); }
 
   // The advisor who sent the link also gets the usual "opened prices" alert on that client.
-  if (t && !recheck) await createAnonClient().rpc('shortlist_react', { p_token: t, p_project: project, p_reaction: 'details', p_when: null });
+  // (only when it really is that client: a forwarded link must not alert about the first client)
+  if (t && !recheck) {
+    const adm = createAdminClient();
+    const { data: sl } = adm ? await adm.from('shortlists').select('leads(phone)').eq('token', t).maybeSingle() : { data: null };
+    const lp = ((sl as { leads?: { phone?: string } | null } | null)?.leads?.phone ?? '').replace(/\D/g, '').slice(-10);
+    if (lp && lp === phone.replace(/\D/g, '').slice(-10)) await createAnonClient().rpc('shortlist_react', { p_token: t, p_project: project, p_reaction: 'details', p_when: null });
+  }
   const { data, error } = t
     ? await db.rpc('site_shortlist_files', { p_token: t, p_project: project, p_phone: phone })
     : await db.rpc('site_project_files', { p_key: key, p_project: project, p_phone: phone });
@@ -60,11 +67,14 @@ export async function POST(req: Request) {
       : 'Thank you! Our team will call you soon. The brochure and floor plans open here right after that call.' });
   }
   const d = data as { name: string; link: string | null; floor_plans: { url: string; label?: string }[] };
+  // which company (for the contact details printed on the PDFs)
+  const { data: src } = await db.from('lead_sources').select('org_id').eq('key', key).maybeSingle();
+  const orgId = (src as { org_id?: string } | null)?.org_id ?? '';
   const safe = (u: unknown) => (typeof u === 'string' && /^https?:\/\//i.test(u) ? u : typeof u === 'string' && /^\/[^/]/.test(u) ? siteUrl() + u : typeof u === 'string' && /^[\w.-]+\.[a-z]{2,}(\/|$)/i.test(u) ? 'https://' + u : null);
   return json({
     ok: true,
     name: d.name,
-    brochure: safe(d.link),
-    plans: (d.floor_plans ?? []).map((p) => ({ url: safe(p?.url), label: String(p?.label ?? '').slice(0, 80) })).filter((p) => p.url),
+    brochure: orgId ? fileLink(safe(d.link), orgId, d.name + ' brochure') : safe(d.link),
+    plans: (d.floor_plans ?? []).map((p) => ({ url: orgId ? fileLink(safe(p?.url), orgId, d.name + ' ' + String(p?.label ?? 'floor plan')) : safe(p?.url), label: String(p?.label ?? '').slice(0, 80) })).filter((p) => p.url),
   });
 }

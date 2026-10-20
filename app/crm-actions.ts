@@ -727,3 +727,24 @@ export async function rematchProject(fd: FormData) {
   if (error) redirect(`/leads?match=${id}&found=err`);
   redirect(`/leads?match=${id}&found=${Number(data ?? 0)}`);
 }
+
+// ---------- Testimonials (patch-032) ----------
+/** Make the "write a testimonial" link for a client (after the deal). */
+export async function askTestimonial(leadId: string): Promise<{ error?: string; url?: string }> {
+  const { supabase, org } = await ctx();
+  const { data, error } = await supabase.rpc('ask_testimonial', { p_lead: leadId });
+  if (error) return { error: /function|schema cache/i.test(error.message) ? 'Run patch-032 in Supabase first.' : friendly(error.message) };
+  const { data: o } = await supabase.from('organizations').select('website_url').eq('id', org.id).maybeSingle();
+  const web = (o as { website_url?: string | null } | null)?.website_url;
+  if (!web) return { error: 'Add your website address on the Lead sources page first.' };
+  return { url: `${web}/index.html?review=${data}` };
+}
+
+export async function setTestimonialStatus(fd: FormData) {
+  const { supabase, org, role } = await ctx();
+  if (!isManager(role)) return;
+  const status = str(fd, 'status');
+  if (!['approved', 'hidden', 'pending'].includes(status)) return;
+  await supabase.from('testimonials').update({ status }).eq('id', str(fd, 'id')).eq('org_id', org.id);
+  revalidatePath('/website-clients');
+}

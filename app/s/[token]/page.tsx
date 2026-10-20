@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
-import { createAnonClient } from '@/lib/supabase/admin';
+import { redirect } from 'next/navigation';
+import { createAdminClient, createAnonClient } from '@/lib/supabase/admin';
 import type { PubProject } from '@/components/public/ProjectBlock';
 import { ProjectTeaser } from '@/components/public/ProjectTeaser';
 import { toTeaser } from '@/components/public/teaser';
@@ -22,6 +23,13 @@ export async function generateMetadata({ params }: { params: { token: string } }
 }
 
 export default async function Shortlist({ params }: { params: { token: string } }) {
+  // Companies with their own website: the link opens there, where the client must sign in (a forwarded link cannot open as them).
+  if (/^[a-f0-9]{24,64}$/.test(params.token)) {
+    const admin = createAdminClient();
+    const { data: sl } = admin ? await admin.from('shortlists').select('organizations(website_url)').eq('token', params.token).maybeSingle() : { data: null };
+    const web = (sl as { organizations?: { website_url?: string | null } | null } | null)?.organizations?.website_url;
+    if (web) redirect(`${web}/shortlist.html?t=${params.token}`);
+  }
   const d = await load(params.token);
   if (!d) return <main className="pub"><div className="pub-wrap"><h1>This link is not active</h1><p className="muted">Please ask your property advisor for a new link.</p></div></main>;
   const pins = d.projects.filter((p) => p.lat != null && p.lng != null).map((p) => ({ id: p.id, name: p.name, lat: p.lat!, lng: p.lng!, status: p.status, photo: p.photos?.[0] ?? null }));

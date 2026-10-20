@@ -1,3 +1,4 @@
+import { AskTestimonial } from '@/components/AskTestimonial';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireOrg } from '@/lib/context';
@@ -217,6 +218,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
                 <form action={setStage}><input type="hidden" name="id" value={lead.id} /><input type="hidden" name="stage" value="booked" />
                   <button className="btn sm">Mark as booked</button></form>
               )}
+              {lead.stage === 'booked' && canEdit && <AskTestimonial leadId={lead.id} name={lead.name} />}
               {lead.stage === 'lost' && canEdit && (
                 <form action={recycleCall}><input type="hidden" name="id" value={lead.id} /><button className="btn sm">Reopen this client</button></form>
               )}
