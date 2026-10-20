@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import type { Role } from '@/lib/roles';
 
@@ -37,22 +38,54 @@ export function NavLinks({ role, mobile = false }: { role: Role; mobile?: boolea
     { href: '/leads/new', label: 'Add lead', icon: ICONS.add, show: true },
     { href: '/profile', label: 'Profile', icon: ICONS.me, show: true },
   ] : [
-    { href: '/dashboard', label: 'Today', icon: ICONS.today, show: true, sec: 'Work' },
-    { href: '/leads', label: 'Leads', icon: ICONS.leads, show: true },
-    { href: '/pipeline', label: 'Journey board', icon: ICONS.board, show: m },
-    { href: '/visits', label: 'Visits', icon: ICONS.visits, show: role !== 'partner' },
-    { href: '/projects', label: 'Projects', icon: ICONS.projects, show: true },
-    { href: '/website-clients', label: 'Website clients', icon: ICONS.web, show: m },
-    { href: '/map', label: 'Map', icon: ICONS.map, show: role !== 'partner' },
+    { href: '/dashboard', label: 'Today', icon: ICONS.today, show: true },
+    { href: '/leads', label: 'Leads', icon: ICONS.leads, show: true, sec: 'Clients' },
+    { href: '/pipeline', label: 'Journey board', icon: ICONS.board, show: m, sec: 'Clients' },
+    { href: '/visits', label: 'Visits', icon: ICONS.visits, show: role !== 'partner', sec: 'Clients' },
+    { href: '/projects', label: 'Projects', icon: ICONS.projects, show: true, sec: 'Properties' },
+    { href: '/website-clients', label: 'Website clients', icon: ICONS.web, show: m, sec: 'Properties' },
+    { href: '/map', label: 'Map', icon: ICONS.map, show: role !== 'partner', sec: 'Properties' },
     { href: '/money', label: 'Money', icon: ICONS.money, show: role === 'owner', sec: 'Business' },
-    { href: '/messages', label: 'Messages', icon: ICONS.messages, show: role !== 'partner', sec: role === 'owner' ? undefined : 'Business' },
-    { href: '/reports', label: 'Reports', icon: ICONS.reports, show: m },
-    { href: '/sources', label: 'Lead sources', icon: ICONS.sources, show: role === 'owner' },
+    { href: '/messages', label: 'Messages', icon: ICONS.messages, show: role !== 'partner', sec: 'Business' },
+    { href: '/reports', label: 'Reports', icon: ICONS.reports, show: m, sec: 'Business' },
+    { href: '/sources', label: 'Lead sources', icon: ICONS.sources, show: role === 'owner', sec: 'Business' },
     { href: '/team', label: 'Team', icon: ICONS.team, show: m, sec: 'Settings' },
-    { href: '/profile', label: 'Profile', icon: ICONS.me, show: true, sec: m ? undefined : 'Settings' },
+    { href: '/profile', label: 'Profile', icon: ICONS.me, show: true, sec: 'Settings' },
   ].filter((i) => i.show) as { href: string; label: string; icon: string; show: boolean; sec?: string }[];
   const items = mobile && !simple ? [...all.slice(0, 4), { href: '/more', label: 'More', icon: ICONS.more, show: true }] : all;
   const on = (href: string) => (href === '/leads' ? path.startsWith('/leads') && !path.startsWith('/leads/new') : path.startsWith(href));
+  // Side menu in folding groups. The group of the page you are on is always open; the rest remember open/closed.
+  const [closed, setClosed] = useState<Record<string, boolean>>({});
+  useEffect(() => { try { setClosed(JSON.parse(localStorage.getItem('ed_nav_closed') || '{}')); } catch { /* fresh */ } }, []);
+  const flip = (sec: string) => setClosed((c) => { const n = { ...c, [sec]: !c[sec] }; try { localStorage.setItem('ed_nav_closed', JSON.stringify(n)); } catch { /* ignore */ } return n; });
+  const link = (i: { href: string; label: string; icon: string }) => (
+    <Link key={i.href} href={i.href} data-label={i.label} className={on(i.href) || (i.href === '/more' && all.slice(4).some((x) => path.startsWith(x.href))) ? 'on' : ''}>
+      {I(i.icon)}<span>{i.label}</span>
+    </Link>
+  );
+  if (!mobile && !simple) {
+    const top = items.filter((i) => !i.sec);
+    const groups: { sec: string; list: typeof items }[] = [];
+    items.filter((i) => i.sec).forEach((i) => { const g = groups.find((x) => x.sec === i.sec); if (g) g.list.push(i); else groups.push({ sec: i.sec!, list: [i] }); });
+    return (
+      <nav className="nav" aria-label="Main">
+        {top.map(link)}
+        {groups.map((g) => {
+          const here = g.list.some((i) => on(i.href));
+          const open = here || !closed[g.sec];
+          return (
+            <div key={g.sec} className={`nav-group ${open ? 'open' : ''} ${here ? 'here' : ''}`}>
+              <button type="button" className="nav-sec nav-sec-btn" aria-expanded={open} onClick={() => !here && flip(g.sec)} title={here ? undefined : open ? `Close ${g.sec}` : `Open ${g.sec}`}>
+                <span>{g.sec}</span>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+              </button>
+              <div className="nav-items"><div>{g.list.map(link)}</div></div>
+            </div>
+          );
+        })}
+      </nav>
+    );
+  }
   return (
     <nav className={mobile ? 'bottomnav' : 'nav'} aria-label="Main">
       {items.map((i) => [
