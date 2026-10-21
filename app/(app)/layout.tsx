@@ -19,10 +19,12 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   const { supabase, org, role, me, memberships, user } = await requireOrg();
   const [{ count: unread }, { data: o }] = await Promise.all([
     supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).is('read_at', null),
-    supabase.from('organizations').select('form_token').eq('id', org.id).maybeSingle(),
+    supabase.from('organizations').select('form_token, website_url').eq('id', org.id).maybeSingle(),
   ]);
   const mini = cookies().get('ed_side')?.value === 'mini';
-  const formLink = o?.form_token ? `${siteUrl()}/r/${o.form_token}?by=${user.id}` : '';
+  // With a client website, the form opens there (same look as the website); otherwise on the CRM.
+  const web = /^https:\/\//.test(o?.website_url ?? '') ? o!.website_url!.replace(/\/+$/, '') : '';
+  const formLink = o?.form_token ? (web ? `${web}/find-home.html?f=${o.form_token}&by=${user.id}` : `${siteUrl()}/r/${o.form_token}?by=${user.id}`) : '';
   return (
     <div className={`app ${mini ? 'mini' : ''}`}>
       <aside className="side">

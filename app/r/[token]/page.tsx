@@ -1,5 +1,7 @@
 import type { Metadata } from 'next';
-import { createAnonClient } from '@/lib/supabase/admin';
+import { redirect } from 'next/navigation';
+import { unstable_noStore as noStore } from 'next/cache';
+import { createAdminClient, createAnonClient } from '@/lib/supabase/admin';
 import { RequirementForm } from '@/components/public/RequirementForm';
 
 export const dynamic = 'force-dynamic';
@@ -21,6 +23,14 @@ export async function generateMetadata({ params }: { params: { token: string } }
 
 export default async function RequirementPage({ params, searchParams }: { params: { token: string }; searchParams: { by?: string } }) {
   const by = searchParams.by && UUID.test(searchParams.by) ? searchParams.by : '';
+  noStore(); // always read the current website address
+  // Companies with their own website: the form opens there (old links keep working).
+  if (/^[a-f0-9]{24,64}$/.test(params.token)) {
+    const admin = createAdminClient();
+    const { data: o } = admin ? await admin.from('organizations').select('website_url').eq('form_token', params.token).maybeSingle() : { data: null };
+    const web = (o as { website_url?: string | null } | null)?.website_url;
+    if (web && /^https:\/\//.test(web)) redirect(`${web.replace(/\/+$/, '')}/find-home.html?f=${params.token}${by ? `&by=${by}` : ''}`);
+  }
   const d = await load(params.token, by);
   if (!d) return <main className="pub"><div className="pub-wrap"><h1>This link is not active</h1><p className="muted">Please ask the person who sent it for a new link.</p></div></main>;
   return (

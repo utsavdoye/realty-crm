@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import { unstable_noStore as noStore } from 'next/cache';
 import { createAdminClient, createAnonClient } from '@/lib/supabase/admin';
 import type { PubProject } from '@/components/public/ProjectBlock';
 import { ProjectTeaser } from '@/components/public/ProjectTeaser';
@@ -23,6 +24,7 @@ export async function generateMetadata({ params }: { params: { token: string } }
 }
 
 export default async function Shortlist({ params }: { params: { token: string } }) {
+  noStore(); // always read the current website address
   // Companies with their own website: the link opens there, where the client must sign in (a forwarded link cannot open as them).
   if (/^[a-f0-9]{24,64}$/.test(params.token)) {
     const admin = createAdminClient();

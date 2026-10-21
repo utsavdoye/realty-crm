@@ -1122,3 +1122,13 @@ a.plan-tile { text-decoration: none; }
 }
 .app.mini .nav-items > div { overflow: visible; }
 .nav-group:not(.open) .nav-items > div { visibility: hidden; transition: visibility 0s .22s; } .app.mini .nav-group .nav-items > div { visibility: visible; }
+
+/* Page loading placeholder (app/(app)/loading.tsx) */
+.page-loading{display:flex;flex-direction:column;gap:14px;padding:6px 0}
+.page-loading .sk{border-radius:10px;background:linear-gradient(90deg,var(--line,#ececec) 0%,rgba(127,127,127,.08) 50%,var(--line,#ececec) 100%);background-size:200% 100%;animation:sk-move 1.1s ease-in-out infinite}
+.page-loading .sk-title{height:30px;width:220px}
+.page-loading .sk-row{height:40px;width:100%;max-width:640px}
+.page-loading .sk-card{height:92px;width:100%}
+.page-loading .sk-card.short{width:60%}
+@keyframes sk-move{0%{background-position:100% 0}100%{background-position:-100% 0}}
+@media (prefers-reduced-motion:reduce){.page-loading .sk{animation:none}}

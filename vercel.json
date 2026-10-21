@@ -1,5 +1,11 @@
 {
   "crons": [
-    { "path": "/api/cron/daily-summary", "schedule": "0 3 * * *" }
+    {
+      "path": "/api/cron/daily-summary",
+      "schedule": "0 3 * * *"
+    }
+  ],
+  "regions": [
+    "bom1"
   ]
 }
