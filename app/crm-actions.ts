@@ -7,6 +7,7 @@ import { PHONE_HELP, isManager, normPhone, validPhone } from '@/lib/roles';
 import { BHKS, CATEGORIES, fmtBudget, FUNDING, OCCUPATIONS, OUTCOMES, PTYPES, PURPOSES, SCORE_KEYS, STAGE_IDX, fmtDT, fromLocalInput, istAt, parseBudget, readBudget, stageLabel } from '@/lib/crm';
 import { notifyLeadAssigned } from '@/lib/whatsapp';
 import type { FormState } from '@/app/actions';
+import { parseLatLng } from '@/lib/places';
 
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? '').trim();
 const orNull = (v: string) => (v ? v : null);
@@ -376,6 +377,23 @@ export async function setProjectFlag(id: string, flag: 'on_website' | 'is_public
   return { token: data.share_token ?? undefined };
 }
 
+/** The spot in a Google Maps link. Short links (maps.app.goo.gl) are followed to the full link first. */
+async function pinFromMapLink(link: string): Promise<[number, number] | null> {
+  const direct = parseLatLng(link);
+  if (direct) return direct;
+  let url = link;
+  for (let i = 0; i < 4; i++) {
+    try {
+      const r = await fetch(url, { redirect: 'manual', cache: 'no-store', signal: AbortSignal.timeout(4000), headers: { 'User-Agent': 'Mozilla/5.0' } });
+      const next = r.headers.get('location');
+      if (next) { const p = parseLatLng(next); if (p) return p; url = new URL(next, url).toString(); continue; }
+      if (r.ok) { const html = (await r.text()).slice(0, 200000); const m = html.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || html.match(/center=(-?\d+\.\d+)%2C(-?\d+\.\d+)/); if (m) return parseLatLng(`${m[1]},${m[2]}`); }
+      return null;
+    } catch { return null; }
+  }
+  return null;
+}
+
 export async function saveProject(_: FormState, fd: FormData): Promise<FormState> {
   const { supabase, org, role } = await ctx();
   if (!isManager(role)) return { error: 'Only an admin or a manager can change projects.' };
@@ -393,6 +411,11 @@ export async function saveProject(_: FormState, fd: FormData): Promise<FormState
     payment_plan: orNull(str(fd, 'payment_plan').slice(0, 2000)), terms: orNull(str(fd, 'terms').slice(0, 4000)),
     ...(fd.has('deal') ? { deal: ['sale', 'lease', 'both'].includes(str(fd, 'deal')) ? str(fd, 'deal') : 'sale' } : {}),
   };
+  // No pin picked: read it from the Google Maps link (short links are opened to find the spot).
+  if ((row.lat == null || row.lng == null) && row.map_url) {
+    const pin = await pinFromMapLink(row.map_url);
+    if (pin) { row.lat = pin[0]; row.lng = pin[1]; }
+  }
   const id = str(fd, 'id');
   const newId = /^[0-9a-f-]{36}$/i.test(str(fd, 'new_id')) ? str(fd, 'new_id') : undefined;
   const { error } = id
@@ -552,6 +575,57 @@ export async function setBrochure(id: string, url: string): Promise<{ error?: st
   revalidatePath('/projects');
   return error ? { error: friendly(error.message) } : {};
 }
+
+// ---------- Project videos (up to 5, 10 MB in total) ----------
+
+export type ProjectVideo = { url: string; size: number; name: string };
+const MAX_VIDEOS = 5;
+const MAX_VIDEO_BYTES = 10 * 1024 * 1024;
+
+/** The real size of an uploaded file (asks the file store), or the size the browser told us. */
+async function fileSize(url: string, told: number) {
+  try {
+    const r = await fetch(url, { method: 'HEAD', cache: 'no-store', signal: AbortSignal.timeout(5000) });
+    const n = Number(r.headers.get('content-length'));
+    if (r.ok && Number.isFinite(n) && n > 0) return n;
+  } catch { /* use the size we were told */ }
+  return Number.isFinite(told) && told > 0 ? told : MAX_VIDEO_BYTES;
+}
+
+export async function addProjectVideo(id: string, video: ProjectVideo): Promise<{ error?: string; videos?: ProjectVideo[] }> {
+  const c = await ctx();
+  if (!isManager(c.role)) return { error: 'Only an admin or a manager can add videos.' };
+  if (!video || typeof video.url !== 'string' || !photoOk(video.url, c.org.id) || !/\.(mp4|webm|mov)$/i.test(video.url)) return { error: 'Upload an MP4, WebM or MOV video.' };
+  const { data, error: readErr } = await c.supabase.from('projects').select('videos').eq('id', id).eq('org_id', c.org.id).maybeSingle();
+  if (readErr) return { error: /videos/.test(readErr.message) ? 'Run supabase/patch-036-project-videos.sql in Supabase first.' : friendly(readErr.message) };
+  if (!data) return { error: 'Project not found.' };
+  const list = (Array.isArray(data.videos) ? data.videos : []) as ProjectVideo[];
+  const size = await fileSize(video.url, Number(video.size));
+  const used = list.reduce((a, v) => a + (Number(v.size) || 0), 0);
+  const marker = '/storage/v1/object/public/project-photos/';
+  const drop = async () => { await c.supabase.storage.from('project-photos').remove([video.url.split(marker)[1]]); };
+  if (list.length >= MAX_VIDEOS) { await drop(); return { error: 'A project can have up to 5 videos. Remove one first.' }; }
+  if (used + size > MAX_VIDEO_BYTES) { await drop(); return { error: `Videos can be 10 MB in total per project. ${mb(MAX_VIDEO_BYTES - used)} is left.` }; }
+  const videos = [...list, { url: video.url, size, name: String(video.name ?? '').replace(/\.[a-z0-9]+$/i, '').trim().slice(0, 80) || 'Video' }];
+  const { error } = await c.supabase.from('projects').update({ videos }).eq('id', id).eq('org_id', c.org.id);
+  revalidatePath('/projects');
+  return error ? { error: friendly(error.message) } : { videos };
+}
+
+export async function removeProjectVideo(id: string, url: string): Promise<{ error?: string }> {
+  const c = await ctx();
+  if (!isManager(c.role)) return { error: 'Only an admin or a manager can remove videos.' };
+  const { data } = await c.supabase.from('projects').select('videos').eq('id', id).eq('org_id', c.org.id).maybeSingle();
+  if (!data) return { error: 'Project not found.' };
+  const videos = ((Array.isArray(data.videos) ? data.videos : []) as ProjectVideo[]).filter((v) => v.url !== url);
+  const { error } = await c.supabase.from('projects').update({ videos }).eq('id', id).eq('org_id', c.org.id);
+  const marker = '/storage/v1/object/public/project-photos/';
+  if (!error && url.includes(marker)) await c.supabase.storage.from('project-photos').remove([url.split(marker)[1]]);
+  revalidatePath('/projects');
+  return error ? { error: friendly(error.message) } : {};
+}
+
+const mb = (b: number) => `${Math.max(0, b / 1024 / 1024).toFixed(1)} MB`;
 
 // ---------- Client journey ----------
 

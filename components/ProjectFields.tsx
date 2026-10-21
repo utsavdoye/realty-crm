@@ -8,6 +8,7 @@ export type ProjectRow = {
   floor_plans: { url: string; label: string }[] | null; size_from: number | null; size_to: number | null; towers: string | null; units: number | null;
   amenities: string | null; banks: string | null;
   map_url?: string | null; on_website?: boolean | null; deal?: string | null; payment_plan?: string | null; terms?: string | null; rate_card?: { floors: string; rate: number }[] | null;
+  videos?: { url: string; size: number; name: string }[] | null;
 };
 
 /** All the project boxes, used by "Add a project" and "Edit". */
@@ -36,9 +37,8 @@ export function ProjectFields({ p }: { p?: ProjectRow }) {
       <label className="field full"><span className="label">Home loan from</span><input name="banks" defaultValue={v('banks')} placeholder="SBI, HDFC, ICICI" /></label>
       <label className="field full"><span className="label">Payment plan</span><textarea name="payment_plan" rows={3} defaultValue={v('payment_plan')} placeholder="e.g. 10% booking, then 10% at each slab… or Down payment 20%, loan 80%" /></label>
       <label className="field full"><span className="label">Booking terms (for the team)</span><textarea name="terms" rows={3} defaultValue={v('terms')} placeholder="GST, registry, maintenance, cancellation charges…" /></label>
-      <label className="field full"><span className="label">Google Maps link</span><input name="map_url" defaultValue={v('map_url')} placeholder="https://maps.app.goo.gl/…" /></label>
       <label className="field full"><span className="label">Brochure or website link</span><input name="link" defaultValue={v('link')} placeholder="Or upload a PDF below" /></label>
-      <LocationPicker lat={p?.lat} lng={p?.lng} area={p?.location} />
+      <LocationPicker lat={p?.lat} lng={p?.lng} area={p?.location} mapUrl={p?.map_url ?? ''} />
     </div>
   );
 }

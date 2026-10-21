@@ -17,19 +17,23 @@ export async function shrink(file: File, max = 1800, quality = 0.82): Promise<Bl
 const rand = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 
 /** Uploads one file into the project's folder and returns its public link. */
-export async function uploadProjectFile(orgId: string, projectId: string, kind: 'photo' | 'plan' | 'brochure', file: File): Promise<string> {
+export async function uploadProjectFile(orgId: string, projectId: string, kind: 'photo' | 'plan' | 'brochure' | 'video', file: File): Promise<string> {
   const supabase = createClient();
   let blob: Blob = file; let ext = 'jpg'; let type = 'image/jpeg';
-  if (kind === 'brochure' || (kind === 'plan' && file.type === 'application/pdf')) {
+  if (kind === 'video') {
+    const vt = file.type || (/\.mov$/i.test(file.name) ? 'video/quicktime' : '');
+    if (!['video/mp4', 'video/webm', 'video/quicktime'].includes(vt)) throw new Error('Pick an MP4, WebM or MOV video');
+    blob = file; type = vt; ext = vt === 'video/webm' ? 'webm' : vt === 'video/quicktime' ? 'mov' : 'mp4';
+  } else if (kind === 'brochure' || (kind === 'plan' && file.type === 'application/pdf')) {
     if (file.type !== 'application/pdf') throw new Error('Pick a PDF file');
     if (file.size > 20 * 1024 * 1024) throw new Error('The PDF is bigger than 20 MB');
     ext = 'pdf'; type = 'application/pdf';
   } else {
     blob = await shrink(file, kind === 'plan' ? 2400 : 1800, kind === 'plan' ? 0.9 : 0.82);
   }
-  const folder = kind === 'photo' ? '' : kind === 'plan' ? 'plans/' : 'docs/';
+  const folder = kind === 'photo' ? '' : kind === 'plan' ? 'plans/' : kind === 'video' ? 'videos/' : 'docs/';
   const path = `${orgId}/${projectId}/${folder}${rand()}.${ext}`;
   const { error } = await supabase.storage.from('project-photos').upload(path, blob, { contentType: type, cacheControl: '31536000' });
-  if (error) throw new Error(/mime|type/i.test(error.message) ? 'Run patch-013 in Supabase first.' : error.message);
+  if (error) throw new Error(/mime|type/i.test(error.message) ? (kind === 'video' ? 'Run patch-036 in Supabase first.' : 'Run patch-013 in Supabase first.') : /size|large|exceed/i.test(error.message) ? 'This file is too big.' : error.message);
   return supabase.storage.from('project-photos').getPublicUrl(path).data.publicUrl;
 }

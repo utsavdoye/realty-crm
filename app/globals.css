@@ -1132,3 +1132,17 @@ a.plan-tile { text-decoration: none; }
 .page-loading .sk-card.short{width:60%}
 @keyframes sk-move{0%{background-position:100% 0}100%{background-position:-100% 0}}
 @media (prefers-reduced-motion:reduce){.page-loading .sk{animation:none}}
+
+/* Inventory chip label + project videos */
+.units-chip-h { display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .8; margin-bottom: 2px; }
+.pvideos { display: flex; flex-direction: column; gap: 8px; }
+.pvideos-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.pvideos-list { display: flex; flex-direction: column; gap: 6px; }
+.pvideo { display: grid; grid-template-columns: 72px 1fr auto auto; align-items: center; gap: 8px; }
+.pvideo-thumb { position: relative; width: 72px; height: 44px; padding: 0; border: 0; border-radius: 8px; overflow: hidden; background: #111; cursor: pointer; }
+.pvideo-thumb video { width: 100%; height: 100%; object-fit: cover; display: block; pointer-events: none; }
+.pvideo-play { position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-size: 14px; background: rgba(0,0,0,.25); }
+.pvideo-name { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pvideo-pop { width: min(900px, 94vw); display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
+.pvideo-pop video { width: 100%; max-height: 80vh; border-radius: 12px; background: #000; }
+.btn.disabled { opacity: .6; pointer-events: none; }

@@ -8,7 +8,7 @@ import { AutoFilterForm } from '@/components/AutoFilterForm';
 import { UnitImport } from '@/components/UnitImport';
 import { showRateCard } from '@/lib/units';
 
-export const metadata = { title: 'Flats and prices' };
+export const metadata = { title: 'Inventory' };
 
 type U = { id: string; tower: string; floor: number | null; unit_no: string; bhk: string | null; sba: number | null; carpet: number | null; rate: number | null; status: string; note: string | null };
 const LABEL: Record<string, string> = { open: 'Open', hold: 'On hold', booked: 'Booked', mortgage: 'Mortgage' };
@@ -35,12 +35,12 @@ export default async function Units({ params, searchParams }: { params: { id: st
   return (
     <>
       <div className="top">
-        <div><h1>{p.name}</h1><p className="hint">{p.location}{p.map_url ? <> · <a href={p.map_url} target="_blank" rel="noopener noreferrer">Google Maps</a></> : null}</p></div>
+        <div><h1>{p.name} · Inventory</h1><p className="hint">{p.location}{p.map_url ? <> · <a href={p.map_url} target="_blank" rel="noopener noreferrer">Google Maps</a></> : null}</p></div>
         <Link href="/projects" className="btn sm ghost">← Projects</Link>
       </div>
       {mgr && (
         <details className="panel" open={!all.length} style={{ marginBottom: 12 }}>
-          <summary className="panel-h" style={{ cursor: 'pointer' }}><h2>{all.length ? 'Update flats from Excel' : 'Add flats from Excel'}</h2><span className="hint">Admins and managers</span></summary>
+          <summary className="panel-h" style={{ cursor: 'pointer' }}><h2>{all.length ? 'Update inventory (Excel or PDF)' : 'Add inventory (Excel or PDF)'}</h2><span className="hint">Admins and managers</span></summary>
           <div className="panel-b"><UnitImport projectId={p.id} hasUnits={all.length > 0} rateCard={showRateCard((p.rate_card ?? []) as { floors: string; rate: number }[])} /></div>
         </details>
       )}

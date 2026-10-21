@@ -8,7 +8,7 @@ import { fmtL } from '@/lib/crm';
 
 const LABEL: Record<string, string> = { open: 'Open', hold: 'On hold', booked: 'Booked', mortgage: 'Mortgage' };
 
-/** Upload the builder's inventory Excel (or CSV). Shows what was understood before saving. */
+/** Upload the builder's inventory: Excel, CSV or PDF. Shows what was understood before saving. */
 export function UnitImport({ projectId, rateCard, hasUnits }: { projectId: string; rateCard: string; hasUnits: boolean }) {
   const router = useRouter();
   const [sheets, setSheets] = useState<Sheet[] | null>(null);
@@ -25,7 +25,10 @@ export function UnitImport({ projectId, rateCard, hasUnits }: { projectId: strin
   async function read(f: File) {
     setMsg(null); setFile(f.name); setBusy('Reading the file…');
     try {
-      if (/\.csv$/i.test(f.name)) {
+      if (/\.pdf$/i.test(f.name) || f.type === 'application/pdf') {
+        const { pdfToSheets } = await import('@/lib/pdfTable');
+        setSheets(await pdfToSheets(f));
+      } else if (/\.csv$/i.test(f.name)) {
         const text = await f.text();
         const sep = (text.split('\n')[0].match(/;/g)?.length ?? 0) > (text.split('\n')[0].match(/,/g)?.length ?? 0) ? ';' : ',';
         const rows = text.replace(/^﻿/, '').split(/\r?\n/).map((l) => l.split(sep).map((c) => c.replace(/^"|"$/g, '').trim()));
@@ -38,7 +41,7 @@ export function UnitImport({ projectId, rateCard, hasUnits }: { projectId: strin
         setSheets(list);
       }
     } catch {
-      setSheets(null); setMsg({ error: 'Could not read this file. Save it as .xlsx or .csv and try again.' });
+      setSheets(null); setMsg({ error: /\.pdf$/i.test(f.name) ? 'Could not read this PDF. If it is a scanned photo, ask the builder for the Excel or a PDF made from Excel.' : 'Could not read this file. Save it as .xlsx or .csv and try again.' });
     }
     setBusy('');
   }
@@ -58,8 +61,8 @@ export function UnitImport({ projectId, rateCard, hasUnits }: { projectId: strin
   return (
     <div className="stack">
       <div className="mp-row">
-        <div><b>{hasUnits ? 'Update flats from Excel' : 'Add flats from Excel'}</b><span className="hint">The builder&apos;s inventory sheet (.xlsx or .csv). Flat numbers, type, size and status are found by themselves.</span></div>
-        <label className="btn sm primary">{busy === 'Reading the file…' ? busy : 'Choose file'}<input type="file" accept=".xlsx,.csv" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) read(f); e.target.value = ''; }} /></label>
+        <div><b>{hasUnits ? 'Update inventory' : 'Add inventory'}</b><span className="hint">The builder&apos;s inventory as Excel (.xlsx, .csv) or PDF. Flat numbers, type, size and status are found by themselves. You see what was read before anything is saved.</span></div>
+        <label className="btn sm primary">{busy === 'Reading the file…' ? busy : 'Choose file'}<input type="file" accept=".xlsx,.csv,.pdf,application/pdf" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) read(f); e.target.value = ''; }} /></label>
       </div>
       <label className="field"><span className="label">Rate card (₹ per sq ft by floor)</span>
         <input value={rates} onChange={(e) => setRates(e.target.value)} placeholder="e.g. 1-3: 4700, 4-6: 4800, 7-9: 4900   (or one number for all floors)" />

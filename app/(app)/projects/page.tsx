@@ -6,6 +6,7 @@ import { ActionForm, Submit } from '@/components/forms';
 import { fmtL } from '@/lib/crm';
 import Link from 'next/link';
 import { ProjectPhotos } from '@/components/ProjectPhotos';
+import { ProjectVideos } from '@/components/ProjectVideos';
 import { ProjectFields, type ProjectRow } from '@/components/ProjectFields';
 import { AddProjectForm } from '@/components/AddProjectForm';
 import { ProjectPlans } from '@/components/ProjectPlans';
@@ -75,14 +76,15 @@ export default async function Projects({ searchParams }: { searchParams?: { sort
               {p.banks && <div className="hint">Home loan: {p.banks}</div>}
               {(p.rate_card ?? []).length > 0 && <div className="hint">Rate (₹/sq ft): {(p.rate_card ?? []).map((x) => `floor ${x.floors} ₹${Number(x.rate).toLocaleString('en-IN')}`).join(' · ')}</div>}
               {unitsBy.has(p.id) && (() => { const c = unitsBy.get(p.id)!; const all = Object.values(c).reduce((a, b) => a + b, 0); return (
-                <Link href={`/projects/${p.id}/units`} className="units-chip"><b>{c.open ?? 0}</b> of {all} flats open{c.booked ? ` · ${c.booked} booked` : ''}{c.hold ? ` · ${c.hold} on hold` : ''}{c.mortgage ? ` · ${c.mortgage} mortgage` : ''} → see flats & prices</Link>
+                <Link href={`/projects/${p.id}/units`} className="units-chip"><span className="units-chip-h">Inventory</span><b>{c.open ?? 0}</b> of {all} flats open{c.booked ? ` · ${c.booked} booked` : ''}{c.hold ? ` · ${c.hold} on hold` : ''}{c.mortgage ? ` · ${c.mortgage} mortgage` : ''} → see inventory</Link>
               ); })()}
-              {!unitsBy.has(p.id) && mgr && <Link href={`/projects/${p.id}/units`} className="hint">+ Add flats &amp; prices from Excel</Link>}
+              {!unitsBy.has(p.id) && mgr && <Link href={`/projects/${p.id}/units`} className="hint">+ Add inventory (Excel or PDF)</Link>}
               {p.map_url && <a href={p.map_url} target="_blank" rel="noopener noreferrer" className="hint">Google Maps</a>}
               {p.rera_no && <div className="hint mono">RERA {p.rera_no}</div>}
               {p.highlights && <div className="hint">{p.highlights}</div>}
               {p.link && <a href={/^https?:\/\//.test(p.link) ? p.link : 'https://' + p.link} target="_blank" rel="noopener noreferrer">{/\.pdf$/i.test(p.link) ? 'Brochure (PDF)' : 'Brochure / site'}</a>}
               <ProjectPlans projectId={p.id} orgId={org.id} plans={p.floor_plans ?? []} canEdit={mgr} hasPdf={!!p.link && /\.pdf$/i.test(p.link)} />
+              <ProjectVideos projectId={p.id} orgId={org.id} videos={Array.isArray(p.videos) ? p.videos : []} canEdit={mgr} />
               <div className="stats3 stats4"><div><b className="mono">{s.n}</b><span className="hint">Leads</span></div><div><b className="mono">{s.visited}</b><span className="hint">Visited</span></div><div><b className="mono">{s.booked}</b><span className="hint">Booked</span></div><div title="Likes from visitors on your website"><b className="mono"><LiveCount kind="votes" id={p.id} /></b><span className="hint">Likes</span></div><div title="Saved on your website (signed-in clients and visitors)"><b className="mono"><LiveCount kind="saves" id={p.id} /></b><span className="hint">Saves</span></div></div>
               {(saves.get(p.id)?.who.length ?? 0) > 0 && (
                 <details className="saved-by"><summary className="hint">Saved by {saves.get(p.id)!.who.length} client{saves.get(p.id)!.who.length === 1 ? '' : 's'} with an account</summary>
