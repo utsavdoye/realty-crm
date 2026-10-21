@@ -2,12 +2,8 @@
 
 import type { Sheet } from '@/lib/units';
 
-/** Reads the builder's inventory file (Excel, CSV or PDF) into sheets of rows. */
+/** Reads the builder's inventory file (Excel or CSV) into sheets of rows. */
 export async function readInventoryFile(f: File): Promise<Sheet[]> {
-  if (/\.pdf$/i.test(f.name) || f.type === 'application/pdf') {
-    const { pdfToSheets } = await import('@/lib/pdfTable');
-    return pdfToSheets(f);
-  }
   if (/\.csv$/i.test(f.name)) {
     const text = await f.text();
     const first = text.split('\n')[0];

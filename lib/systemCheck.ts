@@ -61,6 +61,7 @@ export async function systemCheck(website: string | null): Promise<Check[]> {
       out.push(fc === true ? { name: 'Database: brochure opens with name and mobile (patch-033)', ok: true, detail: 'Done.' } : { name: 'Database: brochure opens with name and mobile (patch-033)', ok: false, detail: 'Not run yet (brochures still wait for the first call).', fix: 'Run supabase/patch-033-files-open-with-details.sql.' }); }
     { const { data: at } = await admin.rpc('alert_title', { p_name: 'A', p_project: 'B', p_message: 'Opened the brochure on the website.' });
       out.push(typeof at === 'string' ? { name: 'Database: clear alert titles and open testimonials (patch-034)', ok: true, detail: 'Done.' } : { name: 'Database: clear alert titles and open testimonials (patch-034)', ok: false, detail: 'Not run yet.', fix: 'Run supabase/patch-034-clear-alerts-open-testimonials.sql.' }); }
+    await probe('Database: inventory sheet sync (patch-038)', 'Run supabase/patch-038-inventory-sheet-sync.sql.', () => admin.from('projects').select('inventory_url').limit(1));
     await probe('Database: project videos (patch-036)', 'Run supabase/patch-036-project-videos.sql.', () => admin.from('projects').select('videos').limit(1));
     const { data: st, error: stErr } = await admin.rpc('setup_status');
     if (stErr || !st) {

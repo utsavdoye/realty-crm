@@ -58,7 +58,7 @@ export function AddProjectForm({ orgId }: { orgId: string }) {
       const c = r.units.reduce<Record<string, number>>((a, u) => { a[u.status] = (a[u.status] ?? 0) + 1; return a; }, {});
       setInv({ name: f.name, units: r.units, summary: `${r.units.length} flats found: ${Object.entries(c).map(([k, v]) => `${v} ${STATUS[k]}`).join(', ')}.` });
     } catch {
-      setInv({ name: f.name, error: /\.pdf$/i.test(f.name) ? 'Could not read this PDF. If it is a scanned photo, ask the builder for the Excel or a PDF made from Excel.' : 'Could not read this file. Save it as .xlsx or .csv and try again.' });
+      setInv({ name: f.name, error: 'Could not read this file. Save it as .xlsx or .csv and try again.' });
     }
   }
 
@@ -101,7 +101,7 @@ export function AddProjectForm({ orgId }: { orgId: string }) {
       if (u) { const r = await addProjectVideo(id, { url: u, size: videos[i].size, name: videos[i].name }); if (r.error) failed.push(`${videos[i].name} (${r.error})`); else vCount++; }
     }
     let flats = 0;
-    if (inv && 'units' in inv) {
+    if (inv && 'units' in inv && !String(fd.get('inventory_url') ?? '').trim()) {
       setBusy('Saving inventory…');
       const r = await importUnits(id, inv.units, true, []);
       if (r.error) failed.push(`inventory (${r.error})`); else flats = inv.units.length;
@@ -169,9 +169,9 @@ export function AddProjectForm({ orgId }: { orgId: string }) {
         </div>
 
         <div className="mp-row">
-          <div><b>Inventory</b><span className="hint">{inv ? ('units' in inv ? `${inv.name} · ${inv.summary}` : `${inv.name} · ${inv.error}`) : "Optional. The builder's flat list as Excel (.xlsx, .csv) or PDF. You can also add or update it later."}</span></div>
+          <div><b>Inventory</b><span className="hint">{inv ? ('units' in inv ? `${inv.name} · ${inv.summary}` : `${inv.name} · ${inv.error}`) : "Best: paste the Google Sheets link in \"Inventory sheet link\" above so it stays in sync. Or upload an Excel (.xlsx, .csv) once."}</span></div>
           {inv ? <button type="button" className="btn sm ghost" onClick={() => setInv(null)}>Remove</button>
-            : <label className="btn sm">+ Add inventory<input type="file" accept=".xlsx,.csv,.pdf,application/pdf" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) pickInventory(f); e.target.value = ''; }} /></label>}
+            : <label className="btn sm">+ Add inventory<input type="file" accept=".xlsx,.csv" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) pickInventory(f); e.target.value = ''; }} /></label>}
         </div>
         {inv && 'error' in inv && inv.error !== 'Reading…' && <p className="msg err">{inv.error}</p>}
 

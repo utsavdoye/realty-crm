@@ -3,7 +3,7 @@ const nextConfig = {
   eslint: { ignoreDuringBuilds: true },
   poweredByHeader: false,
   // Pages you go back to always show fresh data (no 30-second old copy after a change).
-  experimental: { staleTimes: { dynamic: 0 } },
+  experimental: { staleTimes: { dynamic: 0 }, serverComponentsExternalPackages: ['read-excel-file', 'unzipper'] }, // read-excel-file/node is used on the server for inventory sheets
   async headers() {
     return [{
       source: '/(.*)',

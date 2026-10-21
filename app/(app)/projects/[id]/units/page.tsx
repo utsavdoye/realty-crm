@@ -6,6 +6,7 @@ import { fmtL } from '@/lib/crm';
 import { setUnitStatus } from '@/app/crm-actions';
 import { AutoFilterForm } from '@/components/AutoFilterForm';
 import { UnitImport } from '@/components/UnitImport';
+import { InventoryLink, SyncButton } from '@/components/InventorySheet';
 import { showRateCard } from '@/lib/units';
 
 export const metadata = { title: 'Inventory' };
@@ -20,7 +21,7 @@ export default async function Units({ params, searchParams }: { params: { id: st
   if (!/^[0-9a-f-]{36}$/.test(params.id)) notFound();
   const mgr = isManager(role);
   const [{ data: p }, { data: units }] = await Promise.all([
-    supabase.from('projects').select('id, name, location, payment_plan, terms, rate_card, map_url').eq('id', params.id).eq('org_id', org.id).maybeSingle(),
+    supabase.from('projects').select('*').eq('id', params.id).eq('org_id', org.id).maybeSingle(),
     supabase.from('project_units').select('id, tower, floor, unit_no, bhk, sba, carpet, rate, status, note').eq('project_id', params.id).order('tower').order('floor').order('unit_no'),
   ]);
   if (!p) notFound();
@@ -38,9 +39,18 @@ export default async function Units({ params, searchParams }: { params: { id: st
         <div><h1>{p.name} · Inventory</h1><p className="hint">{p.location}{p.map_url ? <> · <a href={p.map_url} target="_blank" rel="noopener noreferrer">Google Maps</a></> : null}</p></div>
         <Link href="/projects" className="btn sm ghost">← Projects</Link>
       </div>
+      <section className="panel" style={{ marginBottom: 12 }}>
+        <div className="panel-h"><h2>Inventory sheet</h2>{p.inventory_url && <SyncButton projectId={p.id} syncedAt={p.inventory_synced_at} error={p.inventory_sync_error} compact />}</div>
+        <div className="panel-b stack">
+          {p.inventory_url
+            ? <p className="hint">This list is copied from the sheet. Change flats in the sheet (anyone with the link can), then press Sync now or just open the CRM. Changes made here are replaced at the next sync.</p>
+            : <p className="hint">Paste the Google Sheets link of this project&apos;s inventory. The CRM keeps the flat list the same as the sheet.</p>}
+          <InventoryLink projectId={p.id} link={p.inventory_url ?? ''} canEdit={mgr} />
+        </div>
+      </section>
       {mgr && (
-        <details className="panel" open={!all.length} style={{ marginBottom: 12 }}>
-          <summary className="panel-h" style={{ cursor: 'pointer' }}><h2>{all.length ? 'Update inventory (Excel or PDF)' : 'Add inventory (Excel or PDF)'}</h2><span className="hint">Admins and managers</span></summary>
+        <details className="panel" open={!all.length && !p.inventory_url} style={{ marginBottom: 12 }}>
+          <summary className="panel-h" style={{ cursor: 'pointer' }}><h2>Upload an Excel file once</h2><span className="hint">Admins and managers</span></summary>
           <div className="panel-b"><UnitImport projectId={p.id} hasUnits={all.length > 0} rateCard={showRateCard((p.rate_card ?? []) as { floors: string; rate: number }[])} /></div>
         </details>
       )}

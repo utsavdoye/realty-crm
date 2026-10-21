@@ -1174,3 +1174,9 @@ a.plan-tile { text-decoration: none; }
 .auth-side .faint { display: flex; align-items: center; gap: 8px; }
 .auth-side .faint svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; flex: none; }
 @media (prefers-reduced-motion: reduce) { .auth-feed .auth-toast, .auth-live { animation: none !important; } }
+
+/* Inventory sheet sync */
+.inv-sync { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.inv-sync.compact .msg { flex-basis: 100%; margin: 0; font-size: 12.5px; }
+.inv-live { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
+.inv-live i { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.18); }

@@ -8,6 +8,7 @@ import { BHKS, CATEGORIES, fmtBudget, FUNDING, OCCUPATIONS, OUTCOMES, PTYPES, PU
 import { notifyLeadAssigned } from '@/lib/whatsapp';
 import type { FormState } from '@/app/actions';
 import { parseLatLng } from '@/lib/places';
+import { downloadUrl, syncProjectInventory } from '@/lib/inventorySync';
 
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? '').trim();
 const orNull = (v: string) => (v ? v : null);
@@ -400,6 +401,7 @@ export async function saveProject(_: FormState, fd: FormData): Promise<FormState
   const name = str(fd, 'name');
   const from = Number(str(fd, 'price_from'));
   if (!name) return { error: 'Enter the project name.' };
+  if (str(fd, 'inventory_url') && !downloadUrl(str(fd, 'inventory_url'))) return { error: 'The inventory link must be a sheet link starting with https:// (best: a Google Sheets link).' };
   const row = {
     org_id: org.id, name, developer: orNull(str(fd, 'developer')), location: orNull(str(fd, 'location')), rera_no: orNull(str(fd, 'rera_no')),
     type: orNull(str(fd, 'type')), configs: orNull(str(fd, 'configs')), price_from: from || null, price_to: Number(str(fd, 'price_to')) || null,
@@ -409,6 +411,7 @@ export async function saveProject(_: FormState, fd: FormData): Promise<FormState
     towers: orNull(str(fd, 'towers').slice(0, 120)), amenities: orNull(str(fd, 'amenities').slice(0, 600)), banks: orNull(str(fd, 'banks').slice(0, 200)),
     map_url: /^https:\/\/(maps\.app\.goo\.gl|goo\.gl\/maps|(www\.)?google\.[a-z.]+\/maps)/.test(str(fd, 'map_url')) ? str(fd, 'map_url').slice(0, 300) : null,
     payment_plan: orNull(str(fd, 'payment_plan').slice(0, 2000)), terms: orNull(str(fd, 'terms').slice(0, 4000)),
+    ...(fd.has('inventory_url') ? { inventory_url: orNull(str(fd, 'inventory_url').slice(0, 500)) } : {}),
     ...(fd.has('deal') ? { deal: ['sale', 'lease', 'both'].includes(str(fd, 'deal')) ? str(fd, 'deal') : 'sale' } : {}),
   };
   // No pin picked: read it from the Google Maps link (short links are opened to find the spot).
@@ -418,12 +421,27 @@ export async function saveProject(_: FormState, fd: FormData): Promise<FormState
   }
   const id = str(fd, 'id');
   const newId = /^[0-9a-f-]{36}$/i.test(str(fd, 'new_id')) ? str(fd, 'new_id') : undefined;
-  const { error } = id
-    ? await supabase.from('projects').update(row).eq('id', id).eq('org_id', org.id)
-    : await supabase.from('projects').insert({ ...row, ...(newId ? { id: newId } : {}) } as Record<string, unknown>);
+  const write = (r: Record<string, unknown>) => (id
+    ? supabase.from('projects').update(r).eq('id', id).eq('org_id', org.id)
+    : supabase.from('projects').insert({ ...r, ...(newId ? { id: newId } : {}) }));
+  let { error } = await write(row);
+  let noLinkColumn = false;
+  if (error && /inventory_url/.test(error.message) && 'inventory_url' in row) {
+    // patch-038 not run yet: save everything else
+    const rest: Record<string, unknown> = { ...row }; delete rest.inventory_url;
+    ({ error } = await write(rest)); noLinkColumn = true;
+  }
   if (error) return { error: friendly(error.message) };
-  revalidatePath('/projects');
-  return { ok: id ? 'Project saved' : 'Project added' };
+  if (noLinkColumn && row.inventory_url) return { ok: (id ? 'Project saved.' : 'Project added.') + ' The inventory link was not saved: run supabase/patch-038-inventory-sheet-sync.sql in Supabase first.' };
+  // A sheet link was given: read the inventory from it now.
+  let inv = '';
+  const savedId = id || newId;
+  if (savedId && 'inventory_url' in row && row.inventory_url) {
+    const r = await syncProjectInventory(org.id, savedId);
+    inv = r.ok ? ` Inventory synced: ${r.flats ?? 0} flats.` : ` Inventory not synced: ${r.error}`;
+  }
+  revalidatePath('/projects', 'layout');
+  return { ok: (id ? 'Project saved.' : 'Project added.') + inv };
 }
 
 export async function deleteProject(fd: FormData) {
@@ -713,6 +731,47 @@ export async function importUnits(projectId: string, units: UnitIn[], replace: b
   if (card.length) await supabase.from('projects').update({ rate_card: card }).eq('id', projectId).eq('org_id', org.id);
   revalidatePath('/projects', 'layout');
   return { ok: `${clean.length} flat${clean.length === 1 ? '' : 's'} saved.` };
+}
+
+// ---------- Inventory from a sheet link ----------
+
+/** "Sync now": anyone in the team can refresh the flats from the project's sheet. */
+export async function syncInventoryNow(projectId: string): Promise<{ ok?: string; error?: string }> {
+  const { org } = await ctx();
+  if (!/^[0-9a-f-]{36}$/.test(String(projectId))) return { error: 'Project not found.' };
+  const r = await syncProjectInventory(org.id, projectId, 0);
+  revalidatePath('/projects', 'layout');
+  if (r.skipped) return { ok: 'A sync is already running. Refresh in a few seconds.' };
+  return r.ok ? { ok: `Synced. ${r.flats ?? 0} flats${r.changed ? ', changes saved' : ', no changes'}.` } : { error: r.error };
+}
+
+/** Runs by itself when someone opens the CRM: refreshes every project that has a sheet link (at most every 3 minutes). */
+export async function autoSyncInventory(): Promise<{ changed: boolean }> {
+  try {
+    const { supabase, org } = await ctx();
+    const { data, error } = await supabase.from('projects').select('id').eq('org_id', org.id).not('inventory_url', 'is', null);
+    if (error || !data?.length) return { changed: false };
+    let changed = false;
+    const ids = data.map((p) => p.id as string);
+    for (let i = 0; i < ids.length; i += 3) {
+      const res = await Promise.all(ids.slice(i, i + 3).map((id) => syncProjectInventory(org.id, id, 3 * 60_000).catch(() => ({ changed: false }))));
+      if (res.some((r) => r.changed)) changed = true;
+    }
+    if (changed) revalidatePath('/projects', 'layout');
+    return { changed };
+  } catch { return { changed: false }; }
+}
+
+/** Save (or remove) the project's sheet link, then sync. */
+export async function setInventoryLink(projectId: string, link: string): Promise<{ ok?: string; error?: string }> {
+  const { supabase, org, role } = await ctx();
+  if (!isManager(role)) return { error: 'Only an admin or a manager can change the sheet link.' };
+  const url = String(link ?? '').trim().slice(0, 500);
+  if (url && !downloadUrl(url)) return { error: 'Paste a sheet link that starts with https:// (best: a Google Sheets link).' };
+  const { error } = await supabase.from('projects').update({ inventory_url: url || null, inventory_sync_error: null }).eq('id', projectId).eq('org_id', org.id);
+  if (error) return { error: /inventory_url/.test(error.message) ? 'Run supabase/patch-038-inventory-sheet-sync.sql in Supabase first.' : friendly(error.message) };
+  if (!url) { revalidatePath('/projects', 'layout'); return { ok: 'Sheet link removed. The flats stay as they are.' }; }
+  return syncInventoryNow(projectId);
 }
 
 // ---------- Site-visit check-in (GPS) ----------

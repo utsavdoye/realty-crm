@@ -12,8 +12,10 @@ import { SideToggle } from '@/components/SideToggle';
 import { AskHelper } from '@/components/AskHelper';
 import { cookies } from 'next/headers';
 import { LangSwitch } from '@/components/Translator';
+import { InventoryAutoSync } from '@/components/InventorySheet';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // inventory sheet sync can take a few seconds
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const { supabase, org, role, me, memberships, user } = await requireOrg();
@@ -57,6 +59,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       <Bell userId={user.id} initial={unread ?? 0} floating />
       <main className="main"><div className="langbar"><LangSwitch /></div>{children}</main>
       <NavLinks role={role} mobile />
+      {role !== 'partner' && <InventoryAutoSync />}
       {role !== 'partner' && <AskHelper />}
       {role !== 'partner' && <CallReturn voice={Boolean(process.env.GEMINI_API_KEY)} />}
     </div>
