@@ -69,7 +69,7 @@ export default function LoginForm({ next, inviteHint, linkError }: { next: strin
       : await supabase.auth.signInWithOtp({ phone: phone.startsWith('+') ? phone : '+91' + phone });
     setBusy(false);
     if (error) {
-      setError(/rate|seconds/i.test(error.message) ? 'Too many tries. Wait a minute and try again.' : /sms|provider|phone/i.test(error.message) ? 'Mobile codes are not switched on yet. Use email.' : error.message);
+      setError(/rate|seconds|limit/i.test(error.message) ? 'We could not send the code right now (too many sign-ups at once). Ask your admin to add you from the Team page with "Add a person directly", or try again in an hour.' : /sms|provider|phone/i.test(error.message) ? 'Mobile codes are not switched on yet. Use email.' : error.message);
       return;
     }
     setStep('code'); setCode(''); setWait(30);

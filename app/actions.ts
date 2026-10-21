@@ -120,6 +120,54 @@ export async function deleteMember(_: FormState, fd: FormData): Promise<FormStat
   return { ok: `${m.full_name || 'This person'} was deleted.` };
 }
 
+/** Admin adds a person straight away with a temporary password: no email code needed (works even when
+ *  sign-up emails hit Supabase's limit). They sign in with email or mobile + this password, then choose their own. */
+export async function addMemberDirect(_: FormState, fd: FormData): Promise<FormState> {
+  const { org, role: myRole } = await requireOrg(['owner', 'manager']);
+  const name = str(fd, 'full_name').slice(0, 80);
+  const email = str(fd, 'email').toLowerCase();
+  const phone = normPhone(str(fd, 'phone'));
+  const pick = str(fd, 'role');
+  const password = str(fd, 'password');
+  if (name.length < 2) return { error: 'Enter their full name.' };
+  if (!/^\S+@\S+\.\S+$/.test(email)) return { error: 'Enter their email address.' };
+  if (!validPhone(phone)) return { error: 'Enter their mobile number. ' + PHONE_HELP };
+  if (password.length < 8) return { error: 'The temporary password needs at least 8 characters.' };
+  if (!['agent', 'intern', 'manager', 'owner'].includes(pick)) return { error: 'Choose a role.' };
+  if (myRole !== 'owner' && !['agent', 'intern'].includes(pick)) return { error: 'Only an admin can add a manager or an admin.' };
+  const admin = createAdminClient();
+  if (!admin) return { error: 'The server key is missing in Vercel (SUPABASE_SERVICE_ROLE_KEY).' };
+
+  const meta = { full_name: name, phone, pw_set: false };
+  let userId: string | null = null;
+  const made = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: meta });
+  if (made.data.user) userId = made.data.user.id;
+  else if (made.error && /already|registered|exists/i.test(made.error.message)) {
+    // They started sign-up before (e.g. the email code never came): reuse that account and reset its password.
+    for (let page = 1; page <= 20 && !userId; page++) {
+      const { data } = await admin.auth.admin.listUsers({ page, perPage: 500 });
+      const u = data?.users.find((x) => (x.email ?? '').toLowerCase() === email);
+      if (u) userId = u.id;
+      if (!data || data.users.length < 500) break;
+    }
+    if (!userId) return { error: 'This email already has an account, but it could not be found. Ask them to use "Forgot password".' };
+    const { error } = await admin.auth.admin.updateUserById(userId, { password, email_confirm: true, user_metadata: meta });
+    if (error) return { error: friendly(error.message) };
+  } else return { error: friendly(made.error?.message) };
+
+  const { data: other } = await admin.from('members').select('user_id').eq('org_id', org.id).eq('phone', phone).eq('active', true).neq('user_id', userId).maybeSingle();
+  if (other) return { error: 'Someone in your team already uses this mobile number.' };
+  const { error } = await admin.from('members').upsert({
+    org_id: org.id, user_id: userId, role: pick === 'intern' ? 'agent' : pick, is_intern: pick === 'intern',
+    full_name: name, phone, email, active: true, deactivated_at: null,
+  }, { onConflict: 'org_id,user_id' });
+  if (error) return { error: friendly(error.message) };
+  await admin.from('user_phones').upsert({ user_id: userId, phone }, { onConflict: 'user_id' }).then(() => {}, () => {});
+  await admin.from('join_requests').delete().eq('org_id', org.id).eq('user_id', userId).then(() => {}, () => {});
+  revalidatePath('/team');
+  return { ok: `${name} is added. Send them their login below.`, name, phone, link: `${siteUrl()}/login` };
+}
+
 export async function reactivateMember(fd: FormData) {
   const { supabase, org } = await requireOrg(['owner', 'manager']);
   await supabase.rpc('reactivate_member', { p_org: org.id, p_user: str(fd, 'user_id') });

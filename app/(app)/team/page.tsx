@@ -4,6 +4,7 @@ import { changeRole, clearJoinRequest, deactivateMember, deleteMember, decideJoi
 import { SharePop } from '@/components/SharePop';
 import { ActionForm, Submit } from '@/components/forms';
 import { InviteForm } from '@/components/InviteForm';
+import { AddMemberForm } from '@/components/AddMemberForm';
 import { CopyButton } from '@/components/CopyButton';
 import { PICK_LABEL, fmtPhone, memberRole, siteUrl, type PickRole } from '@/lib/roles';
 
@@ -218,6 +219,10 @@ export default async function Team() {
                 </>
               )}
             </div>
+          </section>
+          <section className="panel">
+            <div className="panel-h"><h2>Add a person directly</h2><span className="hint">No email code needed</span></div>
+            <div className="panel-b"><AddMemberForm canAddManager={isOwner} companyName={org.name} /></div>
           </section>
           <section className="panel">
             <div className="panel-h"><h2>Invite one person</h2></div>
