@@ -1146,3 +1146,31 @@ a.plan-tile { text-decoration: none; }
 .pvideo-pop { width: min(900px, 94vw); display: flex; flex-direction: column; gap: 10px; align-items: flex-end; }
 .pvideo-pop video { width: 100%; max-height: 80vh; border-radius: 12px; background: #000; }
 .btn.disabled { opacity: .6; pointer-events: none; }
+
+/* Login side panel: polished pitch + live alert feed */
+.auth-eyebrow { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.22); font-size: 12px; font-weight: 600; letter-spacing: .02em; margin-bottom: 18px; backdrop-filter: blur(6px); }
+.auth-pitch h2 { margin-bottom: 14px; }
+.auth-pitch h2 em { color: #fff; background: linear-gradient(90deg, #ffffff 0%, #c9cdff 100%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.auth-sub { margin: 0 0 22px; max-width: 440px; font-size: 15.5px; line-height: 1.55; color: rgba(255,255,255,.82); }
+.auth-pitch li::before { content: none; }
+.auth-pitch li i { width: 28px; height: 28px; border-radius: 9px; display: grid; place-items: center; background: rgba(255,255,255,.16); flex: none; }
+.auth-pitch li svg { width: 15px; height: 15px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.auth-feed { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 10px; max-width: 420px; margin-top: auto; }
+.auth-feed-h { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.8); margin-bottom: 2px; }
+.auth-live { width: 8px; height: 8px; border-radius: 50%; background: #4ade80; box-shadow: 0 0 0 0 rgba(74,222,128,.6); animation: auth-pulse 1.8s ease-out infinite; }
+@keyframes auth-pulse { 0% { box-shadow: 0 0 0 0 rgba(74,222,128,.55); } 100% { box-shadow: 0 0 0 10px rgba(74,222,128,0); } }
+.auth-feed .auth-toast { margin-left: 0; opacity: 1; border-radius: 16px; padding: 12px 14px; background: rgba(255,255,255,.97); transition: transform .5s ease, opacity .5s ease; }
+.auth-feed .auth-toast.t0 { animation: auth-in .55s cubic-bezier(.2,.8,.2,1) both; }
+.auth-feed .auth-toast.t1 { transform: scale(.97); opacity: .9; animation: auth-down .55s cubic-bezier(.2,.8,.2,1) both; }
+.auth-feed .auth-toast.t2 { transform: scale(.94); opacity: .7; animation: auth-down2 .55s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes auth-in { from { opacity: 0; transform: translateY(-14px) scale(.96); } to { opacity: 1; transform: none; } }
+@keyframes auth-down { from { transform: translateY(-20px); } to { transform: scale(.97); } }
+@keyframes auth-down2 { from { transform: translateY(-20px) scale(.97); } to { transform: scale(.94); } }
+.auth-feed .auth-toast i { width: 38px; height: 38px; border-radius: 11px; }
+.auth-feed .auth-toast i svg { width: 18px; height: 18px; }
+.auth-feed .auth-toast b { font-size: 14px; color: var(--fg); }
+.auth-feed .auth-toast span { display: block; }
+.auth-tag { font-size: 11px !important; font-weight: 600; color: var(--accent) !important; letter-spacing: .02em; margin-bottom: 1px; }
+.auth-side .faint { display: flex; align-items: center; gap: 8px; }
+.auth-side .faint svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; flex: none; }
+@media (prefers-reduced-motion: reduce) { .auth-feed .auth-toast, .auth-live { animation: none !important; } }

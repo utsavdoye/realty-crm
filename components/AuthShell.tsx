@@ -1,6 +1,7 @@
 import { APP_NAME } from '@/lib/brand';
 import type { ReactNode } from 'react';
 import { LangSwitch } from '@/components/Translator';
+import { AuthFeed } from '@/components/AuthFeed';
 
 export function Logo() {
   return (
@@ -19,19 +20,17 @@ export function AuthShell({ children }: { children: ReactNode }) {
       <div className="auth-side">
         <Logo />
         <div className="auth-pitch">
-          <h2>Every lead called.<br /><em>Every visit</em> followed up.</h2>
+          <span className="auth-eyebrow">The CRM built for real estate teams</span>
+          <h2>Every lead called.<br />Every visit <em>followed up.</em></h2>
+          <p className="auth-sub">From the first enquiry to the keys, your whole sales team works from one screen. Fast, simple and private to you.</p>
           <ul>
-            <li>Leads from 99acres, MagicBricks and walk-ins in one list</li>
-            <li>Each agent sees only their own leads</li>
-            <li>Follow-ups, site visits and WhatsApp in one place</li>
+            <li><i><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10" /></svg></i>99acres, MagicBricks, your website and walk-ins in one list</li>
+            <li><i><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg></i>Each agent sees only their own clients</li>
+            <li><i><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8" /><path d="M21 3v5h-5" /></svg></i>Follow-ups, site visits and WhatsApp, never missed</li>
           </ul>
         </div>
-        <div className="auth-demo" aria-hidden="true">
-          <div className="auth-toast"><i>↘</i><div><b>New lead from 99acres</b><span>Given to the next free agent, in seconds</span></div></div>
-          <div className="auth-toast"><i>✓</i><div><b>Site visit confirmed</b><span>Reminder set for the agent and the client</span></div></div>
-          <div className="auth-toast"><i>☎</i><div><b>Client opened the price list</b><span>Good time to call</span></div></div>
-        </div>
-        <p className="faint">Your company data stays private to your team.</p>
+        <AuthFeed />
+        <p className="faint"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 0 1 8 0v4" /></svg>Your company data stays private to your team.</p>
       </div>
       <div className="auth-main">
         <LangSwitch className="langsw-fixed" />
