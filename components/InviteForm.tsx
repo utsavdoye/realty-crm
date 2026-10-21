@@ -39,7 +39,7 @@ export function InviteForm({ canInviteManager, companyName }: { canInviteManager
           </select>
         </label>
       </div>
-      <p className="hint">{PICK_HELP[role]} The link works only for the email you enter, and expires in 7 days. Easier: share the Team join link above.</p>
+      <p className="hint">{PICK_HELP[role]} The link works only for the email you enter, and does not expire. Easier: share the Team join link above.</p>
       <div><Submit>Create invite link</Submit></div>
       {state?.error && <p className="msg err" role="alert">{state.error}</p>}
       {state?.link && (

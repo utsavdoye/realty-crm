@@ -208,12 +208,11 @@ export default async function Team() {
             <div className="panel-b join-link-box">
               {!joinLink ? <p className="msg err">Run patch-013 in Supabase to switch this on.</p> : (
                 <>
-                  <p className="hint">One link for your whole team. Post it in your office WhatsApp group. Anyone who opens it can only <b>ask</b> to join: you{isOwner ? '' : ' or the admin'} approve each person first. Managers need the admin&apos;s approval.</p>
+                  <p className="hint">One link for your whole team. Post it in your office WhatsApp group. Anyone who opens it can only <b>ask</b> to join: you{isOwner ? '' : ' or the admin'} approve each person first. Managers need the admin&apos;s approval. <b>This link never expires</b> and stays the same, even if you turn it off and on again.</p>
                   {o?.join_open && <div><SharePop url={joinLink} title="Team join link" text={`Join ${org.name} on our CRM. Open this link, log in, and ask to join:`}>Copy team link</SharePop></div>}
                   {isOwner && (
                     <div className="row-btns">
                       <form action={setJoinLink}><input type="hidden" name="open" value={o?.join_open ? '0' : '1'} /><button className="btn sm ghost">{o?.join_open ? 'Turn link off' : 'Turn link on'}</button></form>
-                      <form action={setJoinLink}><input type="hidden" name="open" value="1" /><input type="hidden" name="new" value="1" /><button className="btn sm ghost">Make a new link (old one stops)</button></form>
                     </div>
                   )}
                 </>
