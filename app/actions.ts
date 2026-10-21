@@ -4,6 +4,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { ORG_COOKIE, requireOrg } from '@/lib/context';
 import { PHONE_HELP, siteUrl, normPhone, validPhone } from '@/lib/roles';
 import { notifyLeadAssigned } from '@/lib/whatsapp';
@@ -95,6 +96,28 @@ export async function deactivateMember(_: FormState, fd: FormData): Promise<Form
   if (error) return { error: friendly(error.message) };
   revalidatePath('/team');
   return { ok: `Access removed. ${data ?? 0} open lead${data === 1 ? '' : 's'} moved.` };
+}
+
+/** Removes a person for good: off the Team page, and their login is deleted if they are in no other company.
+ *  Their leads, calls and notes stay (they just show no person). Access must be removed first, so their leads are moved. */
+export async function deleteMember(_: FormState, fd: FormData): Promise<FormState> {
+  const { supabase, org, user, role } = await requireOrg(['owner', 'manager']);
+  const target = str(fd, 'user_id');
+  if (!/^[0-9a-f-]{36}$/i.test(target)) return { error: 'Person not found.' };
+  if (target === user.id) return { error: 'You cannot delete yourself.' };
+  const { data: m } = await supabase.from('members').select('user_id, role, active, full_name').eq('org_id', org.id).eq('user_id', target).maybeSingle();
+  if (!m) return { error: 'Person not found.' };
+  if (m.active) return { error: 'Remove their access first (so their leads move to someone else).' };
+  if (role !== 'owner' && (m.role === 'owner' || m.role === 'manager')) return { error: 'Only an admin can delete an admin or a manager.' };
+  const admin = createAdminClient();
+  if (!admin) return { error: 'The server key is missing in Vercel (SUPABASE_SERVICE_ROLE_KEY).' };
+  const { error } = await admin.from('members').delete().eq('org_id', org.id).eq('user_id', target);
+  if (error) return { error: friendly(error.message) };
+  await admin.from('join_requests').delete().eq('org_id', org.id).eq('user_id', target);
+  const { count } = await admin.from('members').select('user_id', { count: 'exact', head: true }).eq('user_id', target);
+  if (!count) await admin.auth.admin.deleteUser(target); // no other company: delete the login itself
+  revalidatePath('/team');
+  return { ok: `${m.full_name || 'This person'} was deleted.` };
 }
 
 export async function reactivateMember(fd: FormData) {

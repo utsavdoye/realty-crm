@@ -1,6 +1,6 @@
 import { requireOrg } from '@/lib/context';
 import { setReportsTo, setStepTeam } from '@/app/actions';
-import { changeRole, clearJoinRequest, deactivateMember, decideJoin, reactivateMember, renameMember, revokeInvite, setJoinLink, updateCompany } from '@/app/actions';
+import { changeRole, clearJoinRequest, deactivateMember, deleteMember, decideJoin, reactivateMember, renameMember, revokeInvite, setJoinLink, updateCompany } from '@/app/actions';
 import { SharePop } from '@/components/SharePop';
 import { ActionForm, Submit } from '@/components/forms';
 import { InviteForm } from '@/components/InviteForm';
@@ -142,6 +142,16 @@ export default async function Team() {
                       )}
                       {!m.active && canRemove && (
                         <form action={reactivateMember}><input type="hidden" name="user_id" value={m.user_id} /><button className="btn sm">Give access back</button></form>
+                      )}
+                      {!m.active && canRemove && (
+                        <details className="remove">
+                          <summary className="btn sm danger">Delete</summary>
+                          <ActionForm action={deleteMember} className="stack remove-box">
+                            <input type="hidden" name="user_id" value={m.user_id} />
+                            <p className="hint">{m.full_name} will be removed from the team for good and their login deleted. Their old leads, calls and notes stay. This cannot be undone.</p>
+                            <Submit className="btn sm danger">Delete {m.full_name.split(' ')[0] || 'person'} for good</Submit>
+                          </ActionForm>
+                        </details>
                       )}
                     </div>
                   </div>
