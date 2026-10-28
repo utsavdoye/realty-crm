@@ -23,6 +23,14 @@ const ICONS = {
   me: '<circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4.2-6 8-6s7 2 8 6"/>',
   add: '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
   web: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.7 5.6 3.7 9s-1.2 6.4-3.7 9c-2.5-2.6-3.7-5.6-3.7-9s1.2-6.4 3.7-9z"/>',
+  posts: '<rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.8"/><path d="m21 15-5-5L5 21"/>',
+  wa: '<path d="M3.5 20.5l1.3-4.2A8.5 8.5 0 1 1 8 19.4z"/><path d="M9 9.5c.3 2.3 2.2 4.4 4.6 5"/>',
+  fu: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+  broker: '<circle cx="8" cy="8" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M2.5 19c.7-3 2.9-4.7 5.5-4.7s4.8 1.7 5.5 4.7M14 19c.4-2 1.6-3.3 3.3-3.3 1.6 0 2.8 1.2 3.2 3.3"/>',
+  clock: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 1.5M9 2h6"/>',
+  cold: '<path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/>',
+  lost: '<circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/>',
+  plug: '<path d="M9 2v6M15 2v6M6 8h12v3a6 6 0 0 1-12 0zM12 17v5"/>',
   board: '<rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="10" y="4" width="5" height="11" rx="1.5"/><rect x="17" y="4" width="4" height="7" rx="1.5"/>',
 };
 
@@ -36,23 +44,35 @@ export function NavLinks({ role, mobile = false }: { role: Role; mobile?: boolea
     { href: '/dashboard', label: 'Do now', icon: ICONS.today, show: true },
     { href: '/leads', label: 'My clients', icon: ICONS.leads, show: true },
     { href: '/leads/new', label: 'Add lead', icon: ICONS.add, show: true },
+    { href: '/followups', label: 'Follow-ups', icon: ICONS.fu, show: true },
+    { href: '/whatsapp', label: 'WhatsApp', icon: ICONS.wa, show: true },
+    { href: '/cold', label: 'Cold data', icon: ICONS.cold, show: true },
+    { href: '/attendance', label: 'Attendance', icon: ICONS.clock, show: true },
     { href: '/profile', label: 'Profile', icon: ICONS.me, show: true },
   ] : [
     { href: '/dashboard', label: 'Today', icon: ICONS.today, show: true },
     { href: '/leads', label: 'Leads', icon: ICONS.leads, show: true, sec: 'Clients' },
+    { href: '/followups', label: 'Follow-ups', icon: ICONS.fu, show: role !== 'partner', sec: 'Clients' },
     { href: '/pipeline', label: 'Journey board', icon: ICONS.board, show: m, sec: 'Clients' },
+    { href: '/whatsapp', label: 'WhatsApp', icon: ICONS.wa, show: role !== 'partner', sec: 'Clients' },
     { href: '/visits', label: 'Visits', icon: ICONS.visits, show: role !== 'partner', sec: 'Clients' },
+    { href: '/cold', label: 'Cold data', icon: ICONS.cold, show: role !== 'partner', sec: 'Clients' },
+    { href: '/lost', label: 'Lost leads', icon: ICONS.lost, show: m, sec: 'Clients' },
     { href: '/projects', label: 'Projects', icon: ICONS.projects, show: true, sec: 'Properties' },
     { href: '/website-clients', label: 'Website clients', icon: ICONS.web, show: m, sec: 'Properties' },
     { href: '/map', label: 'Map', icon: ICONS.map, show: role !== 'partner', sec: 'Properties' },
+    { href: '/brokers', label: 'Brokers', icon: ICONS.broker, show: m, sec: 'Business' },
     { href: '/money', label: 'Money', icon: ICONS.money, show: role === 'owner', sec: 'Business' },
     { href: '/messages', label: 'Messages', icon: ICONS.messages, show: role !== 'partner', sec: 'Business' },
+    { href: '/posts', label: 'Posts', icon: ICONS.posts, show: m, sec: 'Business' },
     { href: '/reports', label: 'Reports', icon: ICONS.reports, show: m, sec: 'Business' },
     { href: '/sources', label: 'Lead sources', icon: ICONS.sources, show: role === 'owner', sec: 'Business' },
+    { href: '/integrations', label: 'Integrations', icon: ICONS.plug, show: role === 'owner', sec: 'Business' },
+    { href: '/attendance', label: 'Attendance', icon: ICONS.clock, show: role !== 'partner', sec: 'Settings' },
     { href: '/team', label: 'Team', icon: ICONS.team, show: m, sec: 'Settings' },
     { href: '/profile', label: 'Profile', icon: ICONS.me, show: true, sec: 'Settings' },
   ].filter((i) => i.show) as { href: string; label: string; icon: string; show: boolean; sec?: string }[];
-  const items = mobile && !simple ? [...all.slice(0, 4), { href: '/more', label: 'More', icon: ICONS.more, show: true }] : all;
+  const items = mobile ? [...all.slice(0, 4), { href: '/more', label: 'More', icon: ICONS.more, show: true }] : all;
   const on = (href: string) => (href === '/leads' ? path.startsWith('/leads') && !path.startsWith('/leads/new') : path.startsWith(href));
   // Side menu in folding groups. The group of the page you are on is always open; the rest remember open/closed.
   const [closed, setClosed] = useState<Record<string, boolean>>({});

@@ -2,6 +2,7 @@ import 'server-only';
 import { createAdminClient, createAnonClient } from '@/lib/supabase/admin';
 import { notifyLeadAssigned } from '@/lib/whatsapp';
 import { parseBudget } from '@/lib/crm';
+import { welcomeNewLead } from '@/lib/waInbox';
 
 export type IncomingLead = {
   name?: string; phone?: string; email?: string; city?: string; location?: string;
@@ -59,7 +60,7 @@ export function mapPayload(payload: unknown): IncomingLead {
 export type IngestResult = { ok: boolean; error?: string; is_new?: boolean; lead_id?: string };
 
 /** Saves the lead (or adds the enquiry to an existing one) and alerts the assigned agent on WhatsApp. */
-export async function ingest(key: string, lead: IncomingLead, raw: unknown): Promise<IngestResult> {
+export async function ingest(key: string, lead: IncomingLead, raw: unknown, opts: { skipWelcome?: boolean } = {}): Promise<IngestResult> {
   // With the server key we get the agent's details back (for the WhatsApp alert); without it the lead is still saved.
   const supabase = createAdminClient() ?? createAnonClient();
   const { data, error } = await supabase.rpc('ingest_lead', {
@@ -73,6 +74,7 @@ export async function ingest(key: string, lead: IncomingLead, raw: unknown): Pro
   if (r.ok && r.is_new && r.agent_phone) {
     await notifyLeadAssigned({ agentPhone: r.agent_phone, agentName: r.agent_name ?? '', leadName: r.name ?? '', leadPhone: r.phone ?? '', source: r.source });
   }
+  if (r.ok && r.is_new && r.lead_id && !opts.skipWelcome) await welcomeNewLead(r.lead_id);
   return { ok: r.ok, error: r.error, is_new: r.is_new, lead_id: r.lead_id };
 }
 

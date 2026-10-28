@@ -1,18 +1,17 @@
 import Link from 'next/link';
 import { requireOrg } from '@/lib/context';
 import { fmtPhone, isManager } from '@/lib/roles';
-import { BHKS, BUDGETS, CATEGORIES, FUNDING, PTYPES, PURPOSES, RAIPUR_AREAS, SCORES, SCORE_KEYS, SOURCES, STAGE_IDX, STATUS_LIST, fmtBudget, fuState, fuText, istAt, stageChip, stageLabel } from '@/lib/crm';
-import { LeadBoard } from '@/components/LeadBoard';
+import { OUTCOMES, BHKS, BUDGETS, CATEGORIES, FUNDING, PTYPES, PURPOSES, RAIPUR_AREAS, SCORES, SCORE_KEYS, SOURCES, STAGE_IDX, STATUS_LIST, fmtBudget, istAt } from '@/lib/crm';
+import { LeadsTable, type LeadRow } from '@/components/LeadsTable';
 import { AutoFilterForm } from '@/components/AutoFilterForm';
 import { dismissMatches } from '@/app/crm-actions';
 
 export const metadata = { title: 'Leads' };
 
-type SP = { q?: string; stage?: string; score?: string; source?: string; agent?: string; project?: string; fu?: string; view?: string; page?: string;
+type SP = { broker?: string; sort?: string; per?: string; oc?: string; q?: string; stage?: string; score?: string; source?: string; agent?: string; project?: string; fu?: string; view?: string; page?: string;
   from?: string; to?: string; bmin?: string; bmax?: string; budget?: string; bhk?: string; ptype?: string; cat?: string; fund?: string; area?: string; purpose?: string; req?: string; match?: string; found?: string; seg?: string };
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const clean = (v: string) => v.replace(/[%_,()."']/g, '').slice(0, 60);
-const PAGE = 50;
 
 const UUIDRE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -23,13 +22,31 @@ export default async function Leads({ searchParams }: { searchParams: Record<str
   if (sp.agent && sp.agent !== 'none' && !UUIDRE.test(sp.agent)) delete sp.agent;
   const { supabase, org, role } = await requireOrg();
   const mgr = isManager(role);
-  const board = false; // the stage board is replaced by the Journey board (/pipeline)
   const page = Math.min(5000, Math.max(1, Math.floor(Number(sp.page)) || 1));
+  const PAGE = [25, 50, 100].includes(Number(sp.per)) ? Number(sp.per) : 50;
+  const SORTS: Record<string, [string, boolean]> = { new: ['created_at', false], old: ['created_at', true], touched: ['last_activity_at', false], fu: ['next_follow_up', true], name: ['name', true] };
+  const sort = SORTS[sp.sort ?? ''] ? sp.sort! : 'new';
 
-  let q = supabase.from('leads')
-    .select('id, name, phone, source, stage, score, assigned_to, category, bhk, property_type, budget_min, budget_max, location, next_follow_up, created_at, project_id', { count: 'exact' })
-    .eq('org_id', org.id);
+  const BASE = 'id, name, phone, source, stage, score, assigned_to, category, bhk, property_type, budget_min, budget_max, location, next_follow_up, created_at, project_id, last_activity_at';
   const seg = sp.seg === 'secondary' ? 'secondary' : sp.seg === 'all' ? '' : 'primary';
+  const term = (sp.q ?? '').trim();
+  const br = BUDGETS.find((b) => b.k === sp.budget);
+  let matchName = '';
+  let matchIds: string[] | null = null;
+  if (sp.match && /^[0-9a-f-]{36}$/.test(sp.match)) {
+    const [{ data: ms }, { data: mp }] = await Promise.all([
+      supabase.from('project_matches').select('lead_id').eq('project_id', sp.match).is('dismissed_at', null).limit(1000),
+      supabase.from('projects').select('name').eq('id', sp.match).eq('org_id', org.id).maybeSingle(),
+    ]);
+    matchName = mp?.name ?? 'this project';
+    matchIds = (ms ?? []).map((m) => m.lead_id as string).concat(['00000000-0000-0000-0000-000000000000']);
+  }
+  const build = (withNew: boolean) => {
+  let q = supabase.from('leads')
+    .select(withNew ? BASE + ', last_outcome, last_outcome_at' : BASE, { count: 'exact' })
+    .eq('org_id', org.id);
+  if (withNew && sp.oc && /^[a-z]{2,12}$/.test(sp.oc)) q = q.eq('last_outcome', sp.oc);
+  if (sp.broker && UUIDRE.test(sp.broker)) q = q.eq('broker_id', sp.broker);
   if (seg && !sp.match && !sp.q) q = q.eq('segment', seg);
   if (sp.stage && (STAGE_IDX[sp.stage] != null || sp.stage === 'lost')) q = q.eq('stage', sp.stage);
   if (sp.score && SCORE_KEYS.includes(sp.score)) q = q.eq('score', sp.score);
@@ -48,7 +65,6 @@ export default async function Leads({ searchParams }: { searchParams: Record<str
     ors.push(`last_activity_at.lt.${t},and(last_activity_at.is.null,created_at.lt.${t})`);
     q = q.not('stage', 'in', '(booked,lost)');
   }
-  const term = (sp.q ?? '').trim();
   if (term) {
     let digits = term.replace(/\D/g, '');
     if (digits.length === 12 && digits.startsWith('91')) digits = digits.slice(2);   // +91 98450 12345
@@ -59,7 +75,6 @@ export default async function Leads({ searchParams }: { searchParams: Record<str
   if (sp.from && DAY.test(sp.from)) q = q.gte('created_at', `${sp.from}T00:00:00+05:30`);
   if (sp.to && DAY.test(sp.to)) q = q.lte('created_at', `${sp.to}T23:59:59+05:30`);
   // budget in lakh: show leads whose budget range touches the range asked for
-  const br = BUDGETS.find((b) => b.k === sp.budget);
   if (br) { sp.bmin = br.min != null ? String(br.min + 0.01) : undefined; sp.bmax = br.max != null ? String(br.max) : undefined; }
   const bmin = Number(sp.bmin), bmax = Number(sp.bmax);
   if (bmin > 0) q = q.gte('budget_max', bmin);
@@ -70,28 +85,26 @@ export default async function Leads({ searchParams }: { searchParams: Record<str
   if (sp.fund) q = q.eq('funding', sp.fund);
   if (sp.purpose) q = q.eq('purpose', sp.purpose);
   if (sp.area) q = q.ilike('location', `%${clean(sp.area)}%`);
-  let matchName = '';
-  if (sp.match && /^[0-9a-f-]{36}$/.test(sp.match)) {
-    const [{ data: ms }, { data: mp }] = await Promise.all([
-      supabase.from('project_matches').select('lead_id').eq('project_id', sp.match).is('dismissed_at', null).limit(1000),
-      supabase.from('projects').select('name').eq('id', sp.match).eq('org_id', org.id).maybeSingle(),
-    ]);
-    matchName = mp?.name ?? 'this project';
-    q = q.in('id', (ms ?? []).map((m) => m.lead_id).concat(['00000000-0000-0000-0000-000000000000']));
-  }
+  if (matchIds) q = q.in('id', matchIds);
   // Commercial leads have no configuration, so they count as filled without one.
   if (sp.req === 'full') { q = q.not('budget_max', 'is', null).not('location', 'is', null); ors.push('bhk.not.is.null,category.eq.Commercial'); }
   if (sp.req === 'missing') ors.push('budget_max.is.null,location.is.null,and(bhk.is.null,or(category.is.null,category.neq.Commercial))');
   if (ors.length === 1) q = q.or(ors[0]);
   else if (ors.length > 1) q = q.or(`and(${ors.map((o) => `or(${o})`).join(',')})`);
-  q = board ? q.order('created_at', { ascending: false }).limit(600) : q.order('created_at', { ascending: false }).range((page - 1) * PAGE, page * PAGE - 1);
-
-  const [{ data: leads, count, error: listErr }, { data: people }, { data: projects }] = await Promise.all([
-    q,
+  const [col, asc] = SORTS[sort];
+  q = q.order(col, { ascending: asc, nullsFirst: false });
+  if (col !== 'created_at') q = q.order('created_at', { ascending: false });
+  return q.range((page - 1) * PAGE, page * PAGE - 1);
+  };
+  let res = await build(true);
+  if (res.error && /last_outcome/.test(res.error.message)) res = await build(false); // patch-042 not run yet
+  const [{ data: people }, { data: projects }] = await Promise.all([
     supabase.from('members').select('user_id, full_name, role, active').eq('org_id', org.id),
     supabase.from('projects').select('id, name').eq('org_id', org.id).order('name'),
   ]);
+  const { data: leads, count, error: listErr } = res as unknown as { data: (Record<string, any>)[] | null; count: number | null; error: { message: string } | null }; // eslint-disable-line @typescript-eslint/no-explicit-any
   const nameOf = new Map((people ?? []).map((p) => [p.user_id, p.full_name]));
+  const projName = new Map((projects ?? []).map((p) => [p.id as string, p.name as string]));
   const agents = (people ?? []).filter((p) => p.active && p.role !== 'partner');
   const list = leads ?? [];
   const keep = (extra: Record<string, string | undefined>) => {
@@ -99,7 +112,7 @@ export default async function Leads({ searchParams }: { searchParams: Record<str
     Object.entries({ ...sp, ...extra }).forEach(([k, v]) => { if (v && !(br && (k === 'bmin' || k === 'bmax'))) p.set(k, v); });
     return `/leads?${p.toString()}`;
   };
-  const anyFilter = ['match', 'q', 'stage', 'score', 'source', 'agent', 'project', 'fu', 'from', 'to', 'budget', 'bmin', 'bmax', 'bhk', 'ptype', 'cat', 'fund', 'area', 'purpose', 'req'].some((k) => sp[k as keyof SP]);
+  const anyFilter = ['broker', 'oc', 'match', 'q', 'stage', 'score', 'source', 'agent', 'project', 'fu', 'from', 'to', 'budget', 'bmin', 'bmax', 'bhk', 'ptype', 'cat', 'fund', 'area', 'purpose', 'req'].some((k) => sp[k as keyof SP]);
   const moreOn = ['from', 'to', 'budget', 'bhk', 'ptype', 'cat', 'fund', 'area', 'purpose', 'req'].filter((k) => sp[k as keyof SP]).length;
   const segHref = (v: string) => { const p = new URLSearchParams(); Object.entries(sp).forEach(([k, x]) => { if (x && k !== 'page' && k !== 'seg' && !(br && (k === 'bmin' || k === 'bmax'))) p.set(k, x); }); if (v !== 'primary') p.set('seg', v); return `/leads?${p}`; };
 
@@ -150,6 +163,9 @@ export default async function Leads({ searchParams }: { searchParams: Record<str
         <select name="source" defaultValue={sp.source ?? ''} aria-label="Source"><option value="">All sources</option>{SOURCES.map((s) => <option key={s}>{s}</option>)}</select>
         {(projects ?? []).length > 0 && <select name="project" defaultValue={sp.project ?? ''} aria-label="Project"><option value="">All projects</option>{(projects ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>}
         {mgr && <select name="agent" defaultValue={sp.agent ?? ''} aria-label="Assigned to"><option value="">Anyone</option><option value="none">Not assigned</option>{agents.map((a) => <option key={a.user_id} value={a.user_id}>{a.full_name}</option>)}</select>}
+        <select name="oc" defaultValue={sp.oc ?? ''} aria-label="Last call"><option value="">Any last call</option>{OUTCOMES.map((o) => <option key={o.k} value={o.k}>{o.l}</option>)}</select>
+        <select name="sort" defaultValue={sp.sort ?? ''} aria-label="Sort"><option value="">Newest first</option><option value="touched">Recently updated</option><option value="fu">Follow-up soonest</option><option value="old">Oldest first</option><option value="name">Name A–Z</option></select>
+        <select name="per" defaultValue={sp.per ?? ''} aria-label="Rows per page"><option value="">50 per page</option><option value="25">25 per page</option><option value="100">100 per page</option></select>
         <details className="more-filters" open={moreOn > 0}>
           <summary className="btn sm ghost">More filters{moreOn ? ` (${moreOn})` : ''}</summary>
           <div className="mf-grid">
@@ -167,31 +183,22 @@ export default async function Leads({ searchParams }: { searchParams: Record<str
           <datalist id="areas">{RAIPUR_AREAS.map((a) => <option key={a} value={a} />)}</datalist>
         </details>
         <button className="sr-only" tabIndex={-1}>Apply</button>
-        {anyFilter && <Link className="btn sm ghost" href={board ? '/leads?view=board' : '/leads'}>Clear</Link>}
+        {anyFilter && <Link className="btn sm ghost" href="/leads">Clear</Link>}
         <span className="hint" style={{ marginLeft: 'auto' }}>{count ?? 0} lead{count === 1 ? '' : 's'}</span>
       </AutoFilterForm>
 
-      {board ? (
-        <LeadBoard key={JSON.stringify(sp)} leads={list.map((l) => ({ ...l, agent: mgr && l.assigned_to ? nameOf.get(l.assigned_to) : undefined }))} />
-      ) : (
-        <section className="panel">
+      <section className="panel">
           {list.length ? (
-            <div className="rows">
-              <div className="lrow head"><span>Lead</span><span>Looking for</span><span>Status</span><span>Source</span><span>Next follow-up</span></div>
-              {list.map((l) => {
-                const fs = fuState(l.next_follow_up);
-                const closed = ['booked', 'lost'].includes(l.stage);
-                return (
-                  <Link key={l.id} href={`/leads/${l.id}`} className="lrow">
-                    <span className="c-name"><b><span className={`dot ${l.score}`} />{l.name}</b><span className="hint mono">{fmtPhone(l.phone)}{mgr && l.assigned_to ? <span className="ff"> · {nameOf.get(l.assigned_to)}</span> : mgr ? <span className="ff"> · Not assigned</span> : null}</span></span>
-                    <span className="c-req hint">{[l.bhk ?? (l.category === 'Commercial' ? l.property_type ?? 'Commercial' : l.property_type), fmtBudget(l.budget_min, l.budget_max), l.location].filter(Boolean).join(' · ') || 'Requirement not filled'}</span>
-                    <span className="c-stage"><span className={`chip ${stageChip(l.stage)}`}>{stageLabel(l.stage)}</span></span>
-                    <span className="c-src hint">{l.source ?? ''}</span>
-                    <span className={`c-fu fu ${closed ? '' : fs}`}>{closed ? '' : fs ? fuText(l.next_follow_up) : 'No next step'}</span>
-                  </Link>
-                );
-              })}
-            </div>
+            <LeadsTable
+              role={role} voice={Boolean(process.env.GEMINI_API_KEY)}
+              agents={agents.map((x) => ({ id: x.user_id as string, name: x.full_name as string }))}
+              rows={list.map((l): LeadRow => ({
+                id: l.id, name: l.name, phone: l.phone, phoneText: fmtPhone(l.phone), stage: l.stage, score: l.score, source: l.source ?? null,
+                req: [l.bhk ?? (l.category === 'Commercial' ? l.property_type ?? 'Commercial' : l.property_type), fmtBudget(l.budget_min, l.budget_max), l.location].filter(Boolean).join(' · '),
+                project: l.project_id ? projName.get(l.project_id) ?? null : null, agent: l.assigned_to ? nameOf.get(l.assigned_to) ?? null : null,
+                next_follow_up: l.next_follow_up, last_outcome: l.last_outcome ?? null, last_outcome_at: l.last_outcome_at ?? null, last_activity_at: l.last_activity_at ?? null, created_at: l.created_at,
+              }))}
+            />
           ) : (
             <div className="empty">{listErr && page > 1 ? <>This page is past the end. <Link href="/leads">Go to page 1</Link>.</> : listErr ? 'Could not load leads. Please refresh the page.' : anyFilter ? 'No leads match these filters.' : <>No leads yet. <Link href="/leads/new">Add your first lead</Link>{role === 'owner' ? <> or <Link href="/sources">connect a lead source</Link></> : null}.</>}</div>
           )}
@@ -203,7 +210,6 @@ export default async function Leads({ searchParams }: { searchParams: Record<str
             </div>
           )}
         </section>
-      )}
     </>
   );
 }

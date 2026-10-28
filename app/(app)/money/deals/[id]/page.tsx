@@ -13,12 +13,15 @@ export default async function DealPage({ params }: { params: { id: string } }) {
   const { supabase, org } = await requireOrg(['owner']);
   const { data: d } = await supabase.from('deals').select('*').eq('id', params.id).eq('org_id', org.id).maybeSingle();
   if (!d) notFound();
-  const [{ data: inst }, { data: entries }, { data: projects }, { data: people }] = await Promise.all([
+  const [{ data: inst }, { data: entries }, { data: projects }, { data: people }, { data: brokers }] = await Promise.all([
     supabase.from('deal_installments').select('*').eq('deal_id', d.id).order('due_on', { nullsFirst: false }),
     supabase.from('money_entries').select('id, entry_date, category, amount, person_id, mode, note, direction').eq('deal_id', d.id).order('entry_date'),
     supabase.from('projects').select('id, name').eq('org_id', org.id).order('name'),
     supabase.from('members').select('user_id, full_name').eq('org_id', org.id).neq('role', 'partner').order('full_name'),
+    supabase.from('brokers').select('id, name, firm, default_pct').eq('org_id', org.id).order('name'), // patch-044
   ]);
+  const broker = d.broker_id ? (brokers ?? []).find((b) => b.id === d.broker_id) : null;
+  const companyNet = Number(d.commission_amount) - Number(d.broker_amount ?? 0) - Number(d.incentive_amount ?? 0);
   const today = todayIST();
   const its = inst ?? [];
   const due = its.reduce((s, i) => s + Number(i.amount), 0);
@@ -43,7 +46,9 @@ export default async function DealPage({ params }: { params: { id: string } }) {
         <div className="kpi"><span className="label">Deal value</span><span className="n">{inrShort(d.agreement_value)}</span></div>
         <div className="kpi"><span className="label">Buyer has paid</span><span className="n">{due ? Math.round((paid / due) * 100) : 0}%</span><span className="hint">{inrShort(paid)} of {inrShort(due)}</span></div>
         <div className={`kpi ${com < Number(d.commission_amount) ? 'alert' : ''}`}><span className="label">Our commission</span><span className="n">{inrShort(d.commission_amount)}</span><span className="hint">Received {inrShort(com)}{com < Number(d.commission_amount) ? ` · ${inrShort(Number(d.commission_amount) - com)} to come` : ' · full'}</span></div>
-        <div className="kpi"><span className="label">Employee incentive</span><span className="n">{inrShort(d.incentive_amount)}</span><span className="hint">Paid {inrShort(inc)}</span></div>
+        <div className="kpi"><span className="label">Employee incentive</span><span className="n">{inrShort(d.incentive_amount)}</span><span className="hint">Paid {inrShort(Math.max(inc, Number(d.incentive_paid ?? 0)))}</span></div>
+        {broker && <div className={`kpi ${Number(d.broker_paid ?? 0) < Number(d.broker_amount ?? 0) ? 'alert' : ''}`}><span className="label">Broker: {broker.name}</span><span className="n">{inrShort(d.broker_amount)}</span><span className="hint">Paid {inrShort(d.broker_paid)}{Number(d.broker_paid ?? 0) < Number(d.broker_amount ?? 0) ? ` · ${inrShort(Number(d.broker_amount) - Number(d.broker_paid ?? 0))} outstanding` : ' · settled'}</span></div>}
+        <div className="kpi"><span className="label">Company revenue</span><span className="n">{inrShort(companyNet)}</span><span className="hint">Commission − broker − incentive</span></div>
       </div>
       <div className="grid-main">
         <div className="stack">
@@ -117,7 +122,7 @@ export default async function DealPage({ params }: { params: { id: string } }) {
         <div className="stack">
           <section className="panel">
             <div className="panel-h"><h2>Deal details</h2></div>
-            <div className="panel-b"><DealForm d={d} projects={projects ?? []} people={people ?? []} /></div>
+            <div className="panel-b"><DealForm d={d} projects={projects ?? []} people={people ?? []} brokers={(brokers ?? []) as never} /></div>
           </section>
           <details className="panel danger-zone"><summary className="btn sm ghost danger" style={{ margin: 12 }}>Delete this deal</summary>
             <form action={deleteDeal} className="panel-b"><input type="hidden" name="id" value={d.id} /><p className="hint">Deletes the deal and its payment plan. Money entries stay but are unlinked. Use “Cancelled” instead if the booking was cancelled.</p><button className="btn sm danger">Yes, delete</button></form>

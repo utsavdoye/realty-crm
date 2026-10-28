@@ -24,7 +24,7 @@ type FieldKey = (typeof FIELDS)[number]['k'];
 const CHUNK = 200; // small batches stay under the 1 MB request limit even with long notes
 
 /** Simple CSV reader that handles quotes, commas inside quotes and new lines inside quotes. */
-function parseCSV(text: string): string[][] {
+export function parseCSV(text: string): string[][] {
   const rows: string[][] = [];
   let row: string[] = [], cell = '', q = false;
   const sep = (text.split('\n')[0].match(/;/g)?.length ?? 0) > (text.split('\n')[0].match(/,/g)?.length ?? 0) ? ';' : ',';

@@ -28,14 +28,29 @@ export async function saveDeal(_: FormState, fd: FormData): Promise<FormState> {
     agreement_value: value, commission_pct: pct, commission_amount: commission, agent_id: str(fd, 'agent_id') || null,
     incentive_amount: parseRupees(str(fd, 'incentive_amount')) ?? 0, status: str(fd, 'status') === 'cancelled' ? 'cancelled' : 'active', notes: str(fd, 'notes') || null,
   };
-  if (id) {
-    const { error } = await supabase.from('deals').update(row).eq('id', id).eq('org_id', org.id);
-    if (error) return { error: friendly(error.message) };
-    done(id);
-    return { ok: 'Saved' };
+  // Broker / channel partner commission (patch-044)
+  const brokerId = /^[0-9a-f-]{36}$/.test(str(fd, 'broker_id')) ? str(fd, 'broker_id') : null;
+  const bPct = str(fd, 'broker_pct') ? Number(str(fd, 'broker_pct')) : null;
+  if (bPct != null && (!Number.isFinite(bPct) || bPct < 0 || bPct > 100)) return { error: 'Broker % should be between 0 and 100.' };
+  const bTyped = parseRupees(str(fd, 'broker_amount'));
+  const broker = fd.has('broker_id') ? {
+    broker_id: brokerId, broker_pct: brokerId ? bPct : null,
+    broker_amount: brokerId ? bTyped ?? (bPct != null ? Math.round((value * bPct) / 100) : 0) : 0,
+    broker_paid: brokerId ? parseRupees(str(fd, 'broker_paid')) ?? 0 : 0,
+    incentive_paid: parseRupees(str(fd, 'incentive_paid')) ?? 0,
+  } : {};
+  const full = { ...row, ...broker };
+  const write = (r: Record<string, unknown>) => (id ? supabase.from('deals').update(r).eq('id', id).eq('org_id', org.id).select('id').single() : supabase.from('deals').insert(r).select('id').single());
+  let { data, error } = await write(full);
+  if (error && /broker|incentive_paid/.test(error.message)) ({ data, error } = await write(row)); // patch-044 not run yet
+  if (error || !data) return { error: friendly(error?.message) };
+  if (id) { done(id); return { ok: 'Saved' }; }
+  // A booking: the lead becomes "Booked"
+  if (row.lead_id && row.status === 'active') {
+    await supabase.from('leads').update({ stage: 'booked', booked_at: new Date().toISOString(), ...(brokerId ? { broker_id: brokerId } : {}) }).eq('id', row.lead_id).eq('org_id', org.id);
+    await supabase.from('activities').insert({ org_id: org.id, lead_id: row.lead_id, type: 'stage', body: `Booked${row.unit_no ? ` unit ${row.unit_no}` : ''} for ₹${value.toLocaleString('en-IN')}` });
+    revalidatePath(`/leads/${row.lead_id}`); revalidatePath('/leads');
   }
-  const { data, error } = await supabase.from('deals').insert(row).select('id').single();
-  if (error) return { error: friendly(error.message) };
   // Standard payment plan to start from; the admin can change every line.
   if (str(fd, 'plan') !== 'none') {
     const b = row.booked_on; const add = (days: number) => { const d = new Date(b + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); };

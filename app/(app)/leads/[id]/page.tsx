@@ -19,6 +19,10 @@ import { WhatsAppComposer } from '@/components/WhatsAppComposer';
 import { LOST_REASONS, SCORES, fmtBudget, fmtDT, fmtDate, fuState, fuText, istAt, istDay, scoreLabel, stageChip, stageLabel, toLocalInput } from '@/lib/crm';
 import { ProjectPick } from '@/components/LeadPick';
 import { Timeline } from '@/components/Timeline';
+import { LeadDocs } from '@/components/LeadDocs';
+import { LeadFollowups, OwnedProperties, TimelineTabs, UpdateStatusButton } from '@/components/LeadPanels';
+import { leadScore } from '@/lib/leadScore';
+import { setLeadBroker } from '@/app/broker-actions';
 
 export const metadata = { title: 'Lead' };
 
@@ -47,6 +51,14 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
   const { data: webSaves } = webClient
     ? await supabase.from('website_saves').select('project_id, created_at').eq('client_id', webClient.id).order('created_at', { ascending: false })
     : { data: [] as { project_id: string; created_at: string }[] };
+  const [{ data: fuRows }, { data: owned }, { data: brokers }, { data: docs }] = await Promise.all([
+    supabase.from('followups').select('id, title, kind, due_at, done_at, assigned_to').eq('lead_id', lead.id).order('due_at').limit(40), // patch-042
+    supabase.from('lead_owned').select('id, title, location, size_sqft, price_l, for_what, notes').eq('lead_id', lead.id).order('created_at'), // patch-043
+    supabase.from('brokers').select('id, name, firm, active').eq('org_id', org.id).order('name'), // patch-044
+    supabase.from('lead_documents').select('id, kind, name, size_bytes, created_at, uploaded_by').eq('lead_id', lead.id).order('created_at', { ascending: false }).limit(60), // patch-045
+  ]);
+  const brokerList = (brokers ?? []) as { id: string; name: string; firm: string | null; active: boolean }[];
+  const leadBroker = lead.broker_id ? brokerList.find((b) => b.id === lead.broker_id) : null;
   const [{ data: shortlists }, { data: deal }, { data: leadMatches }, { data: stepRows }, { data: teams }] = await Promise.all([
     supabase.from('shortlists').select('id, token, project_ids, views, last_viewed_at, reactions, created_at').eq('lead_id', lead.id).order('created_at', { ascending: false }).limit(10),
     role === 'owner' ? supabase.from('deals').select('id, agreement_value, commission_amount, status').eq('lead_id', lead.id).order('created_at', { ascending: false }).limit(1).maybeSingle() : Promise.resolve({ data: null }),
@@ -95,6 +107,13 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
   const callStep = cur && ['call', 'presentation', 'followup'].includes(cur) && (admin || role === 'manager' || lead.assigned_to === user.id)
     ? { k: cur, label: stepLabel(cur), next: (() => { const n = ({ call: 'presentation', presentation: 'visit', followup: null } as Record<string, string | null>)[cur]; return n ? (teamFor(n).join(' / ') || null) : null; })() }
     : null;
+  const score = leadScore(lead, {
+    visitsDone: (visits ?? []).filter((v) => v.status === 'done').length, visitsBooked: (visits ?? []).filter((v) => v.status === 'scheduled').length,
+    calls: (acts ?? []).filter((a) => a.type === 'call').length, lastTouch: lead.last_activity_at ?? (acts ?? [])[0]?.created_at ?? null, website: Boolean(webClient),
+  });
+  const matchCount = (projects ?? []).filter((p) => matchOf(p)).length;
+  const voice = Boolean(process.env.GEMINI_API_KEY);
+  const actCount = (acts ?? []).reduce((m, a) => { m[a.type] = (m[a.type] ?? 0) + 1; return m; }, {} as Record<string, number>);
   const nextAfter = (k: string) => { const order = ['call', 'presentation', 'visit', 'followup']; const i = order.indexOf(k); return i >= 0 && i < 3 ? order[i + 1] : null; };
 
   return (
@@ -102,7 +121,9 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
       <div className="lead-head">
         <Link href="/leads" className="hint">← All leads</Link>
         <div className="lead-title">
-          <div>
+          <div className="lead-title-main">
+            <span className={`score-ring s${score >= 70 ? 'hi' : score >= 40 ? 'mid' : 'lo'}`} title="Lead score: how likely to buy soon (interest, requirement, calls, visits, recent activity)">{score}</span>
+            <div>
             <h1>{lead.name}</h1>
             <div className="row-gap">
               <span className="mono big">{fmtPhone(lead.phone)}</span>
@@ -115,15 +136,20 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
               <span className={`chip ${lead.score}`}>{scoreLabel(lead.score)}</span>
               {lead.segment === 'secondary' && <span className="chip">Secondary</span>}
               {lead.source && <span className="chip">{lead.source}</span>}
+              {leadBroker && <span className="chip">Broker: {leadBroker.name}</span>}
               <span className="hint">{lead.assigned_to ? `Assigned to ${nameOf.get(lead.assigned_to) ?? '—'}` : 'Not assigned'} · came in {fmtDT(lead.created_at)}</span>
+            </div>
             </div>
           </div>
           {canEdit && (
             <div className="row-gap">
+              <UpdateStatusButton leadId={lead.id} voice={voice} />
               <CallButton leadId={lead.id} name={lead.name} tel={tel} step={callStep}>Call</CallButton>
               <a className="btn wa" href="#whatsapp">WhatsApp</a>
+              <a className="btn" href={`/whatsapp?lead=${lead.id}`}>Chat in CRM</a>
               <a className="btn" href="#visit">Book visit</a>
               {admin && <a className="btn" href="#money">₹ Payments</a>}
+              {admin && !closed && !deal && <Link className="btn" href={`/money/deals/new?lead=${lead.id}`}>Book property</Link>}
             </div>
           )}
         </div>
@@ -241,6 +267,14 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
                   </form>
                 </div>
               )}
+              {canEdit && brokerList.length > 0 && (
+                <form action={setLeadBroker} className="row-gap">
+                  <input type="hidden" name="id" value={lead.id} />
+                  <span className="label">Broker</span>
+                  <select name="broker_id" defaultValue={lead.broker_id ?? ''} className="auto"><option value="">Direct (no broker)</option>{brokerList.filter((b) => b.active || b.id === lead.broker_id).map((b) => <option key={b.id} value={b.id}>{b.name}{b.firm ? ` (${b.firm})` : ''}</option>)}</select>
+                  <button className="btn sm">Save</button>
+                </form>
+              )}
               {admin && (
                 <form action={assignLead} className="row-gap">
                   <input type="hidden" name="id" value={lead.id} />
@@ -270,12 +304,20 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
                   <div><Submit className="btn sm">Save note</Submit></div>
                 </ActionForm>
               )}
-              <Timeline items={(acts ?? []).map((a) => ({ id: a.id, type: a.type, body: a.body, at: a.created_at, day: istDay(a.created_at), who: a.by_user ? nameOf.get(a.by_user) ?? 'Former team member' : null, time: fmtDT(a.created_at) }))} />
+              <TimelineTabs counts={actCount}>
+                <Timeline items={(acts ?? []).map((a) => ({ id: a.id, type: a.type, body: a.body, at: a.created_at, day: istDay(a.created_at), who: a.by_user ? nameOf.get(a.by_user) ?? 'Former team member' : null, time: fmtDT(a.created_at) }))} />
+              </TimelineTabs>
             </div>
           </section>
         </div>
 
         <div className="stack">
+          <section className="panel" id="followups">
+            <div className="panel-h"><h2>Follow-ups</h2><span className="hint">{(fuRows ?? []).filter((f) => !f.done_at).length} open</span></div>
+            <div className="panel-b">
+              <LeadFollowups leadId={lead.id} canEdit={canEdit} items={(fuRows ?? []).map((f) => ({ id: f.id, title: f.title, kind: f.kind, due_at: f.due_at, done_at: f.done_at, agent: f.assigned_to ? nameOf.get(f.assigned_to) ?? null : null }))} />
+            </div>
+          </section>
           <section className="panel">
             <div className="panel-h"><h2>Client summary</h2><span className="hint">Made from what the team saved</span></div>
             <div className="panel-b stack">
@@ -298,11 +340,15 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
             <div className="panel-h"><h2>What they want</h2></div>
             <div className="panel-b">
               <dl className="kv">
+                <div><dt className="label">Wants to</dt><dd>{lead.want || '—'}</dd></div>
                 <div><dt className="label">Category</dt><dd>{lead.category || '—'}</dd></div>
                 <div><dt className="label">Configuration</dt><dd>{lead.category === 'Commercial' ? 'Not needed' : lead.bhk || '—'}</dd></div>
                 <div><dt className="label">Property type</dt><dd>{lead.property_type || '—'}</dd></div>
                 <div><dt className="label">Budget</dt><dd>{fmtBudget(lead.budget_min, lead.budget_max) || '—'}</dd></div>
                 <div><dt className="label">Area they want</dt><dd>{lead.location || '—'}</dd></div>
+                <div><dt className="label">Size</dt><dd>{lead.size_min || lead.size_max ? `${lead.size_min ?? ''}${lead.size_min && lead.size_max ? '–' : ''}${lead.size_max ?? ''} sq ft` : '—'}</dd></div>
+                <div><dt className="label">Possession</dt><dd>{lead.possession_pref || '—'}</dd></div>
+                <div><dt className="label">Furnishing</dt><dd>{lead.furnishing || '—'}</dd></div>
                 <div><dt className="label">Project</dt><dd>{project?.name || lead.project_other || '—'}</dd></div>
                 <div><dt className="label">Purpose</dt><dd>{lead.purpose || '—'}</dd></div>
                 <div><dt className="label">Funding</dt><dd>{lead.funding || '—'}</dd></div>
@@ -312,6 +358,9 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
                 {lead.occupation && <div><dt className="label">Occupation</dt><dd>{lead.occupation}</dd></div>}
                 {lead.dob && <div><dt className="label">Date of birth</dt><dd>{fmtDate(lead.dob)}</dd></div>}
               </dl>
+              <div className="row-gap" style={{ marginTop: 10 }}>
+                {!closed && <a className="btn sm" href="#shortlist">View matching properties{matchCount ? ` (${matchCount})` : ''}</a>}
+              </div>
               {canEdit && (
                 <details>
                   <summary className="btn sm">Edit details</summary>
@@ -321,6 +370,19 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
                   </ActionForm>
                 </details>
               )}
+            </div>
+          </section>
+
+          <section className="panel" id="owned">
+            <div className="panel-h"><h2>Owned properties</h2><span className="hint">What the client already has (to sell or rent out)</span></div>
+            <div className="panel-b"><OwnedProperties leadId={lead.id} canEdit={canEdit} items={(owned ?? []) as never} /></div>
+          </section>
+
+          <section className="panel" id="documents">
+            <div className="panel-h"><h2>Documents</h2><span className="hint">PAN, Aadhaar, agreement, cheque…</span></div>
+            <div className="panel-b">
+              <LeadDocs orgId={org.id} leadId={lead.id} canDeleteAll={mgr}
+                items={(docs ?? []).map((d) => ({ id: d.id, kind: d.kind, name: d.name, size_bytes: d.size_bytes, created_at: d.created_at, by: d.uploaded_by ? nameOf.get(d.uploaded_by) ?? null : null, mine: d.uploaded_by === user.id }))} />
             </div>
           </section>
 
@@ -383,7 +445,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
                     <Link className="btn sm" href={`/money/deals/${deal.id}`}>Open full payment details</Link>
                   </div>
                 ) : (
-                  <div className="stack"><p className="hint">Add the deal value, commission and buyer payment plan.</p><Link className="btn sm primary" href={`/money/deals/new?lead=${lead.id}`}>Add deal details</Link></div>
+                  <div className="stack"><p className="hint">Add the deal value, commission and buyer payment plan.</p><Link className="btn sm primary" href={`/money/deals/new?lead=${lead.id}`}>Book property</Link></div>
                 )}
               </div>
             </section>
@@ -426,6 +488,7 @@ export default async function LeadPage({ params }: { params: { id: string } }) {
                   <select name="project_id" defaultValue={lead.project_id ?? ''} aria-label="Project"><option value="">Choose project</option>{(projects ?? []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
                   <input type="datetime-local" name="at" required defaultValue={toLocalInput(istAt(1, 11))} aria-label="Date and time" />
                   {mgr && <select name="agent_id" defaultValue={lead.assigned_to ?? ''} aria-label="Who will meet them"><option value="">Assigned agent</option>{assignable.map((p) => <option key={p.user_id} value={p.user_id}>{p.full_name}</option>)}{(people ?? []).filter((p) => p.active && p.role === 'partner').map((p) => <option key={p.user_id} value={p.user_id}>{p.full_name} (channel partner)</option>)}</select>}
+                  {brokerList.length > 0 && <select name="broker_id" defaultValue={lead.broker_id ?? ''} aria-label="Broker bringing them"><option value="">No broker</option>{brokerList.filter((b) => b.active).map((b) => <option key={b.id} value={b.id}>Broker: {b.name}</option>)}</select>}
                   <Submit className="btn sm primary">Book visit</Submit>
                 </ActionForm>
               )}

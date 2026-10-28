@@ -4,11 +4,12 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { requireOrg } from '@/lib/context';
 import { PHONE_HELP, isManager, normPhone, validPhone } from '@/lib/roles';
-import { BHKS, CATEGORIES, fmtBudget, FUNDING, OCCUPATIONS, OUTCOMES, PTYPES, PURPOSES, SCORE_KEYS, STAGE_IDX, fmtDT, fromLocalInput, istAt, parseBudget, readBudget, stageLabel } from '@/lib/crm';
+import { FURNISHING, POSSESSION_PREFS, WANTS, BHKS, CATEGORIES, fmtBudget, FUNDING, OCCUPATIONS, OUTCOMES, PTYPES, PURPOSES, SCORE_KEYS, STAGE_IDX, fmtDT, fromLocalInput, istAt, parseBudget, readBudget, stageLabel } from '@/lib/crm';
 import { notifyLeadAssigned } from '@/lib/whatsapp';
 import type { FormState } from '@/app/actions';
 import { parseLatLng } from '@/lib/places';
 import { downloadUrl, syncProjectInventory } from '@/lib/inventorySync';
+import { translateMissing, translateProject } from '@/lib/projectHindi';
 
 const str = (fd: FormData, k: string) => String(fd.get(k) ?? '').trim();
 const orNull = (v: string) => (v ? v : null);
@@ -64,6 +65,10 @@ function readLeadFields(fd: FormData, isNew: boolean) {
     occupation: pickOf(str(fd, 'occupation'), OCCUPATIONS),
     funding: pickOf(str(fd, 'funding'), FUNDING),
     purpose: pickOf(str(fd, 'purpose'), PURPOSES),
+    ...(fd.has('want') ? {
+      want: pickOf(str(fd, 'want'), WANTS), furnishing: pickOf(str(fd, 'furnishing'), FURNISHING), possession_pref: pickOf(str(fd, 'possession_pref'), POSSESSION_PREFS),
+      size_min: Number(str(fd, 'size_min')) > 0 ? Math.round(Number(str(fd, 'size_min'))) : null, size_max: Number(str(fd, 'size_max')) > 0 ? Math.round(Number(str(fd, 'size_max'))) : null,
+    } : {}),
     preferred_slot: orNull(str(fd, 'preferred_slot').slice(0, 120)),
     source: orNull(str(fd, 'source').slice(0, 60)),
     project_id: proj && proj !== '__other' && /^[0-9a-f-]{36}$/.test(proj) ? proj : null,
@@ -93,9 +98,13 @@ export async function createLeadFull(_: FormState, fd: FormData): Promise<FormSt
     }
   } else if (role === 'agent') assigned = user.id;
 
-  const { data, error } = await supabase.from('leads')
+  let { data, error } = await supabase.from('leads')
     .insert({ org_id: org.id, ...f, assigned_to: assigned, next_follow_up: new Date().toISOString() })
     .select('id').single();
+  if (error && /want|furnishing|possession_pref|size_m/.test(error.message)) { // patch-043 not run yet
+    for (const k of ['want', 'furnishing', 'possession_pref', 'size_min', 'size_max']) delete f[k];
+    ({ data, error } = await supabase.from('leads').insert({ org_id: org.id, ...f, assigned_to: assigned, next_follow_up: new Date().toISOString() }).select('id').single());
+  }
   if (error) {
     if (error.code === '23505') {
       const { data: ex } = await supabase.from('leads').select('id').eq('org_id', org.id).eq('phone', f.phone).maybeSingle();
@@ -103,6 +112,7 @@ export async function createLeadFull(_: FormState, fd: FormData): Promise<FormSt
     }
     return { error: friendly(error.message) };
   }
+  if (!data) return { error: 'Could not save. Please try again.' };
   await activity(data.id, 'created', `Lead added${f.source ? ' from ' + f.source : ''}`);
   const note = str(fd, 'note').slice(0, 300);
   if (note) await activity(data.id, 'note', note);
@@ -121,7 +131,11 @@ export async function updateLead(_: FormState, fd: FormData): Promise<FormState>
   if (str(fd, 'pincode') && !f.pincode) return { error: 'Pincode should be 6 digits, e.g. 492001.' };
   if (!f.name) return { error: 'Enter the client name.' };
   if (!validPhone(f.phone)) return { error: PHONE_HELP };
-  const { error, count } = await supabase.from('leads').update(f, { count: 'exact' }).eq('id', id).eq('org_id', org.id);
+  let { error, count } = await supabase.from('leads').update(f, { count: 'exact' }).eq('id', id).eq('org_id', org.id);
+  if (error && /want|furnishing|possession_pref|size_m/.test(error.message)) { // patch-043 not run yet
+    for (const k of ['want', 'furnishing', 'possession_pref', 'size_min', 'size_max']) delete f[k];
+    ({ error, count } = await supabase.from('leads').update(f, { count: 'exact' }).eq('id', id).eq('org_id', org.id));
+  }
   if (error) return { error: friendly(error.message) };
   if (!count) return { error: 'You can only edit leads assigned to you.' };
   await activity(id, 'note', 'Details updated');
@@ -217,7 +231,8 @@ export async function logCall(_: FormState, fd: FormData): Promise<FormState> {
     const dayBefore = new Date(new Date(visitAt).getTime() - 20 * 3600000);
     if (dayBefore.getTime() > Date.now()) patch.next_follow_up = dayBefore.toISOString();
   }
-  const { error } = await supabase.from('leads').update(patch).eq('id', id).eq('org_id', org.id);
+  let { error } = await supabase.from('leads').update({ ...patch, last_outcome: o.k, last_outcome_at: new Date().toISOString() }).eq('id', id).eq('org_id', org.id);
+  if (error && /last_outcome/.test(error.message)) ({ error } = await supabase.from('leads').update(patch).eq('id', id).eq('org_id', org.id)); // patch-042 not run yet
   if (error) return { error: friendly(error.message) };
   await activity(id, 'call', `Call: ${o.l}${note ? '\n' + note : ''}${changed.length ? '\nUpdated: ' + changed.join(', ') : ''}`);
   if (visitAt) {
@@ -315,9 +330,10 @@ export async function scheduleVisit(_: FormState, fd: FormData): Promise<FormSta
   const lead = await getLead(leadId);
   if (!lead) return { error: 'Lead not found' };
   const projectId = str(fd, 'project_id') || lead.project_id || null;
-  const { error } = await supabase.from('visits').insert({
-    org_id: org.id, lead_id: leadId, project_id: projectId, at, agent_id: str(fd, 'agent_id') || lead.assigned_to || user.id, status: 'scheduled',
-  });
+  const vrow: Record<string, unknown> = { org_id: org.id, lead_id: leadId, project_id: projectId, at, agent_id: str(fd, 'agent_id') || lead.assigned_to || user.id, status: 'scheduled' };
+  const brokerId = /^[0-9a-f-]{36}$/.test(str(fd, 'broker_id')) ? str(fd, 'broker_id') : lead.broker_id ?? null;
+  let { error } = await supabase.from('visits').insert(brokerId ? { ...vrow, broker_id: brokerId } : vrow);
+  if (error && /broker_id/.test(error.message)) ({ error } = await supabase.from('visits').insert(vrow)); // patch-044 not run yet
   if (error) return { error: friendly(error.message) };
   const patch: Record<string, unknown> = {};
   if ((STAGE_IDX[lead.stage] ?? -1) < 3 || lead.stage === 'lost') patch.stage = 'visit';
@@ -440,6 +456,7 @@ export async function saveProject(_: FormState, fd: FormData): Promise<FormState
     const r = await syncProjectInventory(org.id, savedId);
     inv = r.ok ? ` Inventory synced: ${r.flats ?? 0} flats.` : ` Inventory not synced: ${r.error}`;
   }
+  if (savedId) await translateProject(savedId); // Hindi copy for the website
   revalidatePath('/projects', 'layout');
   return { ok: (id ? 'Project saved.' : 'Project added.') + inv };
 }
@@ -880,4 +897,12 @@ export async function setTestimonialStatus(fd: FormData) {
   if (!['approved', 'hidden', 'pending'].includes(status)) return;
   await supabase.from('testimonials').update({ status }).eq('id', str(fd, 'id')).eq('org_id', org.id);
   revalidatePath('/website-clients');
+}
+
+
+/** Projects page open → quietly makes Hindi copies of projects that don't have one yet. */
+export async function autoTranslateProjects(): Promise<{ done: number; left: number }> {
+  const { org, role } = await ctx();
+  if (!isManager(role)) return { done: 0, left: 0 };
+  return translateMissing(org.id, 3);
 }

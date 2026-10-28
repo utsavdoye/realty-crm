@@ -12,17 +12,21 @@ import { SideToggle } from '@/components/SideToggle';
 import { AskHelper } from '@/components/AskHelper';
 import { cookies } from 'next/headers';
 import { LangSwitch } from '@/components/Translator';
-import { InventoryAutoSync } from '@/components/InventorySheet';
+import { HindiAutoFill, InventoryAutoSync } from '@/components/InventorySheet';
+import { WorkClock } from '@/components/WorkClock';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // inventory sheet sync can take a few seconds
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const { supabase, org, role, me, memberships, user } = await requireOrg();
-  const [{ count: unread }, { data: o }] = await Promise.all([
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+  const [{ count: unread }, { data: o }, { data: wd }] = await Promise.all([
     supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', user.id).is('read_at', null),
     supabase.from('organizations').select('form_token, website_url').eq('id', org.id).maybeSingle(),
+    role !== 'partner' ? supabase.from('work_days').select('id, login_at, logout_at, work_breaks(end_at)').eq('org_id', org.id).eq('user_id', user.id).eq('day', today).maybeSingle() : Promise.resolve({ data: null }), // patch-045
   ]);
+  const work = wd as { login_at: string; logout_at: string | null; work_breaks: { end_at: string | null }[] } | null;
   const mini = cookies().get('ed_side')?.value === 'mini';
   // With a client website, the form opens there (same look as the website); otherwise on the CRM.
   const web = /^https:\/\//.test(o?.website_url ?? '') ? o!.website_url!.replace(/\/+$/, '') : '';
@@ -57,9 +61,10 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </aside>
       <Bell userId={user.id} initial={unread ?? 0} floating />
-      <main className="main"><div className="langbar"><LangSwitch /></div>{children}</main>
+      <main className="main"><div className="langbar">{role !== 'partner' && <WorkClock since={work?.login_at ?? null} ended={Boolean(work?.logout_at)} onBreak={Boolean(work?.work_breaks?.some((b) => !b.end_at))} />}<LangSwitch /></div>{children}</main>
       <NavLinks role={role} mobile />
       {role !== 'partner' && <InventoryAutoSync />}
+      {(role === 'owner' || role === 'manager') && <HindiAutoFill />}
       {role !== 'partner' && <AskHelper />}
       {role !== 'partner' && <CallReturn voice={Boolean(process.env.GEMINI_API_KEY)} />}
     </div>

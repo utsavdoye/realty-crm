@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { autoSyncInventory, setInventoryLink, syncInventoryNow } from '@/app/crm-actions';
+import { autoSyncInventory, setInventoryLink, syncInventoryNow, autoTranslateProjects } from '@/app/crm-actions';
 
 const ago = (iso?: string | null) => {
   if (!iso) return 'not synced yet';
@@ -71,5 +71,16 @@ export function InventoryAutoSync() {
     try { const last = Number(sessionStorage.getItem('ed_inv_sync') || 0); if (Date.now() - last < 3 * 60_000) return; sessionStorage.setItem('ed_inv_sync', String(Date.now())); } catch { /* private mode: still sync */ }
     autoSyncInventory().then((r) => { if (r.changed) router.refresh(); }).catch(() => {});
   }, [router]);
+  return null;
+}
+
+/** Admin/manager opens the CRM → projects without a Hindi copy get one (for the website's हिंदी mode). */
+export function HindiAutoFill() {
+  const ran = useRef(false);
+  useEffect(() => {
+    if (ran.current) return; ran.current = true;
+    try { const last = Number(sessionStorage.getItem('ed_hi_fill') || 0); if (Date.now() - last < 10 * 60_000) return; sessionStorage.setItem('ed_hi_fill', String(Date.now())); } catch { /* still run */ }
+    (async () => { for (let i = 0; i < 10; i++) { const r = await autoTranslateProjects().catch(() => null); if (!r || !r.left || !r.done) break; } })();
+  }, []);
   return null;
 }

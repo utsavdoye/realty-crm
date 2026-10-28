@@ -1,4 +1,4 @@
-import { BUDGETS, FUNDING, OCCUPATIONS, PURPOSES, RAIPUR_AREAS, SCORES, SOURCES, budgetKey, fmtBudget } from '@/lib/crm';
+import { FURNISHING, POSSESSION_PREFS, WANTS, BUDGETS, FUNDING, OCCUPATIONS, PURPOSES, RAIPUR_AREAS, SCORES, SOURCES, budgetKey, fmtBudget } from '@/lib/crm';
 import { ProjectPick, PropertyPick } from '@/components/LeadPick';
 
 export type LeadRow = {
@@ -6,7 +6,7 @@ export type LeadRow = {
   bhk?: string | null; property_type?: string | null; location?: string | null; purpose?: string | null; preferred_slot?: string | null;
   source?: string | null; project_id?: string | null; score?: string; assigned_to?: string | null;
   category?: string | null; city?: string | null; pincode?: string | null; occupation?: string | null; funding?: string | null; project_other?: string | null;
-  segment?: string | null;
+  segment?: string | null; want?: string | null; furnishing?: string | null; possession_pref?: string | null; size_min?: number | null; size_max?: number | null;
 };
 
 const opts = (list: string[], cur?: string | null) => [<option key="" value="">—</option>, ...list.map((x) => <option key={x} value={x}>{x}</option>)].concat(cur && !list.includes(cur) ? [<option key={cur} value={cur}>{cur}</option>] : []);
@@ -38,6 +38,7 @@ export function LeadFields({ lead = {}, projects, people, showAssign, showNote }
       <label className="field"><span className="label">Client name *</span><input name="name" required defaultValue={lead.name ?? ''} /></label>
       <label className="field"><span className="label">Mobile *</span><input name="phone" required inputMode="tel" defaultValue={lead.phone ?? ''} placeholder="98765 43210 or +971 50 123 4567" title="India: 10 digits. Other countries: + and country code" /></label>
 
+      <label className="field"><span className="label">Client wants to</span><select name="want" defaultValue={lead.want ?? 'Buy'}>{opts(WANTS, lead.want)}</select></label>
       <PropertyPick category={lead.category} bhk={lead.bhk} ptype={lead.property_type} />
       <BudgetPick min={lead.budget_min} max={lead.budget_max} />
 
@@ -47,6 +48,11 @@ export function LeadFields({ lead = {}, projects, people, showAssign, showNote }
       <datalist id="raipur-areas">{RAIPUR_AREAS.map((a) => <option key={a} value={a} />)}</datalist>
       <label className="field"><span className="label">Purpose of buying</span><select name="purpose" defaultValue={lead.purpose ?? ''}>{opts(PURPOSES, lead.purpose)}</select></label>
       <label className="field"><span className="label">Funding</span><select name="funding" defaultValue={lead.funding ?? ''}>{opts(FUNDING, lead.funding)}</select></label>
+      <label className="field"><span className="label">Possession wanted</span><select name="possession_pref" defaultValue={lead.possession_pref ?? ''}>{opts(POSSESSION_PREFS, lead.possession_pref)}</select></label>
+      <label className="field"><span className="label">Furnishing</span><select name="furnishing" defaultValue={lead.furnishing ?? ''}>{opts(FURNISHING, lead.furnishing)}</select></label>
+      <label className="field"><span className="label">Size wanted (sq ft)</span>
+        <span className="row-gap"><input name="size_min" type="number" min={0} step={50} defaultValue={lead.size_min ?? ''} placeholder="From" aria-label="Size from" /><input name="size_max" type="number" min={0} step={50} defaultValue={lead.size_max ?? ''} placeholder="To" aria-label="Size to" /></span>
+      </label>
 
       <ProjectPick projects={projects} projectId={lead.project_id} other={lead.project_other} />
       <label className="field"><span className="label">Source</span><select name="source" defaultValue={lead.source ?? ''}>{opts(SOURCES, lead.source)}</select></label>

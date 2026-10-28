@@ -79,3 +79,49 @@ export async function notifyLeadAssigned(args: { agentPhone: string | null | und
   if (!r.ok) console.error('WhatsApp lead alert failed:', r.error);
 }
 
+
+// ---------- Chat (inside the 24-hour window after the client last wrote) ----------
+
+export function sendText(phone: string, text: string) {
+  return send({ to: toWaNumber(phone), type: 'text', text: { body: text.slice(0, 4096), preview_url: true } });
+}
+
+/** A PDF / file by public link (brochure, floor plan). */
+export function sendDocumentLink(phone: string, link: string, fileName: string, caption?: string) {
+  return send({ to: toWaNumber(phone), type: 'document', document: { link, filename: fileName.slice(0, 120), ...(caption ? { caption: caption.slice(0, 1024) } : {}) } });
+}
+
+export function sendImageLink(phone: string, link: string, caption?: string) {
+  return send({ to: toWaNumber(phone), type: 'image', image: { link, ...(caption ? { caption: caption.slice(0, 1024) } : {}) } });
+}
+
+/** Shows blue ticks to the client. */
+export async function markRead(waMessageId: string) {
+  if (!whatsappReady()) return;
+  await fetch(`https://graph.facebook.com/${API_VERSION}/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messaging_product: 'whatsapp', status: 'read', message_id: waMessageId }),
+  }).catch(() => null);
+}
+
+/** Downloads a photo / voice note / file a client sent. */
+export async function downloadMedia(mediaId: string): Promise<{ body: ArrayBuffer; mime: string } | null> {
+  if (!whatsappReady() || !/^\d+$/.test(mediaId)) return null;
+  const auth = { Authorization: `Bearer ${process.env.WHATSAPP_TOKEN}` };
+  const meta = await fetch(`https://graph.facebook.com/${API_VERSION}/${mediaId}`, { headers: auth, cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).catch(() => null) as { url?: string; mime_type?: string } | null;
+  if (!meta?.url) return null;
+  const res = await fetch(meta.url, { headers: auth, cache: 'no-store' }).catch(() => null);
+  if (!res?.ok) return null;
+  return { body: await res.arrayBuffer(), mime: meta.mime_type || res.headers.get('content-type') || 'application/octet-stream' };
+}
+
+/** Checks that a webhook call really came from Meta. */
+export async function checkWaSignature(raw: string, header: string | null) {
+  const secret = process.env.WHATSAPP_APP_SECRET || process.env.META_APP_SECRET;
+  if (!secret || !header?.startsWith('sha256=')) return false;
+  const { createHmac, timingSafeEqual } = await import('crypto');
+  const want = Buffer.from(createHmac('sha256', secret).update(raw).digest('hex'));
+  const got = Buffer.from(header.slice(7));
+  return want.length === got.length && timingSafeEqual(want, got);
+}

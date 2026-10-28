@@ -62,6 +62,13 @@ export async function systemCheck(website: string | null): Promise<Check[]> {
     { const { data: at } = await admin.rpc('alert_title', { p_name: 'A', p_project: 'B', p_message: 'Opened the brochure on the website.' });
       out.push(typeof at === 'string' ? { name: 'Database: clear alert titles and open testimonials (patch-034)', ok: true, detail: 'Done.' } : { name: 'Database: clear alert titles and open testimonials (patch-034)', ok: false, detail: 'Not run yet.', fix: 'Run supabase/patch-034-clear-alerts-open-testimonials.sql.' }); }
     await probe('Database: inventory sheet sync (patch-038)', 'Run supabase/patch-038-inventory-sheet-sync.sql.', () => admin.from('projects').select('inventory_url').limit(1));
+    await probe('Database: Hindi project details (patch-041)', 'Run supabase/patch-041-project-hindi.sql.', () => admin.from('projects').select('hi').limit(1));
+    await probe('Database: WhatsApp inbox (patch-040)', 'Run supabase/patch-040-whatsapp-inbox.sql.', () => admin.from('wa_chats').select('id').limit(1));
+    await probe('Database: social posting (patch-039)', 'Run supabase/patch-039-social-posting.sql.', () => admin.from('social_posts').select('id').limit(1));
+    await probe('Database: follow-up tasks and last call (patch-042)', 'Run supabase/patch-042-followups-call-status.sql.', () => admin.from('followups').select('id').limit(1));
+    await probe('Database: rent/sell needs and owned properties (patch-043)', 'Run supabase/patch-043-requirements-owned.sql.', () => admin.from('lead_owned').select('id').limit(1));
+    await probe('Database: brokers and booking commission (patch-044)', 'Run supabase/patch-044-brokers-booking.sql.', () => admin.from('brokers').select('id').limit(1));
+    await probe('Database: attendance, cold data, documents (patch-045)', 'Run supabase/patch-045-attendance-cold-docs.sql.', () => admin.from('cold_contacts').select('id').limit(1));
     await probe('Database: project videos (patch-036)', 'Run supabase/patch-036-project-videos.sql.', () => admin.from('projects').select('videos').limit(1));
     const { data: st, error: stErr } = await admin.rpc('setup_status');
     if (stErr || !st) {

@@ -25,7 +25,7 @@ export const SCORES = [
 export const SCORE_KEYS: string[] = SCORES.map((s) => s.k);
 export const scoreLabel = (k: string) => SCORES.find((s) => s.k === k)?.l ?? k;
 
-export const SOURCES = ['99acres', 'MagicBricks', 'Housing.com', 'Facebook', 'Instagram', 'Google Ads', 'Website', 'Walk-in', 'Referral', 'Channel partner', 'Other'];
+export const SOURCES = ['99acres', 'MagicBricks', 'Housing.com', 'Facebook', 'Instagram', 'Google Ads', 'Website', 'Walk-in', 'Referral', 'Channel partner', 'Cold calling', 'Other'];
 /** What kind of property, first question on the form. */
 export const CATEGORIES = ['Residential', 'Commercial', 'Res + Com', 'Plot', 'Farm land', 'Other'];
 /** "Configuration" (was "BHK / type"). Not asked for Commercial. */
@@ -45,6 +45,10 @@ export const PTYPES_FOR: Record<string, string[]> = {
 export const PROJECT_TYPES = ['Apartment', 'Villa', 'Plot', 'Retail', 'Office', 'Commercial', 'Farm land'];
 export const PROJECT_DEALS: [string, string][] = [['sale', 'For sale'], ['lease', 'For lease / rent'], ['both', 'Sale or lease']];
 export const PURPOSES = ['Self use', 'Investment', 'Both', 'Other'];
+/** What the client wants to do. */
+export const WANTS = ['Buy', 'Rent', 'Sell', 'Lease out'];
+export const FURNISHING = ['Unfurnished', 'Semi-furnished', 'Fully furnished', 'Any'];
+export const POSSESSION_PREFS = ['Ready to move', 'Within 6 months', 'Within 1 year', '1–2 years', 'Any'];
 export const OCCUPATIONS = ['Salaried', 'Self-employed', 'Business owner', 'Professional (doctor, CA…)', 'Investor', 'Retired', 'Other'];
 export const FUNDING = ['Self-funded', 'Home loan / finance', 'Both', 'Not sure yet'];
 
@@ -79,6 +83,7 @@ export const RAIPUR_AREAS = [
   ...Array.from({ length: 40 }, (_, i) => `Naya Raipur – Sector ${i + 1}`),
 ];
 export const PROJECT_STATUS = ['Pre-launch', 'Under construction', 'Ready to move', 'Sold out'];
+export const DOC_KINDS = ['PAN', 'Aadhaar', 'Agreement', 'Cheque', 'Payment receipt', 'Photo', 'Other'];
 export const LOST_REASONS = ['Budget mismatch', 'Location not suitable', 'Bought elsewhere', 'Not responding', 'Just exploring', 'Loan not approved', 'Wrong number', 'Other'];
 export const TEMPLATE_USES = ['Welcome', 'Follow-up', 'Visit reminder', 'After visit', 'Birthday', 'Price / offer', 'Other'];
 export const TEMPLATE_VARS = ['name', 'agent', 'agent_phone', 'company', 'project', 'visit_time', 'budget', 'location', 'bhk'];
