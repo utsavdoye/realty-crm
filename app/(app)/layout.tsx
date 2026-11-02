@@ -14,6 +14,7 @@ import { cookies } from 'next/headers';
 import { LangSwitch } from '@/components/Translator';
 import { HindiAutoFill, InventoryAutoSync } from '@/components/InventorySheet';
 import { WorkClock } from '@/components/WorkClock';
+import { SideTips } from '@/components/SideTips';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60; // inventory sheet sync can take a few seconds
@@ -34,6 +35,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
   return (
     <div className={`app ${mini ? 'mini' : ''}`}>
       <aside className="side">
+        <SideTips />
         <div className="side-top"><Logo /><SideToggle initial={mini} /></div>
         <div className="org-box">
           <div className="org-name">{org.name}</div>

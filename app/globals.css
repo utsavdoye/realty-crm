@@ -1358,3 +1358,16 @@ a.plan-tile { text-decoration: none; }
 .int-card .int-status { font-size: 13px; margin: 0 0 4px; flex: 1; }
 .int-card .btn { align-self: flex-start; }
 .int-card.s-soon { opacity: .65; }
+
+/* Folded side menu: stays above the page, scrolls when there are many items, names shown on top of everything */
+@media (min-width: 901px) {
+  .app.mini .side { z-index: 40; overflow-y: auto; overflow-x: hidden; scrollbar-width: none; padding-block: 18px; gap: 10px; }
+  .app.mini .side::-webkit-scrollbar { display: none; }
+  .app.mini .nav { gap: 2px; }
+  .app.mini .nav-items > div { gap: 2px; }
+  .app.mini .nav a, .app.mini .bell, .app.mini .side-out { height: 40px; flex: none; }
+  .app.mini .nav-sec, .app.mini .nav-sec-btn { padding: 6px 0; }
+  .app.mini .nav a::after, .app.mini .bell::after, .app.mini .side-out::after { display: none; }
+}
+.side { z-index: 40; }
+.side-tip { position: fixed; transform: translateY(-50%); z-index: 1000; pointer-events: none; background: #15161b; color: #fff; font-size: 12px; font-weight: 600; padding: 6px 10px; border-radius: 10px; white-space: nowrap; box-shadow: var(--shadow); }
